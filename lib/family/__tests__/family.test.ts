@@ -23,7 +23,7 @@ import {
 } from "@/lib/family/service";
 import { activateSandbox, accountView } from "@/lib/bank/service";
 import { resetKycMemory } from "@/lib/kyc/repository";
-import { reviewBankKyc, submitBankKyc } from "@/lib/kyc/service";
+import { autoApproveBankKyc, reviewBankKyc, submitBankKyc } from "@/lib/kyc/service";
 import type { BankKycInput } from "@/lib/kyc/types";
 
 const CONSENT = { relationship: "mae" as const, guardianshipDeclared: true as const, consentAccepted: true as const };
@@ -212,8 +212,7 @@ describe("Conta Pai: aprovação, filhos, mesada e limites (memória + sandbox)"
     const childRef = { id: child.id, email: child.email, fullName: child.fullName };
     const kyc = await submitBankKyc(childRef, kycInput(child.id, childCpf, "2013-06-01", { minorPath: "linked", parentEmail: parent.email }), { ip: IP, userAgent: "vitest" }, NOW);
     expect(kyc.riskFlags).toContain("minor");
-    await expect(activateSandbox(child.id)).rejects.toThrow(/em análise/);
-    await reviewBankKyc(kyc.id, "approve", "", "admin@prx.dev");
+    expect(kyc).toMatchObject({ status: "approved", reviewedBy: "auto" });
     await activateSandbox(child.id);
     await sendToChild(parent, child.id, { amount: 25.5, note: "Lanche" });
     expect((await accountView(child.id)).balance).toBe(1025.5);
@@ -276,13 +275,14 @@ describe("abertura do PRX BANK (KYC bancário)", () => {
   it("aprova adulto, registra CPF único e trilha antifraude; recusa segundo pedido e CPF divergente", async () => {
     const u = person();
     const cpf = nextCpf();
+    // Sem análise do PRX: aprovada na hora, os documentos seguem para o Asaas.
     const app = await submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01", { pep: true }), { ip: IP, userAgent: "Mozilla/5.0" }, NOW);
-    expect(app).toMatchObject({ status: "pending", ip: IP, riskFlags: ["pep"] });
-    await expect(submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW)).rejects.toThrow(/em análise/);
+    expect(app).toMatchObject({ status: "approved", reviewedBy: "auto", ip: IP, riskFlags: ["pep"] });
+    await expect(submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW)).rejects.toThrow(/já foi aprovada/);
+    // O admin ainda pode recusar (ex.: fraude): o membro reenvia com os mesmos CPF e nascimento.
     await reviewBankKyc(app.id, "reject", "Documento ilegível", "admin@prx.dev");
     await expect(submitBankKyc(u, kycInput(u.id, nextCpf(), "2000-01-01"), { ip: IP, userAgent: "" }, NOW)).rejects.toThrow(/CPF informado é diferente/);
-    const again = await submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW);
-    await reviewBankKyc(again.id, "approve", "", "admin@prx.dev");
+    await expect(submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW)).resolves.toMatchObject({ status: "approved" });
     const other = person();
     await expect(submitBankKyc(other, kycInput(other.id, cpf, "2001-01-01"), { ip: IP, userAgent: "" }, NOW)).rejects.toMatchObject({ code: "CPF_TAKEN" });
   });
@@ -299,10 +299,13 @@ describe("abertura do PRX BANK (KYC bancário)", () => {
 
     const teen = person();
     const kyc = await submitBankKyc(teen, kycInput(teen.id, nextCpf(), "2009-10-10", { minorPath: "linked", parentEmail: parent.email }), { ip: IP, userAgent: "" }, NOW);
+    expect(kyc.status).toBe("pending");
+    await expect(autoApproveBankKyc(teen.id)).resolves.toMatchObject({ status: "pending" });
     await expect(reviewBankKyc(kyc.id, "approve", "", "admin@prx.dev")).rejects.toThrow(/responsável aceitar o vínculo/);
     const link = (await familyOverview(parent)).pendingLinks[0];
     await respondLink(parent, link.id, "approve", CONSENT, IP);
-    await expect(reviewBankKyc(kyc.id, "approve", "", "admin@prx.dev")).resolves.toMatchObject({ status: "approved" });
+    // Com o vínculo aceito, a abertura segue sozinha na próxima visita ao PRX BANK.
+    await expect(autoApproveBankKyc(teen.id)).resolves.toMatchObject({ status: "approved", reviewedBy: "auto" });
   });
 
   it("Conta Pai não abre conta bancária", async () => {

@@ -136,5 +136,5 @@ export interface BankKycState {
   awaitingEmancipation: boolean;
 }
 
-export const KYC_REQUIRED_MESSAGE = "Abra sua conta PRX BANK primeiro: precisamos confirmar seus dados e documentos antes de liberar a conta.";
-export const KYC_PENDING_MESSAGE = "Sua abertura de conta está em análise. Liberamos assim que a equipe PRX conferir seus documentos.";
+export const KYC_REQUIRED_MESSAGE = "Abra sua conta PRX BANK primeiro: envie seus dados e documentos na aba PRX BANK.";
+export const KYC_PENDING_MESSAGE = "Sua abertura de conta está aguardando seu responsável aceitar o vínculo na Conta Pai.";

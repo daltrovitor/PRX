@@ -2,6 +2,7 @@
 import crypto from "crypto";
 import { z } from "zod";
 import { PartnerError } from "@/lib/partners/errors";
+import { errorMessage } from "@/lib/errors";
 import { getBankRepository, isSandboxMode, repoSendPix, sandboxActivate, sandboxCategorize, sandboxSendPix, usesSupabaseBank } from "@/lib/bank/repository";
 import { ACTIVATION_REQUIRED, MAX_PIX_KEYS, type BankAccountView, type CardRequest, type PixCharge, type PixKey, type VirtualCard } from "@/lib/prx/bank";
 import { detectPixKeyType, isValidCpf } from "@/lib/prx/pix";
@@ -36,18 +37,26 @@ export function sandboxEnabled(userId?: string): boolean {
 
 export async function accountView(userId: string): Promise<BankAccountView> {
   const repo = getBankRepository(userId);
-  const account = await repo.getOrCreateAccount(userId);
-  const kyc = await bankKycState(userId);
-
+  let account = await repo.getOrCreateAccount(userId);
   const isAsaas = asaasActiveFor(userId);
-  if (isAsaas && (kyc.status === "approved" || isSandboxMode())) {
+
+  if (isAsaas) {
     try {
-      const { ensureAsaasCustomerAndAccount } = await import("@/lib/bank/asaas/onboarding");
-      await ensureAsaasCustomerAndAccount(userId);
+      // Pedidos que ficaram "em análise" antes da aprovação automática seguem agora.
+      const { autoApproveBankKyc } = await import("@/lib/kyc/service");
+      const app = await autoApproveBankKyc(userId);
+      const deps = asaasDeps();
+      if (app?.status === "approved") {
+        const { ensureAsaasCustomerAndAccount } = await import("@/lib/bank/asaas/onboarding");
+        await ensureAsaasCustomerAndAccount(userId, deps);
+      }
+      const { reconcileLegacyAccount } = await import("@/lib/bank/asaas/legacy");
+      if (await reconcileLegacyAccount(userId, account, deps)) account = await repo.getOrCreateAccount(userId);
     } catch (err) {
-      console.warn("[bank] Aviso ao sincronizar Asaas no accountView:", err);
+      console.warn("[bank] Aviso ao sincronizar Asaas no accountView:", errorMessage(err));
     }
   }
+  const kyc = await bankKycState(userId);
 
   const isSandbox = !isAsaas && sandboxEnabled(userId);
   const [transactions, localKeys, cardRequest, charges, live] = await Promise.all([
@@ -58,7 +67,8 @@ export async function accountView(userId: string): Promise<BankAccountView> {
     isAsaas ? providerSnapshot(userId) : Promise.resolve(null),
   ]);
 
-  const pixKeys = live?.pixKeys ?? localKeys;
+  // Chave guardada antes da conta real (sandbox) só vale depois de registrada no Asaas.
+  const pixKeys = live?.pixKeys ?? (isAsaas ? localKeys.map((k) => ({ ...k, status: "pending_activation" as const })) : localKeys);
   const provider = isAsaas ? (live?.provider ?? null) : null;
   const status = isSandbox && account.status === "pending_activation" ? "active" : (live?.provider?.state === "active" ? "active" : account.status);
   const virtualCard = account.virtualCard ?? (isSandbox ? { last4: "4242", expiry: "12/30", locked: false } : null);

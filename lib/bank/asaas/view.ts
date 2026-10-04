@@ -2,7 +2,7 @@
 import { errorMessage } from "@/lib/errors";
 import type { BankProviderView, PixKey } from "@/lib/prx/bank";
 import { asaasActiveFor, asaasDeps } from "@/lib/bank/asaas/deps";
-import { subaccountView } from "@/lib/bank/asaas/onboarding";
+import { currentSubaccount, subaccountView } from "@/lib/bank/asaas/onboarding";
 import { providerPixKeys } from "@/lib/bank/asaas/cash-in";
 import { providerBalance } from "@/lib/bank/asaas/statement";
 
@@ -32,7 +32,7 @@ export async function providerSnapshot(userId: string): Promise<ProviderSnapshot
   if (!asaasActiveFor(userId)) return null;
   try {
     const deps = asaasDeps();
-    const sub = subaccountView(await deps.store.getSubaccount(userId));
+    const sub = subaccountView(await currentSubaccount(userId, deps));
     const provider: BankProviderView = { name: "asaas", environment: deps.client.environment, state: sub.state, rejectReason: sub.rejectReason };
     if (sub.state !== "active") return { provider, pixKeys: null, balance: null };
     const [pixKeys, balance] = await Promise.all([optional("chaves Pix", providerPixKeys(userId, deps)), optional("saldo", providerBalance(userId, deps))]);

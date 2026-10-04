@@ -59,6 +59,10 @@ export class MemoryAsaasBankStore implements AsaasBankStore {
       });
       return true;
     }
+    if (current.environment !== environment) {
+      Object.assign(current, { asaasAccountId: null, walletId: null, apiKeySealed: null, customerId: null, accountNumber: null, agency: null, status: "pending_activation", kycStatus: "PENDING", rejectReason: null, environment, provisioningStartedAt: now });
+      return true;
+    }
     if (current.asaasAccountId) return false;
     if (current.provisioningStartedAt && current.provisioningStartedAt >= staleBefore) return false;
     current.provisioningStartedAt = now;

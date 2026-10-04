@@ -31,6 +31,8 @@ export interface MirrorCharge {
 export interface BankMirror {
   linkAccount(userId: string, data: { providerAccountId: string; agency: string | null; accountNumber: string | null }): Promise<void>;
   setAccountStatus(userId: string, status: AccountStatus, activatedAt?: string): Promise<void>;
+  /** Volta a conta a "em ativação", sem saldo, cartão, agência nem vínculo (restos do sandbox). */
+  resetAccount(userId: string): Promise<void>;
   cacheBalance(userId: string, balance: number): Promise<void>;
   upsertTransaction(userId: string, tx: MirrorTransaction): Promise<void>;
   /** Marca o lançamento como estornado (Pix devolvido, boleto recusado). */
@@ -62,6 +64,14 @@ class SupabaseBankMirror implements BankMirror {
       .update({ provider: "asaas", provider_account_id: data.providerAccountId, agency: data.agency, account_number: data.accountNumber, updated_at: new Date().toISOString() })
       .eq("user_id", userId);
     if (error) throw dbError(error, "Não foi possível vincular a conta ao banco parceiro");
+  }
+
+  async resetAccount(userId: string) {
+    const { error } = await this.db
+      .from("bank_accounts")
+      .update({ status: "pending_activation", balance: 0, agency: null, account_number: null, provider: null, provider_account_id: null, card_last4: null, card_expiry: null, card_locked: false, activated_at: null, updated_at: new Date().toISOString() })
+      .eq("user_id", userId);
+    if (error) throw dbError(error, "Não foi possível reiniciar a conta");
   }
 
   async setAccountStatus(userId: string, status: AccountStatus, activatedAt?: string) {
@@ -147,6 +157,10 @@ export class MemoryBankMirror implements BankMirror {
 
   async linkAccount(userId: string, data: { providerAccountId: string; agency: string | null; accountNumber: string | null }) {
     Object.assign(this.account(userId), data);
+  }
+
+  async resetAccount(userId: string) {
+    Object.assign(this.account(userId), { status: "pending_activation", balance: 0, agency: null, accountNumber: null, providerAccountId: null, activatedAt: null });
   }
 
   async setAccountStatus(userId: string, status: AccountStatus, activatedAt?: string) {

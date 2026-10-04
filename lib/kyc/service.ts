@@ -17,6 +17,8 @@ import type { BankKycApplication, BankKycInput, KycStatus, RiskFlag } from "@/li
  *   - nomes civis coerentes, celular com DDD válido, CEP e UF válidos;
  *   - Conta Pai não abre conta (não guarda dinheiro); um pedido em análise por vez;
  *   - IP e navegador gravados como trilha de auditoria; PEP sinalizado para diligência reforçada.
+ * O PRX não analisa os documentos: passadas as regras, a abertura é aprovada na
+ * hora e segue para o Asaas, que confere os documentos e aprova a conta.
  */
 
 const REQUIRED_DOCS: DocumentKind[] = ["id_front", "id_back"];
@@ -24,6 +26,9 @@ const kycRepo = () => getKycRepository();
 const familyRepo = () => getFamilyRepository();
 
 export { bankKycState } from "@/lib/kyc/guards";
+
+const AUTO_REVIEWER = "auto";
+const AUTO_NOTE = "Aprovação automática: documentos enviados direto ao banco parceiro.";
 
 export async function submitBankKyc(user: MemberRef, input: BankKycInput, meta: { ip: string | null; userAgent: string }, now = new Date()): Promise<BankKycApplication> {
   const identity = await familyRepo().getIdentity(user.id);
@@ -81,7 +86,7 @@ export async function submitBankKyc(user: MemberRef, input: BankKycInput, meta: 
   if (isMinor) riskFlags.push("minor");
   if (isMinor && input.minorPath === "emancipated") riskFlags.push("emancipation");
 
-  return kycRepo().insert({
+  await kycRepo().insert({
     userId: user.id,
     email: user.email.toLowerCase(),
     fullName: input.fullName,
@@ -99,6 +104,21 @@ export async function submitBankKyc(user: MemberRef, input: BankKycInput, meta: 
     ip: meta.ip,
     userAgent: meta.userAgent.slice(0, 300),
   });
+  const app = await autoApproveBankKyc(user.id);
+  if (!app) throw new FamilyError("Não foi possível registrar a abertura de conta.", 500);
+  return app;
+}
+
+/**
+ * Aprova a abertura pendente sem análise do PRX (os documentos vão direto ao
+ * Asaas). Menor de idade espera o responsável aceitar o vínculo (LGPD, Art. 14)
+ * ou a emancipação. Vale também para pedidos antigos que ficaram em análise.
+ */
+export async function autoApproveBankKyc(userId: string): Promise<BankKycApplication | null> {
+  const app = await kycRepo().latestForUser(userId);
+  if (app?.status !== "pending") return app;
+  if (app.riskFlags.includes("minor") && !(await guardianReady(app.userId, app.birthDate))) return app;
+  return (await kycRepo().decide(app.id, "approved", AUTO_NOTE, AUTO_REVIEWER)) ?? app;
 }
 
 /** Menor só é aprovado com o responsável vinculado (ou emancipação aprovada, que vira conta comum). */

@@ -1,7 +1,8 @@
 // Hello World
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { decryptSecret } from "@/lib/asaas/secrets";
-import { completeAsaasSandboxChecklist, ensureAsaasCustomerAndAccount, openSubaccount, subaccountView } from "@/lib/bank/asaas/onboarding";
+import { completeAsaasSandboxChecklist, currentSubaccount, ensureAsaasCustomerAndAccount, openSubaccount, subaccountView } from "@/lib/bank/asaas/onboarding";
+import { reconcileLegacyAccount } from "@/lib/bank/asaas/legacy";
 import { forwardKycDocuments, uploadSubaccountDocument } from "@/lib/bank/asaas/documents";
 import { handleAsaasEvent } from "@/lib/bank/asaas/webhooks";
 import { AsaasClient } from "@/lib/asaas/client";
@@ -160,10 +161,12 @@ describe("documentos da subconta", () => {
 });
 
 describe("sincronização de cliente e subconta e checklist do sandbox", () => {
-  it("ensureAsaasCustomerAndAccount cria subconta e cliente na conta mestre", async () => {
+  it("ensureAsaasCustomerAndAccount abre a subconta uma vez e manda os documentos ao Asaas, sem cliente na conta mãe", async () => {
+    const groups = { data: [{ id: "grp-id", type: "IDENTIFICATION", status: "NOT_SENT", onboardingUrl: null }] };
     const { client, calls } = fakeAsaas({
       "POST /accounts": { body: CREATED },
-      "POST /customers": { body: { id: "cus_master_1" } },
+      "GET /myAccount/documents": { body: groups },
+      "POST /myAccount/documents/*": { body: {} },
       "GET /pix/addressKeys": { body: { data: [] } },
       "POST /pix/addressKeys": { body: { id: "key_evp_1", key: "0000-0000", type: "EVP", status: "ACTIVE" } },
     });
@@ -172,14 +175,44 @@ describe("sincronização de cliente e subconta e checklist do sandbox", () => {
     const view = await ensureAsaasCustomerAndAccount(USER_ID, deps);
     expect(view.state).toBe("active");
     expect(view.kycStatus).toBe("APPROVED");
+    expect(calls.filter((c) => c.method === "POST" && c.path.startsWith("/myAccount/documents/")).length).toBe(2);
 
-    const customerCall = calls.find((c) => c.path === "/customers");
-    expect(customerCall).toBeDefined();
-    expect(customerCall?.apiKey).toBe("$aact_hmlg_master");
+    // Visitas seguintes não abrem outra conta nem criam clientes na conta mãe.
+    await ensureAsaasCustomerAndAccount(USER_ID, deps);
+    expect(calls.filter((c) => c.path === "/accounts").length).toBe(1);
+    expect(calls.some((c) => c.path === "/customers")).toBe(false);
 
     const sub = await store.getSubaccount(USER_ID);
     expect(sub?.status).toBe("active");
     expect(sub?.kycStatus).toBe("APPROVED");
+  });
+
+  it("sem abertura enviada pelo membro não existe subconta (nada de dados inventados)", async () => {
+    const { client, calls } = fakeAsaas({ "POST /accounts": { body: CREATED } });
+    const { deps } = testDeps(client);
+    deps.latestKyc = async () => null;
+    await expect(ensureAsaasCustomerAndAccount(USER_ID, deps)).rejects.toMatchObject({ status: 403 });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("subconta do sandbox não vale na produção: o membro abre outra e o espelho antigo é zerado", async () => {
+    const { client } = fakeAsaas({ "POST /accounts": { body: CREATED } });
+    const { deps, store, mirror } = testDeps(client);
+    await openSubaccount(USER_ID, deps);
+    await deps.store.saveSubaccount(USER_ID, { status: "active", kycStatus: "APPROVED" });
+
+    const { client: prodClient } = fakeAsaas({ "POST /accounts": { body: { ...CREATED, id: "acc_prod", walletId: "wal_prod", apiKey: "$aact_prod_subconta" } } }, "production");
+    const prod = { ...deps, client: prodClient };
+    expect(await currentSubaccount(USER_ID, prod)).toBeNull();
+
+    await mirror.setAccountStatus(USER_ID, "active", "2026-09-30T00:00:00.000Z");
+    const legacy = { userId: USER_ID, status: "active" as const, balance: 1500, agency: "0001", accountNumber: "10000101", activatedAt: "2026-09-30T00:00:00.000Z", virtualCard: { last4: "4242", expiry: "12/30", locked: false }, providerAccountId: "acc_123", createdAt: "2026-09-30T00:00:00.000Z" };
+    await expect(reconcileLegacyAccount(USER_ID, legacy, prod)).resolves.toBe(true);
+    expect(mirror.accounts.get(USER_ID)).toMatchObject({ status: "pending_activation", balance: 0, agency: null, providerAccountId: null });
+
+    const view = await openSubaccount(USER_ID, prod);
+    expect(view.state).toBe("pending_activation");
+    expect(await store.getSubaccount(USER_ID)).toMatchObject({ asaasAccountId: "acc_prod", environment: "production", status: "pending_activation" });
   });
 
   it("completeAsaasSandboxChecklist executa cliente, cobrança e confirmação", async () => {

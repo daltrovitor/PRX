@@ -1,5 +1,6 @@
 // Hello World
 import { AsaasClient } from "@/lib/asaas/client";
+import type { AsaasEnvironment } from "@/lib/asaas/config";
 import { MemoryBankMirror } from "@/lib/bank/asaas/mirror";
 import { MemoryAsaasBankStore } from "@/lib/bank/asaas/store-memory";
 import type { AsaasDeps } from "@/lib/bank/asaas/deps";
@@ -16,7 +17,7 @@ export interface FakeCall {
 
 type Reply = { status?: number; body?: unknown } | ((call: FakeCall) => { status?: number; body?: unknown });
 
-export function fakeAsaas(routes: Record<string, Reply>) {
+export function fakeAsaas(routes: Record<string, Reply>, environment: AsaasEnvironment = "sandbox") {
   const calls: FakeCall[] = [];
   const fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input));
@@ -31,7 +32,15 @@ export function fakeAsaas(routes: Record<string, Reply>) {
     const reply = typeof route === "function" ? route(call) : route;
     return new Response(JSON.stringify(reply.body ?? {}), { status: reply.status ?? 200, headers: { "Content-Type": "application/json" } });
   }) as typeof globalThis.fetch;
-  const client = new AsaasClient({ apiKey: "$aact_hmlg_master", baseUrl: "https://api-sandbox.asaas.com/v3", environment: "sandbox", fetch, sleep: async () => undefined, maxRetries: 1 });
+  const production = environment === "production";
+  const client = new AsaasClient({
+    apiKey: production ? "$aact_prod_master" : "$aact_hmlg_master",
+    baseUrl: production ? "https://api.asaas.com/v3" : "https://api-sandbox.asaas.com/v3",
+    environment,
+    fetch,
+    sleep: async () => undefined,
+    maxRetries: 1,
+  });
   return { client, calls };
 }
 

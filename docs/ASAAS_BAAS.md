@@ -34,15 +34,25 @@ Com `ASAAS_ENVIRONMENT=production`, o modo sandbox não liga, mesmo que `PRX_BAA
 
 | Etapa | PRX | Asaas |
 |---|---|---|
-| KYC | `/api/bank/kyc` + aprovação no admin | — |
-| Abertura | `POST /api/bank/accounts` (idempotente, com trava contra conta dupla) | `POST /v3/accounts` com webhook + authToken |
-| Documentos | `/api/bank/accounts/documents` (reaproveita frente e verso do KYC) | `GET/POST /v3/myAccount/documents` |
+| KYC | `POST /api/bank/kyc`: regras automáticas (CPF único, idade, documentos da própria pasta) e aprovação na hora, **sem análise do PRX**. Menor espera o responsável aceitar o vínculo | — |
+| Abertura | na mesma chamada do KYC (ou na próxima visita ao PRX BANK, se o Asaas falhar). Idempotente, com trava contra conta dupla | `POST /v3/accounts` com webhook + authToken |
+| Documentos | frente e verso do KYC seguem sozinhos logo após a abertura; o que faltar, o membro envia em `/api/bank/accounts/documents` | `GET/POST /v3/myAccount/documents` |
 | Aprovação | webhook `ACCOUNT_STATUS_GENERAL_APPROVAL_*` ativa a conta e cria uma chave EVP | — |
 | Pix entrada | chaves e cobrança em `/api/bank` (`add_pix_key`, `create_charge`) | `/v3/pix/addressKeys`, `/v3/payments` + `pixQrCode` |
 | Pix saída e contas | `POST /api/bank/outgoing` (preparar, depois confirmar com biometria ou senha) | `/v3/transfers`, `/v3/pix/qrCodes/decode` e `/pay`, `/v3/bill/simulate` e `/v3/bill` |
 | Validação de saque | `POST /api/bank/webhooks/validate-withdraw`: só aprova pedido confirmado no app, mesmo valor e tipo | chamado ~5 s após cada saída |
 | Saldo e extrato | `GET /api/bank/balance`, `GET /api/bank/statement` | `/v3/finance/balance`, `/v3/financialTransactions` |
 | Avisos | webhook `POST /api/bank/webhooks/asaas` → `bank_notifications` → sino e toast no app | eventos `PAYMENT_*`, `TRANSFER_*`, `BILL_*` |
+
+## Contas criadas antes da produção
+
+Ao abrir o PRX BANK com `ASAAS_ENVIRONMENT=production`:
+
+- Pedido de abertura que ficou "em análise" é aprovado e vai para o Asaas.
+- Subconta aberta no sandbox não vale: o membro abre outra em produção, no mesmo registro.
+- Saldo, cartão, agência e data de ativação fictícios do sandbox voltam a "em ativação". A conta só fica ativa quando o Asaas aprova a subconta real.
+- Extrato e cobranças mostram só lançamentos vindos do Asaas (`provider_ref`). Os do sandbox continuam no banco, mas não aparecem nem contam nos limites.
+- Quem nunca enviou a abertura preenche o formulário. Nenhum dado é inventado.
 
 ## Garantias
 

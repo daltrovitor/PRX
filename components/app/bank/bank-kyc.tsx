@@ -105,10 +105,10 @@ function KycPending({ kyc }: { kyc: BankKycState }) {
     <div className="mx-auto max-w-xl space-y-6 pb-32 sm:pb-36">
       <h1 className="ob-display text-[28px] text-ink sm:text-[40px]">PRX BANK</h1>
       <section className="glass space-y-4 rounded-[28px] p-6">
-        <Tag>Em análise</Tag>
+        <Tag>Aguardando</Tag>
         <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-ink">Recebemos sua abertura de conta</h2>
         <p className="text-[15px] leading-relaxed text-muted-foreground">
-          A equipe PRX confere seus dados e documentos em até 2 dias úteis. Você recebe o aviso aqui assim que a conta for liberada.
+          Assim que a etapa abaixo for concluída, seus dados e documentos seguem direto para o banco parceiro, que aprova a conta. Você recebe o aviso aqui.
         </p>
         {kyc.awaitingGuardian && (
           <Notice tone="warning">Como você tem menos de 18 anos, seu responsável precisa aceitar o vínculo na Conta Pai dele. Peça para ele abrir o PRX e aprovar.</Notice>
@@ -258,7 +258,7 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
             <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-ink">Ativar biometria bancária</h2>
           </div>
           <p className="text-[15px] leading-relaxed text-muted-foreground">
-            Seus dados foram enviados para análise! Para maior segurança e agilidade em transações Pix e acessos futuros, ative o Face ID, Touch ID ou a digital do aparelho.
+            Seus dados foram enviados ao banco parceiro! Para maior segurança e agilidade em transações Pix e acessos futuros, ative o Face ID, Touch ID ou a digital do aparelho.
           </p>
           {bioError && <Notice tone="error">{bioError}</Notice>}
           <div className="space-y-3 pt-4">
@@ -449,7 +449,7 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
                   }
                 />
                 <ProviderDisclosure />
-                <Actions error={error} busy={busy} submitLabel="Enviar para análise" onBack={() => go("perfil")} onSubmit={() => void submit()} />
+                <Actions error={error} busy={busy} submitLabel="Abrir minha conta" onBack={() => go("perfil")} onSubmit={() => void submit()} />
               </div>
             )}
           </div>

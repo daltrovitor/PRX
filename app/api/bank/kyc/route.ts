@@ -6,6 +6,8 @@ import { clientIp } from "@/lib/partners/http";
 import { bankKycSchema } from "@/lib/kyc/types";
 import { bankKycState, submitBankKyc } from "@/lib/kyc/service";
 import { body, familyErrorResponse, invalid, requireUser } from "@/lib/family/http";
+import { asaasActiveFor } from "@/lib/bank/asaas/deps";
+import { errorMessage } from "@/lib/errors";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
@@ -22,6 +24,8 @@ export async function GET(req: NextRequest) {
 /**
  * POST /api/bank/kyc — abertura da conta PRX BANK (KYC bancário). Tudo é
  * validado aqui no servidor (zod + regras antifraude), nunca só na tela.
+ * Aprovada a abertura, a subconta é criada no Asaas na mesma hora e recebe os
+ * documentos; se o Asaas falhar, a aba PRX BANK tenta de novo.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -30,8 +34,18 @@ export async function POST(req: NextRequest) {
     if (!rate.allowed) throw new PartnerError(`Muitas tentativas. Tente em ${rate.resetInSeconds}s.`, 429);
     const parsed = bankKycSchema.safeParse(await body(req));
     if (!parsed.success) invalid(parsed.error.issues);
-    await submitBankKyc(user, parsed.data, { ip: clientIp(req), userAgent: req.headers.get("user-agent") ?? "" });
-    return NextResponse.json({ success: true, kyc: await bankKycState(user.id) }, { headers: NO_STORE });
+    const app = await submitBankKyc(user, parsed.data, { ip: clientIp(req), userAgent: req.headers.get("user-agent") ?? "" });
+    let providerError: string | null = null;
+    if (app.status === "approved" && asaasActiveFor(user.id)) {
+      try {
+        const { ensureAsaasCustomerAndAccount } = await import("@/lib/bank/asaas/onboarding");
+        await ensureAsaasCustomerAndAccount(user.id);
+      } catch (err) {
+        providerError = errorMessage(err, "O banco parceiro não respondeu. Tentamos de novo quando você abrir o PRX BANK.");
+        console.warn("[kyc] abertura no Asaas adiada:", providerError);
+      }
+    }
+    return NextResponse.json({ success: true, kyc: await bankKycState(user.id), providerError }, { headers: NO_STORE });
   } catch (error) {
     return familyErrorResponse(error, "Não foi possível enviar a abertura de conta.");
   }

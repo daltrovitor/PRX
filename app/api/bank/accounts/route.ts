@@ -5,7 +5,7 @@ import { checkRateLimit } from "@/lib/security";
 import { PartnerError } from "@/lib/partners/errors";
 import { body, familyErrorResponse, invalid, requireUser } from "@/lib/family/http";
 import { asaasActiveFor, asaasDeps } from "@/lib/bank/asaas/deps";
-import { openSubaccount, refreshSubaccountStatus, subaccountView } from "@/lib/bank/asaas/onboarding";
+import { currentSubaccount, openSubaccount, refreshSubaccountStatus, subaccountView } from "@/lib/bank/asaas/onboarding";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     const user = await requireUser(req);
     if (!asaasActiveFor(user.id)) return NextResponse.json({ provider: null }, { headers: NO_STORE });
     const deps = asaasDeps();
-    return NextResponse.json({ provider: "asaas", subaccount: subaccountView(await deps.store.getSubaccount(user.id)) }, { headers: NO_STORE });
+    return NextResponse.json({ provider: "asaas", subaccount: subaccountView(await currentSubaccount(user.id, deps)) }, { headers: NO_STORE });
   } catch (error) {
     return familyErrorResponse(error, "Erro ao consultar a conta no banco parceiro.");
   }

@@ -60,6 +60,19 @@ function mapSubaccount(r: SubaccountRow): Subaccount {
   };
 }
 
+/** Subconta ainda não criada no Asaas. */
+const EMPTY_SUBACCOUNT = {
+  asaas_account_id: null,
+  wallet_id: null,
+  api_key: null,
+  asaas_customer_id: null,
+  account_number: null,
+  agency: null,
+  status: "pending_activation",
+  kyc_status: "PENDING",
+  reject_reason: null,
+} as const;
+
 const SUBACCOUNT_COLUMNS: Record<keyof SubaccountPatch, keyof SubaccountRow> = {
   asaasAccountId: "asaas_account_id",
   walletId: "wallet_id",
@@ -150,6 +163,15 @@ export class SupabaseAsaasBankStore implements AsaasBankStore {
     const inserted = await this.db.from("bank_subaccounts").insert({ id: userId, environment, provisioning_started_at: now }).select("id");
     if (!inserted.error) return true;
     if (inserted.error.code !== "23505") throw dbError(inserted.error, "Não foi possível reservar a abertura da conta");
+    // Subconta de outro ambiente (sandbox antes da produção): recomeça do zero neste.
+    const replaced = await this.db
+      .from("bank_subaccounts")
+      .update({ ...EMPTY_SUBACCOUNT, environment, provisioning_started_at: now, updated_at: now })
+      .eq("id", userId)
+      .neq("environment", environment)
+      .select("id");
+    if (replaced.error) throw dbError(replaced.error, "Não foi possível reservar a abertura da conta");
+    if ((replaced.data as unknown[]).length > 0) return true;
     // Já existe: só pega a vez se ainda não foi criada no Asaas e a trava está livre ou esquecida.
     const { data, error } = await this.db
       .from("bank_subaccounts")

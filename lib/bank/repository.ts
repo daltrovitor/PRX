@@ -32,6 +32,8 @@ export interface BankAccountRecord {
   accountNumber: string | null;
   activatedAt: string | null;
   virtualCard: VirtualCard | null;
+  /** Conta do banco parceiro a que o espelho está ligado (null = nunca ligado). */
+  providerAccountId?: string | null;
   createdAt: string;
 }
 
@@ -79,6 +81,7 @@ interface AccountRow {
   card_last4: string | null;
   card_expiry: string | null;
   card_locked: boolean | null;
+  provider_account_id?: string | null;
   created_at: string;
 }
 
@@ -91,6 +94,7 @@ function mapAccount(r: AccountRow): BankAccountRecord {
     accountNumber: r.account_number,
     activatedAt: r.activated_at,
     virtualCard: r.card_last4 && r.card_expiry ? { last4: r.card_last4, expiry: r.card_expiry, locked: Boolean(r.card_locked) } : null,
+    providerAccountId: r.provider_account_id ?? null,
     createdAt: r.created_at,
   };
 }
@@ -244,7 +248,10 @@ class SupabaseBankRepository implements BankRepository {
 
   async listTransactions(userId: string, limit: number) {
     // Estornados (Pix devolvido, boleto recusado) não entram no extrato nem nos limites.
-    const { data, error } = await this.db.from("bank_transactions").select("*").eq("user_id", userId).neq("status", "reversed").order("created_at", { ascending: false }).limit(limit);
+    let query = this.db.from("bank_transactions").select("*").eq("user_id", userId).neq("status", "reversed");
+    // Com dinheiro real, só vale o que veio do Asaas: lançamentos do sandbox ficam de fora.
+    if (isAsaasProduction()) query = query.not("provider_ref", "is", null);
+    const { data, error } = await query.order("created_at", { ascending: false }).limit(limit);
     if (error) throw dbError(error, "Não foi possível carregar o extrato");
     return (data as TransactionRow[]).map(mapTransaction);
   }
@@ -307,7 +314,9 @@ class SupabaseBankRepository implements BankRepository {
   }
 
   async listCharges(userId: string, limit: number) {
-    const { data, error } = await this.db.from("bank_pix_charges").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(limit);
+    let query = this.db.from("bank_pix_charges").select("*").eq("user_id", userId);
+    if (isAsaasProduction()) query = query.not("provider_ref", "is", null);
+    const { data, error } = await query.order("created_at", { ascending: false }).limit(limit);
     if (error) throw dbError(error, "Não foi possível carregar as cobranças");
     return (data as ChargeRow[]).map(mapCharge);
   }
