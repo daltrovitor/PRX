@@ -112,4 +112,18 @@ describe("modo sandbox e saldo admin", () => {
     expect(view.transactions[0].kind).toBe("pix_out");
     expect(view.transactions[0].amount).toBe(50);
   });
+
+  it("Asaas em produção desliga o sandbox mesmo com PRX_BAAS_MODE=sandbox esquecido", async () => {
+    const origEnv = process.env.ASAAS_ENVIRONMENT;
+    process.env.ASAAS_ENVIRONMENT = "production";
+    try {
+      const { isSandboxMode, setAdminBankBalance } = await import("@/lib/bank/repository");
+      const { bankKycState } = await import("@/lib/kyc/guards");
+      expect(isSandboxMode()).toBe(false);
+      expect((await bankKycState("user-prod-no-kyc")).status).toBe("none");
+      await expect(setAdminBankBalance("user-prod-no-kyc", 1000)).rejects.toMatchObject({ status: 403 });
+    } finally {
+      process.env.ASAAS_ENVIRONMENT = origEnv;
+    }
+  });
 });

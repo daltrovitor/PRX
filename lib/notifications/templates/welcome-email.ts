@@ -120,6 +120,7 @@ export function renderWelcomeEmail(input: WelcomeEmailInput): RenderedEmail {
   const preheader = "Aqui, suas escolhas valem. Conheça as PRX COINS e tudo o que tem aqui dentro.";
   const coins = Math.max(0, Math.floor(input.startingCoins));
   const legal = `${escapeHtml(COMPANY.legalName)}${COMPANY.cnpj ? ` · CNPJ ${escapeHtml(COMPANY.cnpj)}` : ""}`;
+  const support = escapeHtml(COMPANY.supportEmail);
 
   const header = `
   <tr><td class="px" style="padding:28px 40px 22px 40px;">
@@ -277,6 +278,7 @@ export function renderWelcomeEmail(input: WelcomeEmailInput): RenderedEmail {
   </td></tr>
   <tr><td class="px" style="padding:14px 40px 40px 40px;">
     <p style="${t({ size: 11, line: 1.6, color: C.muted, align: "center" })}">
+      Dúvidas? Fale com a gente em <a href="mailto:${support}" style="color:${C.body};text-decoration:underline;">${support}</a>.<br>
       Você recebeu este e-mail porque criou sua conta PRX com ${escapeHtml(input.email)}.<br>
       <a href="${site}/termos" style="color:${C.body};text-decoration:underline;">Termos de Uso</a>&nbsp;·&nbsp;<a href="${site}/privacidade" style="color:${C.body};text-decoration:underline;">Política de Privacidade</a>&nbsp;·&nbsp;${legal}
     </p>
@@ -374,6 +376,7 @@ export function renderWelcomeEmail(input: WelcomeEmailInput): RenderedEmail {
     "the next pays",
     "",
     "---",
+    `Dúvidas? Fale com a gente em ${COMPANY.supportEmail}.`,
     `Você recebeu este e-mail porque criou sua conta PRX com ${input.email}.`,
     `Termos de Uso: ${site}/termos · Política de Privacidade: ${site}/privacidade`,
   ].join("\n");

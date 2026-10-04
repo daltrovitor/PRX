@@ -4,6 +4,7 @@ import { z } from "zod";
 import { verifyAdminRequest } from "@/lib/auth";
 import { setAdminBankBalance } from "@/lib/bank/repository";
 import { errorMessage } from "@/lib/errors";
+import { PartnerError } from "@/lib/partners/errors";
 
 const balanceSchema = z.object({
   userId: z.string().min(1, "ID do usuário é obrigatório."),
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
       status: result.status,
     });
   } catch (error) {
+    if (error instanceof PartnerError) return NextResponse.json({ error: error.message }, { status: error.status });
     return NextResponse.json({ error: errorMessage(error) || "Erro ao atualizar saldo." }, { status: 500 });
   }
 }

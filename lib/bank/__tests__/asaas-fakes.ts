@@ -87,6 +87,6 @@ export const ASAAS_TEST_ENV = {
   ASAAS_WEBHOOK_AUTH_TOKEN: "t".repeat(48),
   ASAAS_WEBHOOK_URL_EVENTS: "https://prx.app.br/api/bank/webhooks/asaas",
   ASAAS_WEBHOOK_URL_VALIDATE_WITHDRAW: "https://prx.app.br/api/bank/webhooks/validate-withdraw",
-  PRX_EMAIL_FROM: "PRX <ola@prx.app.br>",
+  PRX_EMAIL_FROM: "PRX <noreply@prx.app.br>",
   BANK_ENCRYPTION_KEY: "e".repeat(40),
 };

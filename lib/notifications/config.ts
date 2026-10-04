@@ -7,8 +7,10 @@
  * "skipped" — notificação nunca derruba cadastro nem login.
  */
 
+import { COMPANY } from "@/lib/company";
+
 export const DEFAULT_SITE_URL = "https://prx.viraweb.online";
-export const DEFAULT_EMAIL_FROM = "PRX <ola@prx.app.br>";
+export const DEFAULT_EMAIL_FROM = "PRX <noreply@prx.app.br>";
 
 const clean = (value: string | undefined): string => (value ?? "").trim();
 const stripSlash = (url: string): string => url.replace(/\/+$/, "");
@@ -43,8 +45,9 @@ export function canSimulateDelivery(): boolean {
 export interface EmailConfig {
   /** Chave da API do Resend (https://resend.com). */
   apiKey: string;
-  /** Remetente com domínio verificado no Resend, ex.: "PRX <ola@prx.app.br>". */
+  /** Remetente com domínio verificado no Resend, ex.: "PRX <noreply@prx.app.br>". */
   from: string;
+  /** Para onde vão as respostas: o noreply não lê caixa de entrada, o suporte lê. */
   replyTo: string;
 }
 
@@ -52,7 +55,7 @@ export function emailConfig(): EmailConfig {
   return {
     apiKey: clean(process.env.RESEND_API_KEY),
     from: clean(process.env.PRX_EMAIL_FROM) || DEFAULT_EMAIL_FROM,
-    replyTo: clean(process.env.PRX_EMAIL_REPLY_TO),
+    replyTo: clean(process.env.PRX_EMAIL_REPLY_TO) || COMPANY.supportEmail,
   };
 }
 

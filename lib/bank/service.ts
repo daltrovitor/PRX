@@ -31,7 +31,7 @@ const BAAS_PENDING = "A integração com o banco parceiro ainda não foi publica
 export function sandboxEnabled(userId?: string): boolean {
   if (isSandboxMode()) return true;
   if (userId && usesSupabaseBank(userId)) return false;
-  return DEMO_ACCOUNTS_ENABLED || process.env.PRX_BAAS_MODE === "sandbox";
+  return DEMO_ACCOUNTS_ENABLED;
 }
 
 export async function accountView(userId: string): Promise<BankAccountView> {

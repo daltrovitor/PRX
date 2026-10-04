@@ -38,6 +38,8 @@ describe("e-mail de boas-vindas", () => {
     expect(email.html).toContain("Hey, GABRIELA.");
     expect(email.html).toContain("Aqui, suas escolhas valem.");
     expect(email.html).toContain("Good choices. Real rewards.");
+    expect(email.html).toContain('href="mailto:suporte@prx.app.br"');
+    expect(email.text).toContain("suporte@prx.app.br");
     for (const pillar of ["PASS", "BANK", "LIVE", "INVEST", "LEVEL", "ME"]) expect(email.html).toContain(`PRX <span style="color:#9468fa;">${pillar}</span>`);
     expect(email.html).toContain("Você entrou<br>no próximo.");
     expect(email.text).toContain("Hey, Gabriela.");
@@ -83,9 +85,18 @@ describe("envio de e-mail (Resend)", () => {
     await expect(sendEmail(message)).resolves.toMatchObject({ status: "skipped" });
   });
 
+  it("sem configuração, sai do noreply com resposta para o suporte", async () => {
+    vi.stubEnv("RESEND_API_KEY", "re_test_key");
+    vi.stubEnv("PRX_EMAIL_FROM", "");
+    vi.stubEnv("PRX_EMAIL_REPLY_TO", "");
+    const fetcher = vi.fn<Fetcher>(async () => jsonResponse(200, { id: "email_1" }));
+    await sendEmail(message, fetcher);
+    expect(JSON.parse(String(fetcher.mock.calls[0][1].body))).toMatchObject({ from: "PRX <noreply@prx.app.br>", reply_to: "suporte@prx.app.br" });
+  });
+
   it("envia com a chave, remetente e idempotência", async () => {
     vi.stubEnv("RESEND_API_KEY", "re_test_key");
-    vi.stubEnv("PRX_EMAIL_FROM", "PRX <ola@prx.app.br>");
+    vi.stubEnv("PRX_EMAIL_FROM", "PRX <noreply@prx.app.br>");
     const fetcher = vi.fn<Fetcher>(async () => jsonResponse(200, { id: "email_123" }));
     const result = await sendEmail({ ...message, idempotencyKey: "welcome-u1" }, fetcher);
     expect(result).toEqual({ status: "sent", provider: "resend", providerId: "email_123" });
@@ -94,7 +105,7 @@ describe("envio de e-mail (Resend)", () => {
     const headers = init.headers as Record<string, string>;
     expect(headers.Authorization).toBe("Bearer re_test_key");
     expect(headers["Idempotency-Key"]).toBe("welcome-u1");
-    expect(JSON.parse(String(init.body))).toMatchObject({ from: "PRX <ola@prx.app.br>", to: ["gabi@exemplo.com"], subject: "Oi" });
+    expect(JSON.parse(String(init.body))).toMatchObject({ from: "PRX <noreply@prx.app.br>", to: ["gabi@exemplo.com"], subject: "Oi" });
   });
 
   it("devolve a falha do provedor sem lançar", async () => {

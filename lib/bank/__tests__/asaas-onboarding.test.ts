@@ -4,6 +4,7 @@ import { decryptSecret } from "@/lib/asaas/secrets";
 import { completeAsaasSandboxChecklist, ensureAsaasCustomerAndAccount, openSubaccount, subaccountView } from "@/lib/bank/asaas/onboarding";
 import { forwardKycDocuments, uploadSubaccountDocument } from "@/lib/bank/asaas/documents";
 import { handleAsaasEvent } from "@/lib/bank/asaas/webhooks";
+import { AsaasClient } from "@/lib/asaas/client";
 import { ASAAS_TEST_ENV, USER_ID, approvedKyc, fakeAsaas, testDeps } from "./asaas-fakes";
 
 const CREATED = { id: "acc_123", walletId: "wal_123", apiKey: "$aact_hmlg_subconta_secreta", accountNumber: { agency: "0001", account: "123456", accountDigit: "7" } };
@@ -38,7 +39,7 @@ describe("abertura da subconta no Asaas", () => {
       province: "Bela Vista",
       postalCode: "01310100",
     });
-    expect(body.webhooks[0]).toMatchObject({ url: ASAAS_TEST_ENV.ASAAS_WEBHOOK_URL_EVENTS, authToken: ASAAS_TEST_ENV.ASAAS_WEBHOOK_AUTH_TOKEN, email: "ola@prx.app.br", enabled: true, apiVersion: 3 });
+    expect(body.webhooks[0]).toMatchObject({ url: ASAAS_TEST_ENV.ASAAS_WEBHOOK_URL_EVENTS, authToken: ASAAS_TEST_ENV.ASAAS_WEBHOOK_AUTH_TOKEN, email: "suporte@prx.app.br", enabled: true, apiVersion: 3 });
     expect(body.webhooks[0].events).toContain("ACCOUNT_STATUS_GENERAL_APPROVAL_APPROVED");
 
     const sub = await store.getSubaccount(USER_ID);
@@ -196,6 +197,13 @@ describe("sincronização de cliente e subconta e checklist do sandbox", () => {
     expect(calls.some((c) => c.path === "/customers")).toBe(true);
     expect(calls.some((c) => c.path === "/payments")).toBe(true);
     expect(calls.some((c) => c.path === "/payments/pay_123/receiveInCash")).toBe(true);
+  });
+
+  it("completeAsaasSandboxChecklist recusa o Asaas de produção sem chamar a API", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    const client = new AsaasClient({ apiKey: "$aact_prod_master", baseUrl: "https://api.asaas.com/v3", environment: "production", fetch, sleep: async () => undefined, maxRetries: 1 });
+    await expect(completeAsaasSandboxChecklist(client)).rejects.toMatchObject({ status: 409 });
+    expect(fetch).not.toHaveBeenCalled();
   });
 });
 

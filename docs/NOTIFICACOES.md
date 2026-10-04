@@ -5,7 +5,7 @@ Tudo mora em `lib/notifications/` (canais, modelos e registro de envios) e `lib/
 
 | Canal | Provedor | Quando sai |
 |---|---|---|
-| E-mail | [Resend](https://resend.com) (API HTTP) | Cadastro com e-mail e senha (`POST /api/auth/signup`) e primeiro login com Google (`/auth/callback`), sempre depois da resposta (`after()`) |
+| E-mail | [Resend](https://resend.com) (API HTTP) | Todo cadastro, sempre depois da resposta (`after()`): e-mail e senha (`POST /api/auth/signup`), Google (`POST /api/auth/google/complete`), Conta Pai (`POST /api/family/parent/signup`) e conta do filho criada pelo responsável (`POST /api/family/children`) |
 | WhatsApp | WhatsApp Cloud API (Meta) | Membro pede o código no Perfil → card **WhatsApp** (`POST /api/phone/code`) |
 
 ## Variáveis de ambiente
@@ -13,8 +13,9 @@ Tudo mora em `lib/notifications/` (canais, modelos e registro de envios) e `lib/
 | Nome | Uso |
 |---|---|
 | `RESEND_API_KEY` | Chave da API do Resend. Sem ela: simula (dev) ou pula (produção) |
-| `PRX_EMAIL_FROM` | Remetente, com domínio verificado no Resend. Padrão `PRX <ola@prx.app.br>` |
-| `PRX_EMAIL_REPLY_TO` | Resposta (opcional), ex.: `contato@prx.app.br` |
+| `PRX_EMAIL_FROM` | Remetente, com domínio verificado no Resend. Padrão `PRX <noreply@prx.app.br>` |
+| `PRX_EMAIL_REPLY_TO` | Para onde vão as respostas. Padrão: o e-mail de suporte (`suporte@prx.app.br`) |
+| `NEXT_PUBLIC_PRX_SUPPORT_EMAIL` | Contato de suporte no site, nos Termos e no rodapé do e-mail. Padrão `suporte@prx.app.br` |
 | `PRX_EMAIL_ASSETS_URL` | De onde o e-mail carrega as imagens de `/email` (padrão: `NEXT_PUBLIC_SITE_URL`, senão `https://prx.viraweb.online`) |
 | `WHATSAPP_ACCESS_TOKEN` | Token permanente de um usuário de sistema da conta WhatsApp Business |
 | `WHATSAPP_PHONE_NUMBER_ID` | *Phone Number ID* do número remetente (não é o número) |
@@ -25,7 +26,7 @@ Tudo mora em `lib/notifications/` (canais, modelos e registro de envios) e `lib/
 ## Colocar no ar
 
 1. **Banco:** aplique `supabase/migrations/20260930_prx_notifications.sql` (celular confirmado no perfil, `phone_verifications` e `notification_log`, só service role).
-2. **E-mail (Resend):** crie a conta, verifique o domínio `prx.app.br` (registros SPF/DKIM no DNS), gere a chave e defina `RESEND_API_KEY` e `PRX_EMAIL_FROM` na Vercel.
+2. **E-mail (Resend):** crie a conta, verifique o domínio `prx.app.br` (registros SPF/DKIM no DNS), gere uma chave com permissão *Sending access* restrita ao domínio e defina `RESEND_API_KEY` na Vercel. O remetente padrão é `noreply@prx.app.br` e as respostas vão para `suporte@prx.app.br`, que precisa existir como caixa de entrada.
 3. **WhatsApp (Meta):**
    1. No [WhatsApp Manager](https://business.facebook.com/wa/manage/), com a conta Business verificada, cadastre o número remetente e anote o *Phone Number ID*.
    2. Crie um usuário de sistema com permissão `whatsapp_business_messaging` e gere o token permanente.
@@ -35,7 +36,7 @@ Tudo mora em `lib/notifications/` (canais, modelos e registro de envios) e `lib/
 
 ## E-mail de boas-vindas
 
-- Modelo: `lib/notifications/templates/welcome-email.ts` ("Você entrou. Welcome to PRX."), identidade Obsidian, com versão em texto puro.
+- Modelo: `lib/notifications/templates/welcome-email.ts` ("Você entrou. Welcome to PRX."), identidade Obsidian, com versão em texto puro. O rodapé mostra o e-mail de suporte.
 - Pré-visualização: `/api/admin/notifications?preview=welcome&nome=Gabi` (`&formato=texto` para o texto puro). Abre sem login no desenvolvimento; em produção pede a sessão do admin.
 - Imagens em `public/email/` (PNG/JPG, e-mail não aceita SVG), geradas a partir dos assets da marca por `node scripts/build-email-assets.mjs`. Para trocar a foto do topo ou dos cards, substitua o arquivo de origem no script e gere de novo.
 - O selo "Seu saldo inicial: N PRX COINS" só aparece quando `WELCOME_COINS` (`lib/points/repository.ts`) for maior que zero. Hoje é zero.

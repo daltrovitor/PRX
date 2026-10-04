@@ -4,6 +4,7 @@ import { verifyAdminRequest } from "@/lib/auth";
 import { asaasEnabled, getAsaasClient } from "@/lib/asaas/client";
 import { completeAsaasSandboxChecklist } from "@/lib/bank/asaas/onboarding";
 import { errorMessage } from "@/lib/errors";
+import { PartnerError } from "@/lib/partners/errors";
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
       result,
     });
   } catch (error) {
+    if (error instanceof PartnerError) return NextResponse.json({ error: error.message }, { status: error.status });
     return NextResponse.json(
       { error: errorMessage(error) || "Erro ao executar checklist do Asaas Sandbox." },
       { status: 500 }

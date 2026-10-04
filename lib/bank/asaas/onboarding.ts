@@ -2,6 +2,7 @@
 import { PartnerError } from "@/lib/partners/errors";
 import { AsaasError, toPartnerError } from "@/lib/asaas/errors";
 import { webhookAuthToken, webhookUrls } from "@/lib/asaas/config";
+import { emailConfig } from "@/lib/notifications/config";
 import { encryptSecret, decryptSecret } from "@/lib/asaas/secrets";
 import { SUBACCOUNT_WEBHOOK_EVENTS, createSubaccount, getAccountStatus, type CreatedSubaccount, type NewSubaccount, type SubaccountWebhook } from "@/lib/asaas/accounts";
 import { assertCanHoldMoney } from "@/lib/family/guards";
@@ -52,10 +53,8 @@ export function subaccountView(sub: Subaccount | null): SubaccountView {
 
 /** E-mail que recebe os alertas do Asaas sobre falhas na fila de webhooks. */
 function opsEmail(): string | null {
-  const explicit = (process.env.ASAAS_WEBHOOK_EMAIL ?? "").trim();
-  if (explicit) return explicit;
-  const from = process.env.PRX_EMAIL_FROM ?? "";
-  return from.match(/<([^>\s]+@[^>\s]+)>/)?.[1] ?? (/^[^\s@]+@[^\s@]+$/.test(from.trim()) ? from.trim() : null);
+  const raw = (process.env.ASAAS_WEBHOOK_EMAIL ?? "").trim() || emailConfig().replyTo;
+  return raw.match(/<([^>\s]+@[^>\s]+)>/)?.[1] ?? (/^[^\s@]+@[^\s@]+$/.test(raw) ? raw : null);
 }
 
 export function subaccountWebhook(): SubaccountWebhook {
@@ -331,6 +330,8 @@ export interface SandboxChecklistResult {
 export async function completeAsaasSandboxChecklist(
   client: AsaasClient
 ): Promise<SandboxChecklistResult> {
+  // Em produção isso criaria cliente e cobrança reais e daria baixa em dinheiro.
+  if (client.environment !== "sandbox") throw new PartnerError("O checklist de homologação só roda no sandbox do Asaas.", 409);
   const customer = await createCustomer(client, undefined, {
     name: "PRX Homologação Sandbox",
     cpfCnpj: "52998224725",

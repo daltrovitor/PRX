@@ -35,7 +35,17 @@ export interface BankAccountRecord {
   createdAt: string;
 }
 
+/** Asaas em produção: dinheiro real, então nenhum atalho do sandbox vale. */
+export function isAsaasProduction(): boolean {
+  return (process.env.ASAAS_ENVIRONMENT ?? "").trim().toLowerCase() === "production";
+}
+
+/**
+ * Sandbox: conta ativa na hora, KYC dispensado e saldo ajustável pelo admin.
+ * Nunca liga com ASAAS_ENVIRONMENT=production, mesmo com PRX_BAAS_MODE=sandbox esquecido.
+ */
 export function isSandboxMode(): boolean {
+  if (isAsaasProduction()) return false;
   const provider = (process.env.BANK_PROVIDER ?? "").trim().toLowerCase();
   const env = (process.env.ASAAS_ENVIRONMENT ?? "").trim().toLowerCase();
   const baasMode = (process.env.PRX_BAAS_MODE ?? "").trim().toLowerCase();
@@ -605,6 +615,7 @@ export async function setAdminBankBalance(
   targetBalance: number,
   note?: string
 ): Promise<{ balance: number; status: AccountStatus }> {
+  if (isAsaasProduction()) throw new PartnerError("Ajuste manual de saldo só existe no sandbox. Em produção o saldo vem do Asaas.", 403);
   const repo = getBankRepository(userId);
   const account = await repo.getOrCreateAccount(userId);
   const newBalance = Math.max(0, Math.round(targetBalance * 100) / 100);

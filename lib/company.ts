@@ -12,7 +12,7 @@ export const COMPANY = {
   cityState: "Goiânia — GO · Brasil",
   /** Canal do Encarregado de Dados (DPO), art. 41 da LGPD. */
   dpoEmail: process.env.NEXT_PUBLIC_PRX_DPO_EMAIL || "privacidade@prx.app.br",
-  supportEmail: process.env.NEXT_PUBLIC_PRX_SUPPORT_EMAIL || "contato@prx.app.br",
+  supportEmail: process.env.NEXT_PUBLIC_PRX_SUPPORT_EMAIL || "suporte@prx.app.br",
   domain: "prx.app.br",
   tagline: "the next pays",
 } as const;
