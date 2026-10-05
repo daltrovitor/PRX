@@ -1,6 +1,7 @@
 // Hello World
 import type { ReactNode } from "react";
 import { Notice } from "@/components/app/ui";
+import { APP_HOST } from "@/lib/domains";
 import type { FamilyState } from "@/lib/family/service";
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -25,7 +26,7 @@ export function familyNotice(state: FamilyState | null): ReactNode {
       <Notice tone="warning">
         {state.emancipation?.status === "rejected"
           ? `A emancipação não foi aprovada${state.emancipation.reviewNote ? `: ${state.emancipation.reviewNote}` : "."} Fale com o suporte ou peça ao seu responsável para abrir a Conta Pai.`
-          : "O vínculo com o responsável não foi aceito. Peça para ele abrir a Conta Pai em prx.app.br/sou-pai e aceitar o pedido."}
+          : `O vínculo com o responsável não foi aceito. Peça para ele abrir a Conta Pai em ${APP_HOST}/sou-pai e aceitar o pedido.`}
       </Notice>
     );
   }

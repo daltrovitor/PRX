@@ -32,7 +32,7 @@ async function call(method: "GET" | "POST" | "PUT", body?: unknown): Promise<{ o
   }
 }
 
-/** Equipe PRX: funcionários que validam ingressos e benefícios no portal staffprx. */
+/** Equipe PRX: funcionários que validam ingressos e benefícios no portal staff.prx.app.br. */
 export function AdminStaffTab() {
   const portalUrl = useStaffPortalUrl();
   const [staff, setStaff] = useState<StaffMember[]>([]);

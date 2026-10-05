@@ -2,6 +2,7 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react";
+import { PORTAL_LABELS } from "@/lib/domains";
 
 type Theme = "dark" | "light";
 
@@ -18,6 +19,9 @@ export type ThemeScope = "landing" | "app";
 
 const KEYS: Record<ThemeScope, string> = { landing: "prx-theme", app: "prx-app-theme-obsidian" };
 const DEFAULTS: Record<ThemeScope, Theme> = { landing: "dark", app: "dark" };
+
+/** Rótulos de host dos dashboards (admin, parceiro, equipe e insider, inclusive os antigos): abrem no escopo "app". A apresentação (show.) segue "landing". */
+const DASHBOARD_HOST_LABELS = [...PORTAL_LABELS.admin, ...PORTAL_LABELS.partner, ...PORTAL_LABELS.staff, ...PORTAL_LABELS.insider].join("|");
 
 interface ThemeContextType {
   theme: Theme;
@@ -60,7 +64,7 @@ export function ThemeScript() {
       var root = document.documentElement;
       try {
         var host = location.hostname, path = location.pathname;
-        var app = /^(adminprx|partnerprx|staffprx|adminng|partnerng)\\./.test(host) || /^\\/(admin|partner|staff|termos|privacidade|em-breve|sou-pai|teste|showcase)(\\/|$)/.test(path)
+        var app = /^(${DASHBOARD_HOST_LABELS})\\./.test(host) || /^\\/(admin|partner|staff|insider|termos|privacidade|em-breve|sou-pai|teste|showcase)(\\/|$)/.test(path)
           || /^(www\\.)?prx\\.app\\.br$/.test(host)
           || localStorage.getItem('prx_remember_me') === 'true' || sessionStorage.getItem('prx_tab_active') === 'true';
         // ?tema=obsidian (atalhos do /teste): liga o tema Obsidian dos dashboards nesta origem.
@@ -78,7 +82,7 @@ export function ThemeScript() {
     })();
   `;
 
-  // nosemgrep: prx-dangerous-html — script estático montado só com constantes do código (chaves e temas padrão), sem dado do usuário.
+  // nosemgrep: prx-dangerous-html — script estático montado só com constantes do código (chaves, temas padrão e rótulos de host), sem dado do usuário.
   return <script dangerouslySetInnerHTML={{ __html: scriptContent }} />;
 }
 

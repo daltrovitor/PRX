@@ -23,7 +23,7 @@ Data: 24/09/2026 · Repositório: `prx` (antigo `nxtgen`)
 - Todos os textos, metadados, manifest, e-mails de exemplo, chaves de armazenamento, cookie de sessão (`prx_session`), prefixos de voucher (`PRX-`) e payloads de QR (`PRX_PASS::`).
 - Compatibilidade com dados antigos: vouchers `NXTGEN_PASS::` e o marcador `nxt-meta` das missões continuam sendo lidos.
 - As **colunas do banco `nxt_score`, `nxt_level` e `min_nxt_level` foram mantidas**. Renomear exige migração no banco em produção (fica como próximo passo opcional).
-- Os subdomínios `adminprx.` e `partnerprx.` foram criados no roteamento. Os antigos `adminng.` e `partnerng.` continuam funcionando até o DNS ser trocado.
+- Os painéis têm subdomínio próprio no roteamento (hoje `admin.`, `partner.` e `staff.` em `prx.app.br`; ver `docs/DOMINIOS.md`). Os rótulos antigos (`adminprx.`, `partnerprx.`, `staffprx.`, `adminng.`, `partnerng.`) continuam aceitos até o DNS ser trocado.
 
 ### Modelo Padrão aplicado (tudo, menos o design da landing)
 - Fundo branco puro, grafite `#0b0b10`, **uma única cor de destaque** (violeta `#6c0cf0` extraído da logo), `::selection` na cor da marca e `cursor-pointer` em todos os controles.
@@ -54,8 +54,8 @@ Data: 24/09/2026 · Repositório: `prx` (antigo `nxtgen`)
 - **Perfil:** métricas, progresso, atalhos e saída.
 
 ### Painéis
-- **Admin** (`adminprx.`): KPIs no topo e tabelas de membros, benefícios, missões e vouchers, com edição em painéis laterais. A sessão é verificada no servidor (sem piscar tela de login).
-- **Parceiro** (`partnerprx.`): validador por câmera ou código, histórico e baixa com confirmação.
+- **Admin** (`admin.`): KPIs no topo e tabelas de membros, benefícios, missões e vouchers, com edição em painéis laterais. A sessão é verificada no servidor (sem piscar tela de login).
+- **Parceiro** (`partner.`): validador por câmera ou código, histórico e baixa com confirmação.
 - **Página 404** em perspectiva central.
 
 ---
@@ -110,8 +110,8 @@ Leitura honesta:
 3. **Nome "PRX BANK"**: a Res. Conjunta 16/2025 proíbe "bank"/"banco" para quem não é autorizado pelo BC. Definir PRX PAY, PRX Conta ou similar antes do lançamento (ver `docs/PLANO_BAAS.md`).
 4. **Planos pagos**: Vercel Pro (o Hobby proíbe uso comercial) e Supabase Pro. Ver `docs/INFRA_ESCALA.md`.
 5. Adicionar `JWT_SECRET_OR_HMAC_KEY` (32+ caracteres aleatórios) na Vercel. Hoje o segredo é derivado do service role, o que é seguro, mas uma chave dedicada permite rotacionar sem trocar o service role.
-6. Supabase Auth: incluir `https://prx.viraweb.online/auth/callback` (ou o domínio final) nas Redirect URLs e confirmar que o provedor Google está configurado.
-7. DNS: criar `prx`, `adminprx` e `partnerprx` e depois remover `nxtgen`, `adminng` e `partnerng`.
+6. Supabase Auth: incluir `https://teste.prx.app.br/**` nas Redirect URLs (e como Site URL) e confirmar que o provedor Google está configurado. Ver `docs/DOMINIOS.md`.
+7. DNS: criar `teste`, `admin`, `partner`, `staff`, `insider` e `show` em `prx.app.br` (ver `docs/DOMINIOS.md`) e depois remover os endereços antigos.
 8. Parceiro ↔ estabelecimento: hoje qualquer conta de parceiro valida vouchers de qualquer parceiro. Ligar o usuário parceiro ao `partner_id` e filtrar.
 9. PRX LIVE e FOUNDERS com backend: tabelas de eventos, ingressos e submissões, painel do organizador (portaria) e upload real do pitch deck no Storage.
 10. Rate limiting (Firewall da Vercel ou Upstash) e Sentry.

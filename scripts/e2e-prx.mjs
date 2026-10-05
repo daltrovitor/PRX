@@ -5,8 +5,8 @@ import { chromium, devices } from "playwright";
 import fs from "fs";
 
 const BASE = process.env.BASE || "http://localhost:3000";
-const ADMIN = BASE.replace("//localhost", "//adminprx.localhost");
-const PARTNER = BASE.replace("//localhost", "//partnerprx.localhost");
+const ADMIN = BASE.replace("//localhost", "//admin.localhost");
+const PARTNER = BASE.replace("//localhost", "//partner.localhost");
 const results = [];
 const errors = [];
 const ok = (name, cond, extra = "") => {

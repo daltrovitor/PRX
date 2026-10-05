@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 
 /*
  * Apresentação "PRX — The ecosystem for the next generation", servida em
- * show.viraweb.online (proxy.ts reescreve a raiz do subdomínio para /apresentacao).
+ * show.prx.app.br (proxy.ts reescreve a raiz do subdomínio para /apresentacao).
  * Mesma linguagem da landing: Lenis dentro do loop de quadros do Motion, cápsula
  * de vidro que troca de tom com a página, molas 300/28 e revelações na rolagem.
  * Navegação de apresentação: ↓ → PageDown e Espaço avançam; ↑ ← PageUp voltam;
@@ -88,7 +88,7 @@ export function PrxPresentation() {
     return () => observer.disconnect();
   }, [slides]);
 
-  // O endereço acompanha a página (compartilhar show.viraweb.online/#live abre no PRX LIVE).
+  // O endereço acompanha a página (compartilhar show.prx.app.br/#live abre no PRX LIVE).
   useEffect(() => {
     const id = slides[current]?.id;
     if (!id) return;

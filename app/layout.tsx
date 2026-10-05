@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Barlow, Bricolage_Grotesque, Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { APP_URL } from "@/lib/domains";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ThemeProvider, ThemeScript } from "@/components/theme-provider";
 import { ConfirmToastProvider } from "@/components/ui/confirm-toast";
@@ -52,7 +53,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://nxtgen.viraweb.online"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || APP_URL),
   title: {
     default: "PRX · the next pays",
     template: "%s · PRX",

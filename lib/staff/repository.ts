@@ -6,7 +6,7 @@ import { PartnerError, dbError } from "@/lib/partners/errors";
 
 /**
  * Equipe PRX: funcionários da própria PRX que validam ingressos e benefícios
- * no portal staffprx. O login tem papel "staff"; as permissões ficam aqui.
+ * no portal staff.prx.app.br. O login tem papel "staff"; as permissões ficam aqui.
  */
 export interface StaffMember {
   id: string;

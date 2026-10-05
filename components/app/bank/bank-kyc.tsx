@@ -9,6 +9,7 @@ import { DocumentPicker } from "@/components/family/document-picker";
 import { ProviderDisclosure } from "@/components/app/bank/provider-disclosure";
 import { postJson } from "@/components/family/family-client";
 import { maskCpfInput } from "@/lib/cpf-mask";
+import { APP_HOST } from "@/lib/domains";
 import { ageGroup } from "@/lib/family/age";
 import { INCOME_LABEL, INCOME_RANGES, type DocumentKind, type DocumentRef, type IncomeRange, type TeenPath } from "@/lib/family/types";
 import { UFS, bankKycSchema, type BankKycState, type Uf } from "@/lib/kyc/types";
@@ -370,7 +371,7 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
                       />
                     )}
                     {(group === "child" || minorPath === "linked") && (
-                      <Field label="E-mail do responsável (Conta Pai)" hint="Ainda não tem? Ele abre em prx.app.br/sou-pai.">
+                      <Field label="E-mail do responsável (Conta Pai)" hint={`Ainda não tem? Ele abre em ${APP_HOST}/sou-pai.`}>
                         {(id, hint) => <Input id={id} type="email" aria-describedby={hint} value={parentEmail} onChange={(e) => setParentEmail(e.target.value)} required />}
                       </Field>
                     )}

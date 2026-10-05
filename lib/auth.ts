@@ -126,7 +126,7 @@ class UserStore {
     };
     this.users.set(partnerUser.email, partnerUser);
 
-    // 4. Equipe PRX (role: 'staff'): valida ingressos e benefícios no portal staffprx
+    // 4. Equipe PRX (role: 'staff'): valida ingressos e benefícios no portal staff.prx.app.br
     const staffSalt = crypto.randomBytes(16).toString("hex");
     const staffUser: StoredUser = {
       id: "usr_demo_staff",
@@ -624,7 +624,7 @@ export async function verifyPartnerRequest(req?: NextRequest): Promise<{
 }
 
 /**
- * Sessão do portal da Equipe PRX (staffprx). Aceita papel "staff" e também
+ * Sessão do portal da Equipe PRX (staff.prx.app.br). Aceita papel "staff" e também
  * administradores, que validam ingressos e benefícios sem restrição.
  * As permissões finas do funcionário ficam em staff_members (lib/staff).
  */

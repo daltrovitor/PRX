@@ -1,28 +1,23 @@
 // Hello World
 import { NextRequest, NextResponse } from "next/server";
+import { PORTAL_ROUTES, PRX_ZONE, portalOfHost } from "./lib/domains";
 
 /**
- * Roteamento por subdomínio.
- *   adminprx.<domínio>   → /admin   (painel administrativo)
- *   partnerprx.<domínio> → /partner (portal do parceiro)
- *   staffprx.<domínio>   → /staff   (Equipe PRX: portaria de eventos e balcão)
- *   insider.<domínio>    → /insider (portal dos Insiders da Resenha: liberam os pedidos do próprio link)
- *   show.<domínio>       → /apresentacao (apresentação do ecossistema, show.viraweb.online)
- * Os prefixos adminng./partnerng. são os domínios anteriores ao rebrand e
+ * Roteamento por subdomínio (o mapa completo está em lib/domains.ts).
+ *   admin.<domínio>   → /admin        (painel administrativo)
+ *   partner.<domínio> → /partner      (portal do parceiro)
+ *   staff.<domínio>   → /staff        (Equipe PRX: portaria de eventos e balcão)
+ *   insider.<domínio> → /insider      (portal dos Insiders da Resenha: liberam os pedidos do próprio link)
+ *   show.<domínio>    → /apresentacao (apresentação do ecossistema)
+ * Os rótulos antigos (adminprx., partnerprx., staffprx., adminng., partnerng.)
  * continuam aceitos enquanto o DNS é migrado.
  *
  * prx.app.br (e www.) → /em-breve (teaser de lançamento com a Lista VIP).
+ * O app (cadastro, login, tudo) é o domínio principal, teste.prx.app.br: ali o app é só "/".
  * /teste (e o atalho /showcase) é a vitrine aberta da identidade Obsidian.
  * /resenha/... (link do Insider e página do convidado) é público em qualquer domínio, inclusive no teaser.
  * Outros hosts de teaser podem ser adicionados em PRX_TEASER_HOSTS (vírgula).
  */
-const SUBDOMAIN_ROUTES: ReadonlyArray<{ prefixes: readonly string[]; path: "/admin" | "/partner" | "/staff" | "/insider" | "/apresentacao" }> = [
-  { prefixes: ["adminprx.", "adminng."], path: "/admin" },
-  { prefixes: ["partnerprx.", "partnerng."], path: "/partner" },
-  { prefixes: ["staffprx."], path: "/staff" },
-  { prefixes: ["insider."], path: "/insider" },
-  { prefixes: ["show."], path: "/apresentacao" },
-];
 
 /** Páginas públicas com rota própria no domínio principal (o app continua sendo só "/"). */
 const PUBLIC_PAGES = new Set(["/termos", "/privacidade", "/em-breve", "/sou-pai", "/teste", "/showcase"]);
@@ -38,7 +33,7 @@ function isTeaserHost(host: string): boolean {
     .split(",")
     .map((h) => h.trim().toLowerCase())
     .filter(Boolean);
-  return name === "prx.app.br" || name === "www.prx.app.br" || extra.includes(name);
+  return name === PRX_ZONE || name === `www.${PRX_ZONE}` || extra.includes(name);
 }
 
 export function proxy(req: NextRequest) {
@@ -55,10 +50,10 @@ export function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const match = SUBDOMAIN_ROUTES.find(({ prefixes }) => prefixes.some((prefix) => host.startsWith(prefix)));
+  const portal = portalOfHost(host);
   const url = req.nextUrl.clone();
 
-  if (!match && isTeaserHost(host)) {
+  if (!portal && isTeaserHost(host)) {
     if (pathname === "/" || pathname === "") {
       url.pathname = "/em-breve";
       return NextResponse.rewrite(url);
@@ -68,9 +63,9 @@ export function proxy(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (match) {
+  if (portal) {
     if (pathname === "/" || pathname === "") {
-      url.pathname = match.path;
+      url.pathname = PORTAL_ROUTES[portal];
       return NextResponse.rewrite(url);
     }
     url.pathname = "/";

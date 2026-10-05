@@ -52,9 +52,9 @@ const THEME_QUERY = "/?tema=obsidian";
 
 const DASHBOARDS: ReadonlyArray<{ panel: PanelPrefix | null; title: string; body: string }> = [
   { panel: null, title: "App do membro", body: "Início, PRX Pass, Destaques, PRX Bank e PRX Live. Contas de responsável abrem a Conta Pai." },
-  { panel: "adminprx", title: "Painel Admin", body: "Membros, parceiros, benefícios, eventos e finanças." },
-  { panel: "partnerprx", title: "Portal do Parceiro", body: "Validação de vouchers, eventos, contratos e métricas." },
-  { panel: "staffprx", title: "Equipe PRX", body: "Portaria dos eventos e balcão de benefícios." },
+  { panel: "admin", title: "Painel Admin", body: "Membros, parceiros, benefícios, eventos e finanças." },
+  { panel: "partner", title: "Portal do Parceiro", body: "Validação de vouchers, eventos, contratos e métricas." },
+  { panel: "staff", title: "Equipe PRX", body: "Portaria dos eventos e balcão de benefícios." },
 ];
 
 const ZOOM = { min: 0.6, max: 1.4, step: 0.05 } as const;
@@ -71,7 +71,7 @@ export function ObsidianShowcase() {
   const [fullscreen, setFullscreen] = useState(false);
   const [hidden, setHidden] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
-  const panelUrls: Record<PanelPrefix, string> = { adminprx: usePanelUrl("adminprx"), partnerprx: usePanelUrl("partnerprx"), staffprx: usePanelUrl("staffprx") };
+  const panelUrls: Record<PanelPrefix, string> = { admin: usePanelUrl("admin"), partner: usePanelUrl("partner"), staff: usePanelUrl("staff") };
   const dashboardHref = (panel: PanelPrefix | null) => (panel ? panelUrls[panel] : "") + THEME_QUERY;
 
   const closeFullscreen = useCallback(() => {

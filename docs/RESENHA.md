@@ -7,10 +7,10 @@ Festa com **Host**, **Insiders** e **lista de acesso**. Cada edição é um even
 
 | Quem | Onde | O que faz |
 |---|---|---|
-| Admin | `adminprx` → aba **Resenha** | Cria a edição (Host, data, local, lotação), adiciona os Insiders com cota de PASSes, abre e fecha a lista e decide pedidos no lugar de qualquer Insider |
+| Admin | `admin.prx.app.br` → aba **Resenha** | Cria a edição (Host, data, local, lotação), adiciona os Insiders com cota de PASSes, abre e fecha a lista e decide pedidos no lugar de qualquer Insider |
 | Insider | `insider.prx.app.br` | Vê o link dele, os PASSes que restam e os pedidos que chegaram pelo link. Libera, diz "ainda não" ou remove da lista |
 | Convidado | `prx.app.br/resenha/001?i=<código>` | Pede acesso (nome, e-mail, nascimento 18+; WhatsApp e Instagram são opcionais). Acompanha em `/resenha/lista/<token>` |
-| Equipe PRX | `staffprx` (portaria) | Lê o QR do ingresso. O evento já nasce com "equipe na portaria" ligado |
+| Equipe PRX | `staff.prx.app.br` (portaria) | Lê o QR do ingresso. O evento já nasce com "equipe na portaria" ligado |
 
 - **Numeração:** `001`, `002`… é o endereço público e o título: "RESENHA 001 — DA BIA".
 - **Hierarquia:** tipo `insider` (elenco fixo) ou `guest` (Guest Insider, muda a cada edição). O Host é só o nome da edição; se ele também for liberar gente, entra como Insider.
@@ -23,8 +23,8 @@ Festa com **Host**, **Insiders** e **lista de acesso**. Cada edição é um even
 ## Colocar no ar
 
 1. **Banco:** aplique `supabase/migrations/20261005_prx_resenha.sql` (série `resenha`, modelo de e-mail no registro de envios e as tabelas `resenha_*`, só service role).
-2. **Domínio:** na Vercel, adicione `insider.prx.app.br` ao projeto e crie o CNAME no DNS do `prx.app.br`. O `proxy.ts` leva o subdomínio `insider.` para o portal.
-3. **Variável (recomendado):** `RESENHA_PUBLIC_URL=https://prx.app.br`. Sem ela, o link sai do host de quem pediu (`insider.prx.app.br` → `prx.app.br`; painéis do admin viram `prx.<domínio>`). Com ela, o link é o mesmo para o admin e para os Insiders.
+2. **Domínio:** na Vercel, adicione `insider.prx.app.br` ao projeto e crie o CNAME no DNS do `prx.app.br`. O `proxy.ts` leva o subdomínio `insider.` para o portal. O mapa completo dos domínios está em [DOMINIOS.md](DOMINIOS.md).
+3. **Variável (opcional):** `RESENHA_PUBLIC_URL`. Sem ela, o link sai em `https://prx.app.br` para qualquer host da PRX (o admin, o app e os Insiders veem o mesmo link; em desenvolvimento, o próprio localhost). Só defina para apontar a Resenha para outro domínio.
 4. **E-mail:** o aviso "Você tá na lista" usa o Resend (ver [NOTIFICACOES.md](NOTIFICACOES.md)). Sem `RESEND_API_KEY`, o desenvolvimento simula e a produção só registra `skipped`. A página do convidado funciona de qualquer forma.
 5. **Operação:** no admin, **Nova edição** → **Adicionar Insider** (um por pessoa) → mude a situação para **Lista aberta** → copie os links.
 

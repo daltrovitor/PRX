@@ -70,16 +70,23 @@ describe("entradas do admin", () => {
 });
 
 describe("links públicos", () => {
-  it("a base sai do host: o portal insider.* aponta para o domínio principal", () => {
-    expect(resenhaBaseUrl("insider.prx.app.br", "https")).toBe("https://prx.app.br");
-    expect(resenhaBaseUrl("insider.localhost:3100", "http")).toBe("http://localhost:3100");
-    expect(resenhaBaseUrl("prx.viraweb.online")).toBe("https://prx.viraweb.online");
-    // painéis nunca viram o endereço público
-    expect(resenhaBaseUrl("adminprx.viraweb.online", "https")).toBe("https://prx.viraweb.online");
-    expect(resenhaBaseUrl("staffprx.viraweb.online")).toBe("https://prx.viraweb.online");
-    expect(resenhaBaseUrl("adminprx.localhost:3100")).toBe("http://localhost:3100");
+  it("a base é sempre o domínio principal, qualquer que seja o portal de origem", () => {
+    for (const host of ["prx.app.br", "insider.prx.app.br", "teste.prx.app.br", "admin.prx.app.br", "partner.prx.app.br", "staff.prx.app.br", "show.prx.app.br"]) {
+      expect(resenhaBaseUrl(host)).toBe("https://prx.app.br");
+    }
+    // endereços antigos (antes de prx.app.br) também caem no domínio principal
+    expect(resenhaBaseUrl("adminprx.viraweb.online")).toBe("https://prx.app.br");
+    expect(resenhaBaseUrl("prx.viraweb.online")).toBe("https://prx.app.br");
     expect(resenhaBaseUrl(null)).toBe("https://prx.app.br");
     expect(resenhaBaseUrl("evil host/x")).toBe("https://prx.app.br");
+    expect(resenhaBaseUrl("127.0.0.1/evil")).toBe("https://prx.app.br");
+  });
+
+  it("em desenvolvimento a base é o próprio localhost, sem o rótulo do portal", () => {
+    for (const host of ["localhost:3100", "insider.localhost:3100", "admin.localhost:3100", "staff.localhost:3100", "adminprx.localhost:3100"]) {
+      expect(resenhaBaseUrl(host)).toBe("http://localhost:3100");
+    }
+    expect(resenhaBaseUrl("127.0.0.1:3100")).toBe("http://127.0.0.1:3100");
   });
 
   it("RESENHA_PUBLIC_URL tem prioridade", () => {

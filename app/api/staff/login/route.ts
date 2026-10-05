@@ -27,7 +27,7 @@ async function accountFor(email: string): Promise<{ id: string; name: string; ro
 }
 
 /**
- * POST /api/staff/login — portal da Equipe PRX (staffprx).
+ * POST /api/staff/login — portal da Equipe PRX (staff.prx.app.br).
  * Entra funcionário com cadastro ativo na equipe ou administrador.
  * Sessão de 12h: um turno de portaria.
  */

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { LIQUID, SPRING_UI, Specular, rise } from "@/components/marketing/landing/landing-kit";
 
 /*
- * Peças da apresentação PRX (show.viraweb.online), na mesma linguagem da landing:
+ * Peças da apresentação PRX (show.prx.app.br), na mesma linguagem da landing:
  * palco obsidiana com névoa violeta e cobalto, vidro líquido, títulos monumentais
  * em Barlow caixa alta e revelações por mola (300/28) ligadas à rolagem.
  * Cada página tem um tom fixo — "night" (breu) ou "day" (branco) — e os

@@ -8,8 +8,9 @@
  */
 
 import { COMPANY } from "@/lib/company";
+import { APP_URL } from "@/lib/domains";
 
-export const DEFAULT_SITE_URL = "https://prx.viraweb.online";
+export const DEFAULT_SITE_URL = APP_URL;
 export const DEFAULT_EMAIL_FROM = "PRX <noreply@prx.app.br>";
 
 const clean = (value: string | undefined): string => (value ?? "").trim();

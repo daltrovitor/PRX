@@ -23,7 +23,7 @@ async function fromStaffSession(staffUser: Parameters<typeof requireStaffActor>[
   return { role: "staff", userId: actor.userId, name: actor.name, canValidateTickets: actor.canValidateTickets, canValidateBenefits: actor.canValidateBenefits };
 }
 
-/** Sessão do portal da equipe (staffprx): funcionário ativo ou admin. */
+/** Sessão do portal da equipe (staff.prx.app.br): funcionário ativo ou admin. */
 export async function requireStaffValidator(req: NextRequest): Promise<Validator> {
   const auth = await verifyStaffRequest(req);
   if (!auth.authorized || !auth.staffUser) throw new PartnerError(auth.error || "Acesso negado.", auth.status === 401 ? 401 : 403);

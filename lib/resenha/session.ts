@@ -16,7 +16,7 @@ export const NOT_INSIDER = "Esta conta não é de um Insider. Fale com a equipe 
 
 /** Base pública a partir do host da requisição (insider.prx.app.br → prx.app.br). */
 export function baseUrlFor(headers: Pick<Headers, "get">): string {
-  return resenhaBaseUrl(headers.get("host"), headers.get("x-forwarded-proto"));
+  return resenhaBaseUrl(headers.get("host"));
 }
 
 export async function resolveInsiderAuth(baseUrl: string, req?: NextRequest): Promise<InsiderAuthResult> {

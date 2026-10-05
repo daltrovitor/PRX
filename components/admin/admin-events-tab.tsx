@@ -419,7 +419,7 @@ function EventForm({ event, partners, onSaved }: { event: LiveEvent | null; part
         )}
       </Field>
       <div className="flex items-end">
-        <Checkbox label="Equipe PRX valida ingressos" hint="Funcionários com permissão de ingressos validam pelo portal staffprx." checked={draft.staffCheckin} onChange={(v) => set("staffCheckin", v)} />
+        <Checkbox label="Equipe PRX valida ingressos" hint="Funcionários com permissão de ingressos validam pelo portal da Equipe PRX." checked={draft.staffCheckin} onChange={(v) => set("staffCheckin", v)} />
       </div>
 
       <h3 className={section}>Lotação e regras</h3>

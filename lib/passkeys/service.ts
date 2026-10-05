@@ -10,6 +10,7 @@ import {
   type AuthenticatorTransportFuture,
   type RegistrationResponseJSON,
 } from "@simplewebauthn/server";
+import { PRX_ZONE, isPrxZoneHost } from "@/lib/domains";
 import { getSessionSecret } from "@/lib/server-secrets";
 import { getPasskeyRepository, type PasskeyRecord } from "@/lib/passkeys/repository";
 
@@ -76,14 +77,17 @@ export const challengeCookie = (value: string) => ({
 });
 
 /**
- * RP ID e origem esperados. Por padrão, o próprio host da requisição (a
- * biometria fica presa ao domínio em que foi cadastrada); podem ser fixados por
- * PRX_WEBAUTHN_RP_ID e PRX_WEBAUTHN_ORIGINS (vírgula) atrás de proxies.
+ * RP ID e origem esperados. Em prx.app.br o RP ID é o próprio domínio, não o
+ * subdomínio: a biometria cadastrada em teste.prx.app.br continua valendo quando o
+ * app trocar de subdomínio (ou for para o apex). Fora dele (localhost, previews) é o
+ * host da requisição, preso ao endereço em que foi cadastrada. PRX_WEBAUTHN_RP_ID e
+ * PRX_WEBAUTHN_ORIGINS (vírgula) fixam os dois atrás de proxies.
  */
 export function relyingParty(req: NextRequest): { rpID: string; origins: string[] } {
   const host = (req.headers.get("x-forwarded-host") || req.headers.get("host") || req.nextUrl.host).split(",")[0].trim().toLowerCase();
   const proto = (req.headers.get("x-forwarded-proto") || req.nextUrl.protocol.replace(":", "")).split(",")[0].trim();
-  const rpID = process.env.PRX_WEBAUTHN_RP_ID || host.split(":")[0];
+  const hostname = host.split(":")[0];
+  const rpID = process.env.PRX_WEBAUTHN_RP_ID || (isPrxZoneHost(hostname) ? PRX_ZONE : hostname);
   const configured = (process.env.PRX_WEBAUTHN_ORIGINS || "")
     .split(",")
     .map((o) => o.trim())

@@ -28,7 +28,7 @@ async function fetchStaffAuth(): Promise<StaffAuthResult> {
   return { status: "unauthenticated" };
 }
 
-/** Portal da Equipe PRX (staffprx): valida ingressos e benefícios conforme as permissões do funcionário. */
+/** Portal da Equipe PRX (staff.prx.app.br): valida ingressos e benefícios conforme as permissões do funcionário. */
 export function StaffApp({ initial }: { initial: StaffAuthResult }) {
   useThemeScope("app");
   const [auth, setAuth] = useState<StaffAuthResult>(initial);

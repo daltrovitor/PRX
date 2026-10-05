@@ -16,7 +16,7 @@ Tudo mora em `lib/notifications/` (canais, modelos e registro de envios) e `lib/
 | `PRX_EMAIL_FROM` | Remetente, com domínio verificado no Resend. Padrão `PRX <noreply@prx.app.br>` |
 | `PRX_EMAIL_REPLY_TO` | Para onde vão as respostas. Padrão: o e-mail de suporte (`suporte@prx.app.br`) |
 | `NEXT_PUBLIC_PRX_SUPPORT_EMAIL` | Contato de suporte no site, nos Termos e no rodapé do e-mail. Padrão `suporte@prx.app.br` |
-| `PRX_EMAIL_ASSETS_URL` | De onde o e-mail carrega as imagens de `/email` (padrão: `NEXT_PUBLIC_SITE_URL`, senão `https://prx.viraweb.online`) |
+| `PRX_EMAIL_ASSETS_URL` | De onde o e-mail carrega as imagens de `/email` (padrão: `NEXT_PUBLIC_SITE_URL`, senão `https://teste.prx.app.br`) |
 | `WHATSAPP_ACCESS_TOKEN` | Token permanente de um usuário de sistema da conta WhatsApp Business |
 | `WHATSAPP_PHONE_NUMBER_ID` | *Phone Number ID* do número remetente (não é o número) |
 | `WHATSAPP_OTP_TEMPLATE` | Nome do template de autenticação aprovado. Padrão `prx_codigo_verificacao` |

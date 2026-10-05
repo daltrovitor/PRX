@@ -10,7 +10,7 @@ O PRX BANK opera contas de pagamento individualizadas como subcontas white label
    - `BANK_PROVIDER=asaas`, `ASAAS_ENVIRONMENT` (`sandbox` ou `production`) e `ASAAS_API_KEY`. A chave precisa ser do mesmo ambiente: `$aact_hmlg_` no sandbox e `$aact_prod_` em produção. Se não for, a integração fica desligada. No `.env.local`, escreva `\$aact_...`, porque o Next expande o `$`.
    - `ASAAS_API_URL` (opcional): só aceita hosts oficiais do Asaas e caminho terminando em `/v3`.
    - `ASAAS_WEBHOOK_AUTH_TOKEN`: 32+ caracteres. É conferido em tempo constante no header `asaas-access-token`.
-   - `ASAAS_WEBHOOK_URL_EVENTS` e `ASAAS_WEBHOOK_URL_VALIDATE_WITHDRAW` (ou `NEXT_PUBLIC_APP_URL`), mais `ASAAS_WEBHOOK_EMAIL` (ou o e-mail de resposta, `suporte@prx.app.br`; nunca o `noreply`).
+   - `ASAAS_WEBHOOK_URL_EVENTS` e `ASAAS_WEBHOOK_URL_VALIDATE_WITHDRAW` (ou `NEXT_PUBLIC_APP_URL`; pode ser `https://prx.app.br`, porque o `/api/*` responde em todos os domínios da PRX), mais `ASAAS_WEBHOOK_EMAIL` (ou o e-mail de resposta, `suporte@prx.app.br`; nunca o `noreply`).
    - `BANK_ENCRYPTION_KEY`: 32+ caracteres. Cifra as apiKeys das subcontas (AES-256-GCM). Depois de abrir contas, não troque a chave. O texto cifrado guarda qual chave foi usada.
 3. No painel do Asaas, em Integrações → Mecanismos de segurança, ligue a validação de saque apontando para `/api/bank/webhooks/validate-withdraw` com o mesmo token. Em subcontas, confirme com o gerente de contas como a configuração é replicada.
 
