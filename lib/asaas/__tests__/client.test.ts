@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { AsaasClient, retryAfterMs } from "@/lib/asaas/client";
+import { hideProviderName } from "@/lib/asaas/errors";
 import { asaasChecklist, cleanApiKey, readAsaasConfig, resolveBaseUrl, webhookTokenMatches, webhookUrls } from "@/lib/asaas/config";
 import { AsaasError, toPartnerError } from "@/lib/asaas/errors";
 
@@ -200,5 +201,13 @@ describe("configuração colada com erros comuns", () => {
     expect(key).toMatchObject({ ok: false, hint: expect.stringContaining("sandbox") });
     expect(JSON.stringify(checks)).not.toContain("segredo123");
     expect(checks.find((c) => c.label.startsWith("BANK_ENCRYPTION_KEY"))?.ok).toBe(false);
+  });
+});
+
+describe("nome do parceiro escondido do membro", () => {
+  it("troca o nome do provedor por banco parceiro nos textos que vêm dele", () => {
+    expect(hideProviderName("Saldo insuficiente na sua conta Asaas.")).toBe("Saldo insuficiente na sua conta banco parceiro.");
+    expect(hideProviderName("Taxa do ASAAS Gestão Financeira Instituição de Pagamento S.A.")).toBe("Taxa do banco parceiro");
+    expect(hideProviderName("Pix recebido")).toBe("Pix recebido");
   });
 });

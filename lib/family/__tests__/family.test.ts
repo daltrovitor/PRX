@@ -312,6 +312,20 @@ describe("abertura do PRX BANK (KYC bancário)", () => {
     await expect(autoApproveBankKyc(teen.id)).resolves.toMatchObject({ status: "approved", reviewedBy: "auto" });
   });
 
+  it("menor emancipado tem a abertura aprovada na hora: a certidão segue para o banco parceiro, não para o PRX", async () => {
+    const teen = person();
+    const input = kycInput(teen.id, nextCpf(), "2009-10-10", {
+      minorPath: "emancipated",
+      documents: [
+        { kind: "id_front", path: `${teen.id}/f.jpg`, name: "" },
+        { kind: "id_back", path: `${teen.id}/b.jpg`, name: "" },
+        { kind: "emancipation_certificate", path: `${teen.id}/e.pdf`, name: "" },
+      ],
+    });
+    const app = await submitBankKyc(teen, input, { ip: IP, userAgent: "" }, NOW);
+    expect(app).toMatchObject({ status: "approved", reviewedBy: "auto", minorPath: "emancipated", riskFlags: expect.arrayContaining(["minor", "emancipation"]) });
+  });
+
   it("Conta Pai não abre conta bancária", async () => {
     const { user } = await registerParent({ fullName: "Pai Teste", email: `p${uniq()}@prx.dev`, password: "Senha1234", cpf: nextCpf(), birthDate: "1979-03-03", phone: "11988887777" }, NOW);
     const parent = { id: user.id, email: user.email, fullName: user.fullName };

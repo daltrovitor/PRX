@@ -62,6 +62,13 @@ export function AdminBankStatus() {
           redeploy e clique em Verificar.
         </p>
       )}
+      {status?.accounts && (
+        <p className="rounded-2xl border border-line bg-surface/50 p-4 text-[13px] leading-relaxed text-muted-foreground">
+          <span className="font-semibold text-ink">Contas abertas no banco parceiro:</span> {status.accounts.production} em produção e {status.accounts.sandbox} no sandbox. Eventos
+          recebidos: {status.accounts.events}. Se produção está em 0, nenhum dado de cliente foi enviado ao banco parceiro de verdade. O histórico de cada chamada fica no painel do
+          Asaas, em Integrações → Logs de Requisições.
+        </p>
+      )}
       {status && (
         <ul className="divide-y divide-line">
           {status.checks.map((check) => (

@@ -128,7 +128,8 @@ export async function submitBankKyc(
 export async function autoApproveBankKyc(userId: string): Promise<BankKycApplication | null> {
   const app = await kycRepo().latestForUser(userId);
   if (app?.status !== "pending") return app;
-  if (app.riskFlags.includes("minor") && !(await guardianReady(app.userId, app.birthDate))) return app;
+  // Menor emancipado não espera o PRX: a certidão vai ao banco parceiro, que confere e aprova a conta.
+  if (app.riskFlags.includes("minor") && app.minorPath !== "emancipated" && !(await guardianReady(app.userId, app.birthDate))) return app;
   return (await kycRepo().decide(app.id, "approved", AUTO_NOTE, AUTO_REVIEWER)) ?? app;
 }
 

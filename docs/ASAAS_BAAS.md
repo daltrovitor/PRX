@@ -44,6 +44,18 @@ Com `ASAAS_ENVIRONMENT=production`, o modo sandbox não liga, mesmo que `PRX_BAA
 | Saldo e extrato | `GET /api/bank/balance`, `GET /api/bank/statement` | `/v3/finance/balance`, `/v3/financialTransactions` |
 | Avisos | webhook `POST /api/bank/webhooks/asaas` → `bank_notifications` → sino e toast no app | eventos `PAYMENT_*`, `TRANSFER_*`, `BILL_*` |
 
+## Menores de idade e emancipação
+
+O banco parceiro tem o tipo de documento `EMANCIPATION_OF_MINORS` e só abre conta de menor emancipado (16 e 17 anos). Não há caminho documentado para conta de menor mantida pelo responsável.
+
+- Menor emancipado: a abertura é aprovada na hora (sem análise do PRX), a subconta abre com a certidão de emancipação enviada ao grupo `EMANCIPATION_OF_MINORS` e, quando o banco parceiro aprova, a conta vira comum no PRX (sem limites de menor).
+- Menor vinculado ao responsável (Conta Família) ou com menos de 16 anos: `openSubaccount` responde 409 e a conta fica em ativação. Nada é enviado ao banco parceiro.
+- A Conta Pai e as mesadas com dinheiro real dependem dessa regra: confirme com o banco parceiro antes de prometer Conta Família.
+
+## Desativar as contas existentes
+
+Aplique `supabase/migrations/20261004_prx_bank_deactivate_sandbox_accounts.sql` (depois da `20261001_prx_asaas_baas.sql`). Ela volta para "em ativação" toda conta que não esteja ligada a uma subconta de produção (saldo, agência, número e cartão do sandbox são zerados). Contas bloqueadas ficam como estão e nada é apagado. O admin mostra em Financeiro quantas contas já foram abertas no banco parceiro.
+
 ## Contas criadas antes da produção
 
 Ao abrir o PRX BANK com `ASAAS_ENVIRONMENT=production`:

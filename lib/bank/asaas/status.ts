@@ -15,6 +15,8 @@ export interface BankStatus {
   live: boolean;
   environment: "sandbox" | "production" | null;
   checks: AsaasCheck[];
+  /** Contas abertas no banco parceiro (null = não deu para consultar). */
+  accounts: { production: number; sandbox: number; events: number } | null;
   /** Versão publicada (commit da Vercel), para saber se o deploy novo já entrou. */
   version: string | null;
 }
@@ -51,9 +53,24 @@ async function connectionCheck(): Promise<AsaasCheck> {
   }
 }
 
+async function accountCounts(): Promise<BankStatus["accounts"]> {
+  if (!supabaseAdmin) return null;
+  const count = async (query: PromiseLike<{ count: number | null; error: unknown }>) => {
+    const { count: n, error } = await query;
+    return error ? null : (n ?? 0);
+  };
+  const created = () => supabaseAdmin!.from("bank_subaccounts").select("id", { count: "exact", head: true }).not("asaas_account_id", "is", null);
+  const [production, sandbox, events] = await Promise.all([
+    count(created().eq("environment", "production")),
+    count(created().eq("environment", "sandbox")),
+    count(supabaseAdmin.from("bank_webhooks_log").select("id", { count: "exact", head: true })),
+  ]);
+  return production === null || sandbox === null || events === null ? null : { production, sandbox, events };
+}
+
 export async function bankStatus(): Promise<BankStatus> {
   const config = readAsaasConfig();
   const checks = [supabaseCheck(), ...asaasChecklist(), await migrationCheck(), await connectionCheck()];
   const sha = (process.env.VERCEL_GIT_COMMIT_SHA ?? "").trim();
-  return { live: config !== null && checks.every((c) => c.ok), environment: config?.environment ?? null, checks, version: sha ? sha.slice(0, 7) : null };
+  return { live: config !== null && checks.every((c) => c.ok), environment: config?.environment ?? null, checks, accounts: await accountCounts(), version: sha ? sha.slice(0, 7) : null };
 }

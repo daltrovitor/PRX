@@ -128,6 +128,44 @@ describe("webhook de aprovação da conta", () => {
   });
 });
 
+describe("menores de idade e emancipação", () => {
+  const minorKyc = (minorPath: "linked" | "emancipated") =>
+    approvedKyc({
+      birthDate: "2009-10-10",
+      minorPath,
+      riskFlags: ["minor"],
+      documents: [
+        { kind: "id_front", path: `${USER_ID}/id_front-1.png`, name: "" },
+        { kind: "id_back", path: `${USER_ID}/id_back-1.png`, name: "" },
+        { kind: "emancipation_certificate", path: `${USER_ID}/emancipation-1.pdf`, name: "" },
+      ],
+    });
+
+  it("menor sem emancipação não abre conta e nada é enviado ao banco parceiro", async () => {
+    const { client, calls } = fakeAsaas({ "POST /accounts": { body: CREATED } });
+    const { deps } = testDeps(client, minorKyc("linked"));
+    await expect(openSubaccount(USER_ID, deps)).rejects.toMatchObject({ status: 409, message: expect.stringContaining("emancipação") });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("menor emancipado abre conta, manda a certidão ao banco parceiro e vira conta comum quando ele aprova", async () => {
+    const groups = {
+      rejectReasons: null,
+      data: [
+        { id: "grp-id", status: "NOT_SENT", type: "IDENTIFICATION", title: "Documento com foto", documents: [] },
+        { id: "grp-emancipation", status: "NOT_SENT", type: "EMANCIPATION_OF_MINORS", title: "Emancipação", documents: [] },
+      ],
+    };
+    const { client, calls } = fakeAsaas({ "POST /accounts": { body: CREATED }, "GET /myAccount/documents": { body: groups }, "POST /myAccount/documents/*": { body: {} } });
+    const { deps } = testDeps(client, minorKyc("emancipated"));
+    await openSubaccount(USER_ID, deps);
+    await expect(forwardKycDocuments(USER_ID, deps)).resolves.toBe(3);
+    const uploads = calls.filter((c) => c.method === "POST" && c.path.startsWith("/myAccount/documents/"));
+    expect(uploads.map((c) => c.path)).toEqual(["/myAccount/documents/grp-id", "/myAccount/documents/grp-id", "/myAccount/documents/grp-emancipation"]);
+    expect((uploads[2].body as FormData).get("type")).toBe("EMANCIPATION_OF_MINORS");
+  });
+});
+
 describe("documentos da subconta", () => {
   const groups = {
     rejectReasons: null,

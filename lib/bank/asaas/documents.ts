@@ -27,8 +27,11 @@ export interface DocumentGroupView {
 const DONE = new Set(["APPROVED", "AWAITING_APPROVAL"]);
 const UPLOAD_TYPES = new Set(["image/jpeg", "image/png", "application/pdf"]);
 const MAX_BYTES = 10 * 1024 * 1024;
-/** Documentos do KYC do PRX que servem para o grupo IDENTIFICATION do Asaas. */
-const IDENTIFICATION_KINDS: readonly DocumentKind[] = ["id_front", "id_back"];
+/** Documentos do KYC do PRX e o grupo do banco parceiro a que cada conjunto serve (a emancipação só vale para menores). */
+const FORWARDED_GROUPS: ReadonlyArray<{ type: string; kinds: readonly DocumentKind[] }> = [
+  { type: "IDENTIFICATION", kinds: ["id_front", "id_back"] },
+  { type: "EMANCIPATION_OF_MINORS", kinds: ["emancipation_certificate"] },
+];
 
 function view(group: DocumentGroup): DocumentGroupView {
   return {
@@ -52,22 +55,25 @@ export async function subaccountDocuments(userId: string, deps: AsaasDeps): Prom
   }
 }
 
-/** Reaproveita a frente e o verso do documento enviados no KYC do PRX. Devolve quantos arquivos foram enviados. */
+/** Reaproveita os documentos enviados na abertura (frente e verso; certidão de emancipação do menor). Devolve quantos arquivos foram enviados. */
 export async function forwardKycDocuments(userId: string, deps: AsaasDeps): Promise<number> {
   const { apiKey } = await requireSubaccount(userId, deps);
   const app = await deps.latestKyc(userId);
-  const files = (app?.documents ?? []).filter((d) => IDENTIFICATION_KINDS.includes(d.kind));
-  if (files.length === 0) return 0;
+  const documents = app?.documents ?? [];
+  if (!documents.some((d) => FORWARDED_GROUPS.some((g) => g.kinds.includes(d.kind)))) return 0;
   try {
     const docs = await listDocuments(deps.client, apiKey);
-    const target = docs.data.find((g) => g.type === "IDENTIFICATION" && !DONE.has(g.status.toUpperCase()) && !g.onboardingUrl);
-    if (!target) return 0;
     let sent = 0;
-    for (const ref of files) {
-      const file = await deps.readDocument(ref.path);
-      if (!file) continue;
-      await uploadDocument(deps.client, apiKey, target.id, target.type, file.blob, file.filename);
-      sent += 1;
+    for (const group of FORWARDED_GROUPS) {
+      const files = documents.filter((d) => group.kinds.includes(d.kind));
+      const target = docs.data.find((g) => g.type === group.type && !DONE.has(g.status.toUpperCase()) && !g.onboardingUrl);
+      if (files.length === 0 || !target) continue;
+      for (const ref of files) {
+        const file = await deps.readDocument(ref.path);
+        if (!file) continue;
+        await uploadDocument(deps.client, apiKey, target.id, target.type, file.blob, file.filename);
+        sent += 1;
+      }
     }
     return sent;
   } catch (err) {

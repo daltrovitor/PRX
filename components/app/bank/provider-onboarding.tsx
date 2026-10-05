@@ -91,8 +91,8 @@ export function ProviderOnboarding({ provider, onChanged }: { provider: BankProv
       <div className="space-y-4 rounded-3xl glass p-5 sm:p-6">
         <h2 className="text-xl font-semibold tracking-[-0.02em] text-ink">Abrir sua conta de pagamento</h2>
         <p className="text-[15px] leading-relaxed text-muted-foreground">
-          Abrimos a conta em seu nome no banco parceiro (Asaas) com os dados e os documentos que você enviou. O Asaas confere tudo e aprova a conta, em geral em até 2
-          dias úteis.
+          Abrimos a conta em seu nome com o nosso banco parceiro, usando os dados e os documentos que você enviou. O banco parceiro confere tudo e aprova a conta, em geral em
+          até 2 dias úteis.
         </p>
         <Button
           className="min-h-12"

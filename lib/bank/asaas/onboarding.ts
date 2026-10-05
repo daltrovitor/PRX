@@ -13,6 +13,8 @@ import { bankMessage } from "@/lib/bank/asaas/messages";
 import { ACTIVATION_REQUIRED } from "@/lib/prx/bank";
 import type { Subaccount, SubaccountKycStatus, SubaccountStatus } from "@/lib/bank/asaas/types";
 import { createCustomer } from "@/lib/asaas/pix";
+import { ageOn } from "@/lib/family/age";
+import { getFamilyRepository } from "@/lib/family/repository";
 import { ensureDefaultPixKey } from "@/lib/bank/asaas/cash-in";
 import type { AsaasClient } from "@/lib/asaas/client";
 import { asaasDeps } from "@/lib/bank/asaas/deps";
@@ -109,12 +111,17 @@ async function approvedKyc(userId: string, deps: AsaasDeps): Promise<BankKycAppl
   throw new PartnerError("Sua abertura de conta não foi aprovada. Revise os dados na aba PRX BANK e envie de novo.", 403);
 }
 
+export const MINOR_NEEDS_EMANCIPATION =
+  "Contas de menores de 18 anos só podem ser abertas com emancipação (a partir dos 16 anos). Enquanto isso, sua conta fica em ativação.";
+
 /** Cria a subconta no Asaas (idempotente: quem já tem conta recebe a situação atual). */
 export async function openSubaccount(userId: string, deps: AsaasDeps): Promise<SubaccountView> {
   await assertCanHoldMoney(userId);
   const app = await approvedKyc(userId, deps);
   const existing = await currentSubaccount(userId, deps);
   if (existing?.asaasAccountId) return subaccountView(existing);
+  // O banco parceiro só abre conta de menor emancipado (e pede a certidão de emancipação).
+  if (ageOn(app.birthDate, deps.now()) < 18 && app.minorPath !== "emancipated") throw new PartnerError(MINOR_NEEDS_EMANCIPATION, 409);
 
   const webhook = subaccountWebhook();
   // Sem como cifrar a chave, nem chama o Asaas: a apiKey só vem uma vez.
@@ -174,6 +181,19 @@ export async function requireActiveSubaccount(userId: string, deps: AsaasDeps): 
 type GeneralStatus = "APPROVED" | "REJECTED" | "PENDING" | "AWAITING_APPROVAL";
 
 /**
+ * Menor emancipado cuja conta o banco parceiro aprovou (ele conferiu a certidão
+ * de emancipação): vira conta comum no PRX, sem os limites de menor.
+ */
+async function liftEmancipatedMinor(userId: string, deps: AsaasDeps): Promise<void> {
+  const app = await deps.latestKyc(userId);
+  if (app?.minorPath !== "emancipated") return;
+  const family = getFamilyRepository();
+  const request = await family.latestEmancipation(userId).catch(() => null);
+  if (request?.status === "pending") await family.decideEmancipation(request.id, "approved", "Certidão aprovada pelo banco parceiro.", "banco parceiro");
+  await family.updateIdentity(userId, { accountType: "member", status: "active" });
+}
+
+/**
  * Aplica a aprovação geral do Asaas: aprovada ativa a conta (e o extrato,
  * Pix e boletos); reprovada pede novo envio de documentos. Avisa o membro uma
  * vez por mudança.
@@ -185,6 +205,7 @@ export async function applyGeneralApproval(sub: Subaccount, status: GeneralStatu
     const now = deps.now().toISOString();
     const saved = await deps.store.saveSubaccount(sub.userId, { status: "active", kycStatus: "APPROVED", rejectReason: null });
     await deps.mirror.setAccountStatus(sub.userId, "active", now);
+    await liftEmancipatedMinor(sub.userId, deps).catch((err: unknown) => console.warn("[bank] emancipação não atualizada:", err instanceof Error ? err.message : err));
     const msg = bankMessage("account_approved");
     await deps.store.insertNotification({ userId: sub.userId, eventType: "ACCOUNT_STATUS_GENERAL_APPROVAL_APPROVED", ...msg, amount: null, eventId: `account:${sub.asaasAccountId}:approved` });
     return saved;

@@ -1,6 +1,6 @@
 // Hello World
 import { z } from "zod";
-import { toPartnerError } from "@/lib/asaas/errors";
+import { hideProviderName, toPartnerError } from "@/lib/asaas/errors";
 import { getBalance, listFinancialTransactions, type FinancialTransaction } from "@/lib/asaas/finance";
 import type { AsaasDeps } from "@/lib/bank/asaas/deps";
 import { requireActiveSubaccount } from "@/lib/bank/asaas/onboarding";
@@ -69,8 +69,8 @@ export function toStatementItem(tx: FinancialTransaction): StatementItem {
     direction: tx.value >= 0 ? "in" : "out",
     amount: Math.round(Math.abs(tx.value) * 100) / 100,
     balance: tx.balance,
-    label: TYPE_LABEL[tx.type] ?? tx.description ?? "Lançamento",
-    description: tx.description ?? "",
+    label: TYPE_LABEL[tx.type] ?? hideProviderName(tx.description ?? "") ?? "Lançamento",
+    description: hideProviderName(tx.description ?? ""),
     date: tx.date,
   };
 }

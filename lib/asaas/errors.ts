@@ -40,6 +40,11 @@ export function parseErrorItems(body: unknown): AsaasErrorItem[] {
   }));
 }
 
+/** O membro não vê o nome do parceiro: textos que vêm do provedor trocam o nome por "banco parceiro". */
+export function hideProviderName(text: string): string {
+  return text.replace(/\basaas(?:\s+gest[aã]o\s+financeira(?:\s+institui[cç][aã]o\s+de\s+pagamento(?:\s+s\.?a\.?)?)?)?/gi, "banco parceiro");
+}
+
 /**
  * Converte um erro do Asaas no erro de regra que as rotas do PRX já sabem
  * responder. Recusas de negócio (400) chegam ao membro com a descrição do
@@ -49,7 +54,7 @@ export function toPartnerError(error: unknown, fallback = "Não foi possível co
   if (error instanceof PartnerError) return error;
   if (!(error instanceof AsaasError)) return new PartnerError(fallback, 500);
   if (error.ambiguous) return new PartnerError("O banco parceiro demorou para responder. Confira o extrato antes de tentar de novo.", 503);
-  if (error.status === 400) return new PartnerError(error.message || fallback, 422);
+  if (error.status === 400) return new PartnerError(hideProviderName(error.message) || fallback, 422);
   if (error.status === 404) return new PartnerError("Registro não encontrado no banco parceiro.", 404);
   if (error.status === 429) return new PartnerError("Muitas operações em sequência. Aguarde alguns segundos.", 429);
   if (error.status === 401 || error.status === 403) console.warn("[asaas] credencial recusada:", error.status, error.code);
