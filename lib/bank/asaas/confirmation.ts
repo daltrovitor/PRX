@@ -1,6 +1,7 @@
 // Hello World
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { isPublicSupabaseKey } from "@/lib/supabase/client";
 import type { AuthenticationResponseJSON } from "@simplewebauthn/server";
 import { z } from "zod";
 import { PartnerError } from "@/lib/partners/errors";
@@ -37,7 +38,7 @@ export async function confirmationOffer(req: NextRequest, userId: string, reques
 async function verifyPassword(email: string, password: string): Promise<void> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.URL || "";
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.ANON_KEY || "";
-  if (!url || !anon.startsWith("eyJ")) throw new PartnerError("Confirmação por senha indisponível neste ambiente.", 503);
+  if (!url || !isPublicSupabaseKey(anon)) throw new PartnerError("Confirmação por senha indisponível neste ambiente.", 503);
   const client = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } });
   const { error } = await client.auth.signInWithPassword({ email, password });
   if (error) throw new PartnerError("Senha incorreta. Quem entra só com o Google ativa a biometria no Perfil para confirmar operações.", 401);

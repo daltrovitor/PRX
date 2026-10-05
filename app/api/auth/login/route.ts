@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { userStore, createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/lib/auth";
 import { checkRateLimit, sanitizeInput } from "@/lib/security";
-import { supabaseAdmin } from "@/lib/supabase/client";
+import { isPublicSupabaseKey, supabaseAdmin } from "@/lib/supabase/client";
 import { createClient } from "@supabase/supabase-js";
 import { errorMessage } from "@/lib/errors";
 import { asMemberRole, type SessionCookieOptions } from "@/lib/db-rows";
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.URL || "https://ltiizrewiranhyrzbwds.supabase.co";
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.ANON_KEY || "";
 
-    if (supabaseUrl && supabaseAnonKey && supabaseAnonKey.startsWith("eyJ")) {
+    if (supabaseUrl && supabaseAnonKey && isPublicSupabaseKey(supabaseAnonKey)) {
       try {
         const client = createClient(supabaseUrl, supabaseAnonKey);
         const { data: signInData, error: signInError } = await client.auth.signInWithPassword({

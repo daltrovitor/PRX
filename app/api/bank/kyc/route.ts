@@ -7,6 +7,8 @@ import { bankKycSchema } from "@/lib/kyc/types";
 import { bankKycState, submitBankKyc } from "@/lib/kyc/service";
 import { body, familyErrorResponse, invalid, requireUser } from "@/lib/family/http";
 import { asaasActiveFor } from "@/lib/bank/asaas/deps";
+import { getAsaasBankStore } from "@/lib/bank/asaas/store";
+import { readAsaasConfig } from "@/lib/asaas/config";
 import { errorMessage } from "@/lib/errors";
 
 const NO_STORE = { "Cache-Control": "no-store" };
@@ -19,6 +21,16 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     return familyErrorResponse(error, "Erro ao carregar a abertura de conta.");
   }
+}
+
+/** Dá para refazer a abertura enquanto a conta não existe no banco parceiro deste ambiente. */
+async function canRedo(userId: string): Promise<boolean> {
+  const config = readAsaasConfig();
+  if (!config) return true;
+  const sub = await getAsaasBankStore()
+    .getSubaccount(userId)
+    .catch(() => null);
+  return !(sub?.asaasAccountId && sub.environment === config.environment);
 }
 
 /**
@@ -34,7 +46,7 @@ export async function POST(req: NextRequest) {
     if (!rate.allowed) throw new PartnerError(`Muitas tentativas. Tente em ${rate.resetInSeconds}s.`, 429);
     const parsed = bankKycSchema.safeParse(await body(req));
     if (!parsed.success) invalid(parsed.error.issues);
-    const app = await submitBankKyc(user, parsed.data, { ip: clientIp(req), userAgent: req.headers.get("user-agent") ?? "" });
+    const app = await submitBankKyc(user, parsed.data, { ip: clientIp(req), userAgent: req.headers.get("user-agent") ?? "" }, new Date(), { allowRedo: await canRedo(user.id) });
     let providerError: string | null = null;
     if (app.status === "approved" && asaasActiveFor(user.id)) {
       try {

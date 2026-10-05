@@ -8,6 +8,7 @@ import { useAppNav } from "@/components/app/app-nav";
 import { useBankAccount, useHiddenBalance, usePointsWallet, type ActionResult, type PartnerReward } from "@/components/app/use-prx-stores";
 import { PrxMap } from "@/components/app/bank/prx-map";
 import { BankKycPanel } from "@/components/app/bank/bank-kyc";
+import { ActivationPanel } from "@/components/app/bank/activation-panel";
 import { BillPanel, ProviderPixPanel } from "@/components/app/bank/outgoing";
 import { ProviderStatement } from "@/components/app/bank/provider-statement";
 import { NIGHT_LIMIT_HINT } from "@/components/app/bank/provider-disclosure";
@@ -108,6 +109,8 @@ export function BankScreen({ member }: { member: User }) {
         </div>
         {account.status === "blocked" && <Notice tone="warning">Conta bloqueada. Fale com o suporte PRX para entender o motivo.</Notice>}
       </header>
+
+      {account.status === "pending_activation" && <ActivationPanel account={account} member={member} onChanged={reload} />}
 
       <section aria-label="Carteira Central" className="grid gap-6 md:grid-cols-12 md:items-end">
         <BalanceFigure
@@ -546,9 +549,15 @@ function KeysPanel({ account, run }: { account: BankAccountView; run: Run }) {
   return (
     <section aria-label="Chaves Pix" className="grid gap-10 lg:grid-cols-12 pb-36 lg:pb-8">
       <form onSubmit={(e) => void add(e)} className="space-y-5 lg:col-span-5">
+        {viaProvider && (
+          <p className="text-[13px] leading-relaxed text-muted-foreground">
+            As chaves são registradas no Pix (DICT) pelo banco parceiro (Asaas), que pelo app só cria chave aleatória: até 5 por conta, com 1 minuto entre uma e outra.
+            Chave de CPF, e-mail ou celular não pode ser criada pela integração.
+          </p>
+        )}
         {waitingApproval ? (
           <p className="text-[13px] leading-relaxed text-muted-foreground">
-            Sua chave Pix é criada assim que o banco parceiro aprovar sua conta. Avisamos aqui no app.
+            Sua primeira chave é criada assim que o banco parceiro aprovar sua conta. Avisamos aqui no app.
           </p>
         ) : (
           account.status === "pending_activation" && (

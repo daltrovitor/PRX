@@ -42,14 +42,12 @@ export async function accountView(userId: string): Promise<BankAccountView> {
 
   if (isAsaas) {
     try {
-      // Pedidos que ficaram "em análise" antes da aprovação automática seguem agora.
+      // Pedidos que ficaram "em análise" antes da aprovação automática seguem agora. A conta no
+      // Asaas só abre quando o membro envia a abertura ou toca em "Abrir conta": dados e documentos
+      // antigos (às vezes de teste) nunca vão sozinhos ao banco parceiro.
       const { autoApproveBankKyc } = await import("@/lib/kyc/service");
-      const app = await autoApproveBankKyc(userId);
+      await autoApproveBankKyc(userId);
       const deps = asaasDeps();
-      if (app?.status === "approved") {
-        const { ensureAsaasCustomerAndAccount } = await import("@/lib/bank/asaas/onboarding");
-        await ensureAsaasCustomerAndAccount(userId, deps);
-      }
       const { reconcileLegacyAccount } = await import("@/lib/bank/asaas/legacy");
       if (await reconcileLegacyAccount(userId, account, deps)) account = await repo.getOrCreateAccount(userId);
     } catch (err) {

@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { userStore } from "@/lib/auth";
 import { isReservedAdminEmail } from "@/lib/admin-allowlist";
-import { supabaseAdmin } from "@/lib/supabase/client";
+import { isPublicSupabaseKey, supabaseAdmin } from "@/lib/supabase/client";
 import type { ProfileRow } from "@/lib/db-rows";
 import { PartnerError } from "@/lib/partners/errors";
 
@@ -125,7 +125,7 @@ export async function verifyAccountPassword(rawEmail: string, password: string):
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.URL || "";
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.ANON_KEY || "";
-  if (url && anonKey.startsWith("eyJ")) {
+  if (url && isPublicSupabaseKey(anonKey)) {
     const client = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data, error } = await client.auth.signInWithPassword({ email, password });
     if (!error && data.user) {

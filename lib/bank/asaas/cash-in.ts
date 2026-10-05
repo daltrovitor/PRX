@@ -40,7 +40,7 @@ export async function providerPixKeys(userId: string, deps: AsaasDeps): Promise<
 export async function createProviderPixKey(userId: string, type: PixKeyType, deps: AsaasDeps): Promise<PixKey> {
   const { apiKey } = await requireActiveSubaccount(userId, deps);
   if (type !== "random") {
-    throw new PartnerError("Pelo app, o banco parceiro registra a chave aleatória. Chaves de CPF, e-mail e celular entram em uma próxima versão.", 422);
+    throw new PartnerError("Pelo app, o banco parceiro (Asaas) só registra chave aleatória. Chave de CPF, e-mail ou celular não pode ser criada pela integração.", 422);
   }
   try {
     const keys = (await listPixKeys(deps.client, apiKey)).map(toPixKey).filter(Boolean);

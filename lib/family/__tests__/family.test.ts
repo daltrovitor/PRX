@@ -278,9 +278,13 @@ describe("abertura do PRX BANK (KYC bancário)", () => {
     // Sem análise do PRX: aprovada na hora, os documentos seguem para o Asaas.
     const app = await submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01", { pep: true }), { ip: IP, userAgent: "Mozilla/5.0" }, NOW);
     expect(app).toMatchObject({ status: "approved", reviewedBy: "auto", ip: IP, riskFlags: ["pep"] });
-    await expect(submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW)).rejects.toThrow(/já foi aprovada/);
+    await expect(submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW)).rejects.toThrow(/já foi aberta/);
+    // Antes de a conta existir no banco parceiro, dá para trocar dados e documentos (ex.: fotos de teste), mas não o CPF.
+    await expect(submitBankKyc(u, kycInput(u.id, nextCpf(), "2000-01-01"), { ip: IP, userAgent: "" }, NOW, { allowRedo: true })).rejects.toThrow(/CPF informado é diferente/);
+    const redone = await submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW, { allowRedo: true });
+    expect(redone).toMatchObject({ status: "approved", reviewedBy: "auto" });
     // O admin ainda pode recusar (ex.: fraude): o membro reenvia com os mesmos CPF e nascimento.
-    await reviewBankKyc(app.id, "reject", "Documento ilegível", "admin@prx.dev");
+    await reviewBankKyc(redone.id, "reject", "Documento ilegível", "admin@prx.dev");
     await expect(submitBankKyc(u, kycInput(u.id, nextCpf(), "2000-01-01"), { ip: IP, userAgent: "" }, NOW)).rejects.toThrow(/CPF informado é diferente/);
     await expect(submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW)).resolves.toMatchObject({ status: "approved" });
     const other = person();

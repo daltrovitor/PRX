@@ -6,20 +6,34 @@ const supabaseUrl =
   process.env.URL ||
   "https://ltiizrewiranhyrzbwds.supabase.co";
 
-const supabaseAnonKey =
+const supabaseAnonKey = (
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   process.env.ANON_KEY ||
-  "";
+  ""
+).trim();
 
-const supabaseServiceRoleKey =
+const supabaseServiceRoleKey = (
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.SERVICE_ROLE_KEY ||
-  "";
+  ""
+).trim();
 
-export const isLiveConfigured =
-  Boolean(supabaseAnonKey) &&
-  !supabaseAnonKey.includes("placeholder") &&
-  supabaseAnonKey.startsWith("eyJ");
+/**
+ * Chave pública do Supabase: a anon (JWT legado, "eyJ...") ou a publishable
+ * ("sb_publishable_..."), que substitui a anon até o fim de 2026.
+ */
+export function isPublicSupabaseKey(key: string): boolean {
+  const k = key.trim();
+  return !k.includes("placeholder") && (k.startsWith("eyJ") || k.startsWith("sb_publishable_"));
+}
+
+/** Chave de servidor do Supabase: a service_role (JWT legado) ou a secret ("sb_secret_..."). */
+export function isSecretSupabaseKey(key: string): boolean {
+  const k = key.trim();
+  return k.startsWith("eyJ") || k.startsWith("sb_secret_");
+}
+
+export const isLiveConfigured = isPublicSupabaseKey(supabaseAnonKey);
 
 export const isUsingLiveSupabase = isLiveConfigured;
 
@@ -30,7 +44,7 @@ export const supabase = isLiveConfigured
 
 // Server / Admin SDK for secure direct user creation without email confirmation
 export const supabaseAdmin =
-  supabaseServiceRoleKey && supabaseServiceRoleKey.startsWith("eyJ")
+  isSecretSupabaseKey(supabaseServiceRoleKey)
     ? createClient(supabaseUrl, supabaseServiceRoleKey, {
         auth: {
           autoRefreshToken: false,

@@ -19,9 +19,21 @@ export interface BankStatus {
   version: string | null;
 }
 
+function supabaseCheck(): AsaasCheck {
+  const label = "Acesso do servidor ao Supabase (SUPABASE_SERVICE_ROLE_KEY)";
+  if (supabaseAdmin) return { label, ok: true, hint: null };
+  const raw = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "").trim();
+  const problem = raw ? "O valor não é uma chave de servidor do Supabase (ela começa com sb_secret_ ou eyJ)." : "A variável está vazia.";
+  return {
+    label,
+    ok: false,
+    hint: `${problem} Use a secret key (sb_secret_...) ou a service_role do Supabase. Sem ela, contas, PRX Coins e o banco caem numa memória temporária e o Asaas não liga.`,
+  };
+}
+
 async function migrationCheck(): Promise<AsaasCheck> {
   const label = "Migração do PRX BANK no Supabase";
-  if (!supabaseAdmin) return { label, ok: false, hint: "Defina SUPABASE_SERVICE_ROLE_KEY." };
+  if (!supabaseAdmin) return { label, ok: false, hint: "Depende do acesso ao Supabase (item acima)." };
   const { error } = await supabaseAdmin.from("bank_subaccounts").select("id").limit(1);
   if (!error) return { label, ok: true, hint: null };
   return { label, ok: false, hint: isMissingTable(error) ? "Aplique supabase/migrations/20261001_prx_asaas_baas.sql." : `Supabase respondeu: ${error.message}` };
@@ -41,7 +53,7 @@ async function connectionCheck(): Promise<AsaasCheck> {
 
 export async function bankStatus(): Promise<BankStatus> {
   const config = readAsaasConfig();
-  const checks = [...asaasChecklist(), await migrationCheck(), await connectionCheck()];
+  const checks = [supabaseCheck(), ...asaasChecklist(), await migrationCheck(), await connectionCheck()];
   const sha = (process.env.VERCEL_GIT_COMMIT_SHA ?? "").trim();
   return { live: config !== null && checks.every((c) => c.ok), environment: config?.environment ?? null, checks, version: sha ? sha.slice(0, 7) : null };
 }

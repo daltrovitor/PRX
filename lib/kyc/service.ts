@@ -30,13 +30,24 @@ export { bankKycState } from "@/lib/kyc/guards";
 const AUTO_REVIEWER = "auto";
 const AUTO_NOTE = "Aprovação automática: documentos enviados direto ao banco parceiro.";
 
-export async function submitBankKyc(user: MemberRef, input: BankKycInput, meta: { ip: string | null; userAgent: string }, now = new Date()): Promise<BankKycApplication> {
+/**
+ * `allowRedo`: a conta ainda não existe no banco parceiro, então o membro pode
+ * trocar uma abertura já aprovada (ex.: enviou fotos de teste). CPF e nascimento
+ * continuam travados.
+ */
+export async function submitBankKyc(
+  user: MemberRef,
+  input: BankKycInput,
+  meta: { ip: string | null; userAgent: string },
+  now = new Date(),
+  options: { allowRedo?: boolean } = {}
+): Promise<BankKycApplication> {
   const identity = await familyRepo().getIdentity(user.id);
   if (identity?.accountType === "parent") throw new FamilyError(PARENT_NO_MONEY, 403);
 
   const latest = await kycRepo().latestForUser(user.id);
   if (latest?.status === "pending") throw new FamilyError("Sua abertura de conta já está em análise.", 409);
-  if (latest?.status === "approved") throw new FamilyError("Sua conta PRX BANK já foi aprovada.", 409);
+  if (latest?.status === "approved" && !options.allowRedo) throw new FamilyError("Sua conta PRX BANK já foi aberta no banco parceiro.", 409);
 
   // Documentos: só da própria pasta, com frente e verso do documento com foto.
   if (input.documents.some((d) => !ownsDocument(user.id, d))) throw new FamilyError("Documento inválido. Envie os arquivos de novo.", 422);
