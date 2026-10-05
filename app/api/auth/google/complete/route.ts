@@ -8,6 +8,7 @@ import { attachSession, publicUser } from "@/lib/accounts";
 import { PartnerError } from "@/lib/partners/errors";
 import { clientIp } from "@/lib/partners/http";
 import { sendWelcomeEmail } from "@/lib/notifications/welcome";
+import { signupBirthDateSchema } from "@/lib/family/age";
 import { cpfSchema, onlyDigits } from "@/lib/family/types";
 import { PENDING_GOOGLE_COOKIE, pendingGoogleCookie, verifyPendingGoogleToken } from "@/lib/google-pending";
 import { supabaseAdmin } from "@/lib/supabase/client";
@@ -22,6 +23,8 @@ const phoneSchema = z
 const CompleteSchema = z.object({
   cpf: cpfSchema,
   phone: phoneSchema,
+  // Idade mínima de 12 anos, a mesma do cadastro por e-mail.
+  birthDate: signupBirthDateSchema,
   termsAccepted: z.literal(true, { error: CONSENT_REQUIRED_MESSAGE }),
 });
 
@@ -50,7 +53,7 @@ async function whoIsCompleting(req: NextRequest): Promise<Person> {
 
 /**
  * POST /api/auth/google/complete — conclui o cadastro: só aqui a conta é gravada
- * (perfil com CPF, celular e aceite dos Termos). Antes disso não existe usuário
+ * (perfil com CPF, celular e aceite dos Termos, com idade mínima de 12 anos). Antes disso não existe usuário
  * no banco, então quem desiste no meio não vira "usuário fantasma".
  */
 // nosemgrep: prx-mutation-route-without-auth — conclusão do cadastro Google (cookie assinado do próprio fluxo ou sessão do membro)

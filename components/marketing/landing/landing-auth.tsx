@@ -3,7 +3,7 @@
 
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, ArrowRight, CreditCard, Eye, EyeOff, Loader2, Lock, Mail, Smartphone, User } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarDays, CreditCard, Eye, EyeOff, Loader2, Lock, Mail, Smartphone, User } from "lucide-react";
 import { TermsConsent } from "@/components/auth/terms-consent";
 import { PasswordChecklist } from "@/components/auth/password-checklist";
 import { PASSWORD_MISMATCH, passwordProblem } from "@/lib/password-policy";
@@ -86,6 +86,7 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
   const [signupStep, setSignupStep] = useState<1 | 2>(1);
   const [cpf, setCpf] = useState("");
   const [phone, setPhone] = useState("");
+  const [birthDate, setBirthDate] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -93,7 +94,7 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
   const [googleLoading, setGoogleLoading] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [forgotOpen, setForgotOpen] = useState(false);
-  const ids = { name: useId(), email: useId(), password: useId(), confirm: useId(), cpf: useId(), phone: useId(), status: useId() };
+  const ids = { name: useId(), email: useId(), password: useId(), confirm: useId(), cpf: useId(), phone: useId(), birth: useId(), birthHint: useId(), status: useId() };
 
   useModeFromLinks(setMode);
 
@@ -131,6 +132,10 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
       if (cleanPhone.length !== 10 && cleanPhone.length !== 11) {
         return setFeedback({ kind: "error", text: "Celular inválido. Informe o número com DDD." });
       }
+      // A idade mínima (12 anos) é conferida no servidor, que devolve a mensagem.
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
+        return setFeedback({ kind: "error", text: "Informe a sua data de nascimento." });
+      }
     }
 
     setFeedback(null);
@@ -141,7 +146,7 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
       const res =
         mode === "login"
           ? await login(email, password, rememberMe, termsAccepted)
-          : await signup(name, email, password, confirmPassword, cleanCpf, cleanPhone, termsAccepted);
+          : await signup(name, email, password, confirmPassword, cleanCpf, cleanPhone, birthDate, termsAccepted);
       if (res.success) {
         setFeedback({ kind: "success", text: mode === "login" ? "Login realizado. Bem-vindo de volta!" : "Conta criada. Bem-vindo ao PRX!" });
         window.setTimeout(() => onAuthenticated?.(), 400);
@@ -290,6 +295,26 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
                           className={FIELD}
                         />
                       </Field>
+
+                      <label htmlFor={ids.birth} className="sr-only">
+                        Data de nascimento
+                      </label>
+                      <Field icon={<CalendarDays className="h-4 w-4" />}>
+                        <input
+                          id={ids.birth}
+                          type="date"
+                          autoComplete="bday"
+                          required
+                          value={birthDate}
+                          onChange={(e) => setBirthDate(e.target.value)}
+                          aria-describedby={ids.birthHint}
+                          suppressHydrationWarning
+                          className={FIELD}
+                        />
+                      </Field>
+                      <p id={ids.birthHint} className="px-1 text-[12px] leading-relaxed text-[var(--rv-muted)]">
+                        Data de nascimento. O PRX é para quem tem 12 anos ou mais; quem tem menos de 18 precisa do responsável para abrir o PRX Bank.
+                      </p>
 
                       <p
                         id={ids.status}

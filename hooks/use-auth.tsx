@@ -40,7 +40,7 @@ interface AuthContextType {
   /** "Entrar com outra conta": encerra a sessão e esquece a conta lembrada neste aparelho. */
   forgetAccount: () => Promise<void>;
   /** Cadastro com CPF e celular obrigatórios: só salva o usuário com dados completos. */
-  signup: (fullName: string, email: string, pass: string, confirmPass: string, cpf: string, phone: string, termsAccepted?: boolean) => Promise<AuthResult>;
+  signup: (fullName: string, email: string, pass: string, confirmPass: string, cpf: string, phone: string, birthDate: string, termsAccepted?: boolean) => Promise<AuthResult>;
   loginWithGoogle: (rememberMe?: boolean, termsAccepted?: boolean) => Promise<AuthResult>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -216,12 +216,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signup = useCallback(
-    async (fullName: string, email: string, pass: string, confirmPass: string, cpf: string, phone: string, termsAccepted = false): Promise<AuthResult> => {
+    async (fullName: string, email: string, pass: string, confirmPass: string, cpf: string, phone: string, birthDate: string, termsAccepted = false): Promise<AuthResult> => {
       try {
         const res = await fetch("/api/auth/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fullName, email, password: pass, confirmPassword: confirmPass, cpf, phone, termsAccepted }),
+          body: JSON.stringify({ fullName, email, password: pass, confirmPassword: confirmPass, cpf, phone, birthDate, termsAccepted }),
         });
         const data = (await res.json()) as { user?: User; error?: string; code?: string | null };
         if (!res.ok || !data.user) return { success: false, error: data.error || "Falha ao criar conta", code: data.code ?? null };

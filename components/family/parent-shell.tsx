@@ -629,7 +629,9 @@ function NewChildSheet({ onClose, onDone }: { onClose: () => void; onDone: (chil
         <Field label="Nome completo">{(id) => <Input id={id} value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} required />}</Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="CPF do filho">{(id) => <Input id={id} inputMode="numeric" placeholder="000.000.000-00" value={form.cpf} onChange={(e) => setForm({ ...form, cpf: maskCpfInput(e.target.value) })} required />}</Field>
-          <Field label="Data de nascimento">{(id) => <Input id={id} type="date" value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} required className="cursor-pointer" />}</Field>
+          <Field label="Data de nascimento" hint="Contas PRX são para quem tem 12 anos ou mais.">
+            {(id, hint) => <Input id={id} aria-describedby={hint} type="date" value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} required className="cursor-pointer" />}
+          </Field>
         </div>
         <Field label="E-mail de acesso dele">{(id) => <Input id={id} type="email" autoComplete="off" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />}</Field>
         <Field label="Senha inicial" hint={`${PASSWORD_HINT} Combine com seu filho.`}>

@@ -45,12 +45,19 @@ export interface FamilyIdentity {
   updatedAt: string;
 }
 
-/** Faixas de idade da política PRX (horário de Brasília). */
-export type AgeGroup = "child" | "teen" | "adult" | "over";
-export const MIN_SELF_SIGNUP_AGE = 16;
+/**
+ * Faixas de idade da política PRX (horário de Brasília): menos de 12 não tem conta,
+ * 12–15 só com o responsável, 16–17 com o responsável ou emancipação, 18–29 conta comum.
+ */
+export type AgeGroup = "under" | "child" | "teen" | "adult" | "over";
+/** Idade mínima para ter conta PRX, mesmo com a autorização do responsável. */
+export const MIN_ACCOUNT_AGE = 12;
+/** A partir daqui o jovem pode escolher a emancipação em vez do responsável. */
+export const EMANCIPATION_AGE = 16;
 export const ADULT_AGE = 18;
 export const MAX_MEMBER_AGE = 29;
 
+export const UNDER_AGE_MESSAGE = `O PRX é para quem tem ${MIN_ACCOUNT_AGE} anos ou mais.`;
 export const PARENT_REQUIRED_MESSAGE = "Menores de 16 anos precisam do responsável: informe o e-mail da Conta Pai dele para vincular a conta.";
 export const OVER_AGE_MESSAGE = "O ecossistema PRX é exclusivo para jovens até 29 anos (Gerações Alpha e Z). Responsáveis podem abrir a Conta Pai.";
 export const CPF_TAKEN_MESSAGE = "Este CPF já está cadastrado no PRX. Entre com a conta existente ou fale com o suporte.";
@@ -65,7 +72,7 @@ export const cpfSchema = z
 
 /** Data no formato AAAA-MM-DD, real e no passado. */
 export const birthDateSchema = z
-  .string()
+  .string({ error: "Atualize a página e informe a data de nascimento." })
   .trim()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data de nascimento.")
   .refine((value) => {
@@ -75,8 +82,8 @@ export const birthDateSchema = z
   }, "Data de nascimento inválida.");
 
 /**
- * Caminho de quem tem menos de 18 anos: vínculo com o responsável (qualquer
- * idade) ou emancipação comprovada (só 16–17).
+ * Caminho de quem tem menos de 18 anos: vínculo com o responsável (de 12 a 17
+ * anos) ou emancipação comprovada (só 16–17).
  */
 export const TEEN_PATHS = ["linked", "emancipated"] as const;
 export type TeenPath = (typeof TEEN_PATHS)[number];

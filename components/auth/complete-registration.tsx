@@ -14,7 +14,7 @@ import { isValidCpf } from "@/lib/partners/documents";
 
 /*
  * Entrada com o Google sem cadastro completo: o app abre (cabeçalho, cristal e
- * saudação do dashboard) e pede CPF, celular e o aceite dos Termos. Só a
+ * saudação do dashboard) e pede CPF, celular, nascimento (mínimo de 12 anos) e o aceite dos Termos. Só a
  * conclusão grava a conta; "Cancelar" descarta tudo, sem usuário fantasma.
  */
 
@@ -61,6 +61,7 @@ export function CompleteRegistration({ person, mode }: { person: PendingPerson; 
   const { refreshUser, markUnlocked, logout } = useAuth();
   const [cpf, setCpf] = useState("");
   const [phone, setPhone] = useState("");
+  const [birthDate, setBirthDate] = useState("");
   const [terms, setTerms] = useState(false);
   const [busy, setBusy] = useState<"save" | "cancel" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +73,8 @@ export function CompleteRegistration({ person, mode }: { person: PendingPerson; 
     const cleanPhone = phone.replace(/\D/g, "");
     if (!isValidCpf(cleanCpf)) return setError("CPF inválido. Confira os 11 números.");
     if (cleanPhone.length !== 10 && cleanPhone.length !== 11) return setError("Informe o celular com DDD.");
+    // A idade mínima (12 anos) é conferida no servidor, que devolve a mensagem.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return setError("Informe a sua data de nascimento.");
     if (!terms) return setError("Aceite os Termos e a Política de Privacidade para concluir.");
     setBusy("save");
     setError(null);
@@ -79,7 +82,7 @@ export function CompleteRegistration({ person, mode }: { person: PendingPerson; 
       const res = await fetch("/api/auth/google/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cpf: cleanCpf, phone: cleanPhone, termsAccepted: true }),
+        body: JSON.stringify({ cpf: cleanCpf, phone: cleanPhone, birthDate, termsAccepted: true }),
       });
       const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string };
       if (!res.ok || !json.success) throw new Error(json.error || "Não foi possível concluir o cadastro.");
@@ -126,7 +129,7 @@ export function CompleteRegistration({ person, mode }: { person: PendingPerson; 
             Falta pouco para entrar
           </h1>
           <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
-            Confirme seu CPF e celular para liberar sua conta. Nada é salvo antes disso.
+            Confirme seu CPF, celular e data de nascimento para liberar sua conta. Nada é salvo antes disso.
           </p>
           <p className="mt-3 truncate text-[13px] text-muted-foreground">
             Google: <span className="font-medium text-ink">{person.email}</span>
@@ -140,6 +143,9 @@ export function CompleteRegistration({ person, mode }: { person: PendingPerson; 
             </Field>
             <Field label="Celular com DDD">
               {(id) => <Input id={id} type="tel" inputMode="tel" autoComplete="tel-national" placeholder="(11) 98888-7777" value={phone} onChange={(e) => setPhone(maskPhone(e.target.value))} required />}
+            </Field>
+            <Field label="Data de nascimento" hint="O PRX é para quem tem 12 anos ou mais. Menores de 18 precisam do responsável para abrir o PRX Bank.">
+              {(id, hint) => <Input id={id} aria-describedby={hint} type="date" autoComplete="bday" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} required className="cursor-pointer" />}
             </Field>
             <TermsConsent checked={terms} onChange={setTerms} />
             {error && <Notice tone="error">{error}</Notice>}

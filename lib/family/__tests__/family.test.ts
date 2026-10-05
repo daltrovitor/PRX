@@ -1,7 +1,7 @@
 // Hello World
-import { beforeEach, describe, expect, it } from "vitest";
-import { ageGroup, ageOn, maskCpf, nextAllowanceRun } from "@/lib/family/age";
-import { allowanceSchema, identityInputSchema, limitsSchema, missingParentDocuments } from "@/lib/family/types";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ageGroup, ageOn, maskCpf, nextAllowanceRun, signupBirthDateSchema } from "@/lib/family/age";
+import { UNDER_AGE_MESSAGE, allowanceSchema, identityInputSchema, limitsSchema, missingParentDocuments } from "@/lib/family/types";
 import { resetFamilyMemory, getFamilyRepository } from "@/lib/family/repository";
 import {
   assertMinorSpend,
@@ -80,6 +80,37 @@ describe("idade e CPF", () => {
     expect(ageGroup("1990-01-01", NOW)).toBe("over");
   });
 
+  it("12 anos é a idade mínima: o aniversário também vale à meia-noite de Brasília", () => {
+    expect(ageGroup("2014-09-28", NOW)).toBe("child");
+    expect(ageGroup("2014-09-29", NOW)).toBe("under");
+    expect(ageGroup("2020-01-01", NOW)).toBe("under");
+    expect(ageGroup("2014-09-28", new Date("2026-09-28T02:59:00Z"))).toBe("under");
+    expect(ageGroup("2014-09-28", new Date("2026-09-28T03:00:00Z"))).toBe("child");
+  });
+
+  it("cadastro: nascimento real e com pelo menos 12 anos", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(NOW);
+      expect(signupBirthDateSchema.safeParse("2014-09-28").success).toBe(true);
+      expect(signupBirthDateSchema.safeParse("2000-01-01").success).toBe(true);
+      const tooYoung = signupBirthDateSchema.safeParse("2014-09-29");
+      expect(tooYoung.success).toBe(false);
+      expect(tooYoung.error?.issues[0]?.message).toBe(UNDER_AGE_MESSAGE);
+      expect(signupBirthDateSchema.safeParse("2000-02-30").error?.issues[0]?.message).toBe("Data de nascimento inválida.");
+      expect(signupBirthDateSchema.safeParse("").error?.issues[0]?.message).toBe("Informe a data de nascimento.");
+      // Tela antiga (sem o campo) ou cliente de API: mensagem em português, não a do zod.
+      expect(signupBirthDateSchema.safeParse(undefined).error?.issues[0]?.message).toBe("Atualize a página e informe a data de nascimento.");
+      // 02:59 UTC do dia 28 ainda é dia 27 em Brasília: faltam horas para os 12 anos.
+      vi.setSystemTime(new Date("2026-09-28T02:59:00Z"));
+      expect(signupBirthDateSchema.safeParse("2014-09-28").success).toBe(false);
+      vi.setSystemTime(new Date("2026-09-28T03:00:00Z"));
+      expect(signupBirthDateSchema.safeParse("2014-09-28").success).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("valida CPF e data de nascimento", () => {
     expect(identityInputSchema.safeParse({ cpf: "529.982.247-25", birthDate: "2000-01-01" }).success).toBe(true);
     expect(identityInputSchema.safeParse({ cpf: "111.111.111-11", birthDate: "2000-01-01" }).success).toBe(false);
@@ -119,6 +150,14 @@ describe("cadastro com verificação de idade (memória)", () => {
     await expect(registerIdentity(member(), { cpf: nextCpf(), birthDate: "2012-05-01", teenPath: "emancipated" }, NOW)).rejects.toMatchObject({ code: "PARENT_REQUIRED" });
     const kid = await registerIdentity(member(), { cpf: nextCpf(), birthDate: "2012-05-01", teenPath: "linked", parentEmail: "mae@prx.dev" }, NOW);
     expect(kid).toMatchObject({ accountType: "minor", status: "link_pending" });
+  });
+
+  it("menor de 12 anos não tem conta, nem com o responsável; com 12 entra pelo vínculo", async () => {
+    const withParent = { teenPath: "linked" as const, parentEmail: "mae@prx.dev" };
+    await expect(registerIdentity(member(), { cpf: nextCpf(), birthDate: "2014-09-29", ...withParent }, NOW)).rejects.toMatchObject({ code: "UNDER_AGE", status: 403, message: UNDER_AGE_MESSAGE });
+    await expect(registerIdentity(member(), { cpf: nextCpf(), birthDate: "2020-01-01", ...withParent }, NOW)).rejects.toMatchObject({ code: "UNDER_AGE" });
+    const twelve = await registerIdentity(member(), { cpf: nextCpf(), birthDate: "2014-09-28", ...withParent }, NOW);
+    expect(twelve).toMatchObject({ accountType: "minor", status: "link_pending" });
   });
 
   it("16–17 precisa escolher o caminho; adulto entra como conta comum", async () => {
@@ -189,6 +228,20 @@ describe("Conta Pai: aprovação, filhos, mesada e limites (memória + sandbox)"
     await expect(registerParent({ fullName: "Jovem", email: `j${uniq()}@prx.dev`, password: "Senha1234", cpf, birthDate: "2010-01-01", phone: "11988887777" }, NOW)).rejects.toThrow(/maiores de 18/);
     await registerParent({ fullName: "Maria", email: `a${uniq()}@prx.dev`, password: "Senha1234", cpf, birthDate: "1980-01-01", phone: "11988887777" }, NOW);
     await expect(registerParent({ fullName: "João", email: `b${uniq()}@prx.dev`, password: "Senha1234", cpf, birthDate: "1981-01-01", phone: "11988887777" }, NOW)).rejects.toMatchObject({ code: "CPF_TAKEN" });
+  });
+
+  it("a abertura do PRX BANK recusa menor de 12 anos, mesmo com o e-mail do responsável", async () => {
+    const user = { id: `usr_${uniq()}`, email: `k${uniq()}@prx.dev`, fullName: "Jovem Teste" };
+    const input = kycInput(user.id, nextCpf(), "2014-09-29", { minorPath: "linked", parentEmail: "mae@prx.dev" });
+    await expect(submitBankKyc(user, input, { ip: IP, userAgent: "vitest" }, NOW)).rejects.toMatchObject({ code: "UNDER_AGE", status: 403 });
+  });
+
+  it("o responsável não cria conta de filho com menos de 12 anos", async () => {
+    const parent = await approvedParent();
+    const novo = (birthDate: string) => ({ fullName: "Filho Novo", email: `f${uniq()}@prx.dev`, password: "Senha1234", cpf: nextCpf(), birthDate, ...CONSENT });
+    await expect(createChildAccount(parent, novo("2014-09-29"), IP, NOW)).rejects.toMatchObject({ code: "UNDER_AGE", status: 422, message: UNDER_AGE_MESSAGE });
+    const { child } = await createChildAccount(parent, novo("2014-09-28"), IP, NOW);
+    expect(child.id).toBeTruthy();
   });
 
   it("cria a conta do filho, envia Pix, paga a mesada uma única vez e aplica limites", async () => {

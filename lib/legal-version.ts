@@ -4,7 +4,7 @@
  * Versão vigente dos Termos de Uso e da Política de Privacidade (LGPD).
  * Seguro para o navegador. Troque quando o texto de /termos ou /privacidade mudar.
  */
-export const TERMS_VERSION = "2026-09-27";
+export const TERMS_VERSION = "2026-10-05";
 
 /** Cookie curto que leva o aceite pelo redirecionamento do Google até o callback. */
 export const CONSENT_COOKIE = "prx_terms_consent";

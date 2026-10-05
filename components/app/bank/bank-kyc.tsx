@@ -11,7 +11,7 @@ import { postJson } from "@/components/family/family-client";
 import { maskCpfInput } from "@/lib/cpf-mask";
 import { APP_HOST } from "@/lib/domains";
 import { ageGroup } from "@/lib/family/age";
-import { INCOME_LABEL, INCOME_RANGES, type DocumentKind, type DocumentRef, type IncomeRange, type TeenPath } from "@/lib/family/types";
+import { INCOME_LABEL, INCOME_RANGES, UNDER_AGE_MESSAGE, type DocumentKind, type DocumentRef, type IncomeRange, type TeenPath } from "@/lib/family/types";
 import { UFS, bankKycSchema, type BankKycState, type Uf } from "@/lib/kyc/types";
 import { isValidCpf } from "@/lib/prx/pix";
 import { canUseBiometrics, registerPasskey } from "@/lib/passkeys/client";
@@ -176,6 +176,7 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
     if (dados.fullName.trim().split(/\s+/).length < 2) return setError("Informe o nome completo, com sobrenome.");
     if (!isValidCpf(cpf)) return setError("CPF inválido. Confira os 11 números.");
     if (!group) return setError("Informe a data de nascimento.");
+    if (group === "under") return setError(UNDER_AGE_MESSAGE);
     if (group === "over") return setError("O PRX BANK é para jovens até 29 anos.");
     if (dados.phone.replace(/\D/g, "").length !== 11) return setError("Informe o celular com DDD.");
     if (minor) {
@@ -352,6 +353,7 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
                 <Field label="Celular com DDD">
                   {(id) => <Input id={id} type="tel" inputMode="tel" autoComplete="tel-national" placeholder="(11) 98888-7777" value={dados.phone} onChange={(e) => setDados({ ...dados, phone: maskPhone(e.target.value) })} required />}
                 </Field>
+                {group === "under" && <Notice tone="warning">{UNDER_AGE_MESSAGE}</Notice>}
                 {minor && (
                   <div className="space-y-3 rounded-2xl bg-surface p-4">
                     <p className="text-[14px] leading-relaxed text-ink">

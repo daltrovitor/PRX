@@ -86,8 +86,9 @@ const sections: ReadonlyArray<LegalSection> = [
     title: "Crianças e adolescentes",
     body: (
       <p>
-        O tratamento de dados de crianças e adolescentes segue o melhor interesse deles (art. 14 da LGPD). Para menores de 12 anos, exigimos consentimento específico e
-        destacado de um dos pais ou responsável. Coletamos apenas o necessário para o serviço e não usamos esses dados para publicidade direcionada por perfil.
+        O tratamento de dados de adolescentes segue o melhor interesse deles (art. 14 da LGPD). A PRX não abre conta para menores de 12 anos: conferimos a data de
+        nascimento informada no cadastro e bloqueamos o cadastro abaixo dessa idade. De 12 a 17 anos, o uso da PRX pressupõe a autorização do responsável. Coletamos
+        apenas o necessário para o serviço e não usamos esses dados para publicidade direcionada por perfil.
       </p>
     ),
   },

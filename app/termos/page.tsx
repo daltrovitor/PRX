@@ -36,7 +36,7 @@ const sections: ReadonlyArray<LegalSection> = [
             <strong>Menores de 18 anos</strong> só usam a PRX com autorização e acompanhamento de pai, mãe ou responsável legal, que responde pelo uso da conta.
           </li>
           <li>
-            <strong>Menores de 12 anos</strong> dependem de consentimento específico e destacado de um dos pais ou responsável (art. 14 da LGPD).
+            <strong>Menores de 12 anos</strong> não podem criar conta na PRX, nem com a autorização de pai, mãe ou responsável. A idade mínima para se cadastrar é de 12 anos.
           </li>
           <li>A conta de pagamento do PRX BANK, quando ativada, segue as regras de idade da instituição financeira parceira.</li>
         </ul>

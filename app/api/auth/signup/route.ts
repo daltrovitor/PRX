@@ -7,6 +7,7 @@ import { attachSession, createAccount, publicUser } from "@/lib/accounts";
 import { PartnerError } from "@/lib/partners/errors";
 import { clientIp } from "@/lib/partners/http";
 import { sendWelcomeEmail } from "@/lib/notifications/welcome";
+import { signupBirthDateSchema } from "@/lib/family/age";
 import { cpfSchema, onlyDigits } from "@/lib/family/types";
 import { PASSWORD_MISMATCH, strongPasswordSchema } from "@/lib/password-policy";
 
@@ -24,14 +25,17 @@ const SignupSchema = z
   confirmPassword: z.string().max(128),
   cpf: cpfSchema,
   phone: phoneSchema,
+  // Idade mínima de 12 anos. De 12 a 17, abrir o PRX BANK exige a autorização do responsável (Conta Pai).
+  birthDate: signupBirthDateSchema,
   // LGPD: sem o aceite dos Termos e da Política de Privacidade não existe conta.
   termsAccepted: z.literal(true, { error: CONSENT_REQUIRED_MESSAGE }),
   })
   .refine((d) => d.password === d.confirmPassword, { message: PASSWORD_MISMATCH, path: ["confirmPassword"] });
 
 /**
- * Cadastro de membro: nome, e-mail, senha, CPF, celular e aceite dos Termos.
- * O usuário só é salvo quando cadastra CPF e telefone válidos.
+ * Cadastro de membro: nome, e-mail, senha, CPF, celular, nascimento (mínimo de
+ * 12 anos) e aceite dos Termos. O usuário só é salvo quando cadastra CPF,
+ * telefone e uma idade válida.
  */
 // nosemgrep: prx-mutation-route-without-auth — cadastro público com limite de tentativas; cria a própria conta
 export async function POST(req: NextRequest) {

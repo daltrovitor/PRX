@@ -18,10 +18,12 @@ import {
   CPF_TAKEN_MESSAGE,
   DEFAULT_MINOR_LIMITS,
   DOCUMENT_LABEL,
+  MIN_ACCOUNT_AGE,
   OVER_AGE_MESSAGE,
   PARENTAL_CONSENT_VERSION,
   type GuardianConsent,
   PARENT_REQUIRED_MESSAGE,
+  UNDER_AGE_MESSAGE,
   missingParentDocuments,
   type Allowance,
   type AllowanceInput,
@@ -38,7 +40,7 @@ import {
 /*
  * Regras das contas de família.
  *  - Antes de existir conta: idade (horário de Brasília) e CPF único.
- *  - <16: só pela Conta Pai. 16–17: Conta Filho (vinculada) ou emancipação com documentos.
+ *  - <12: sem conta (mesmo com o responsável). 12–15: só pela Conta Pai. 16–17: Conta Filho (vinculada) ou emancipação com documentos.
  *  - Conta Pai: controle, segurança e mesada. Não guarda dinheiro nem rende.
  *  - Menores: limites de gasto definidos pelo responsável, conferidos no servidor.
  */
@@ -51,7 +53,7 @@ export class FamilyError extends PartnerError {
   constructor(
     message: string,
     status: ConstructorParameters<typeof PartnerError>[1] = 400,
-    readonly code?: "PARENT_REQUIRED" | "OVER_AGE" | "CPF_TAKEN" | "TEEN_PATH_REQUIRED"
+    readonly code?: "PARENT_REQUIRED" | "UNDER_AGE" | "OVER_AGE" | "CPF_TAKEN" | "TEEN_PATH_REQUIRED"
   ) {
     super(message, status);
   }
@@ -63,13 +65,16 @@ export class FamilyError extends PartnerError {
 
 /**
  * Confere idade e caminho escolhido (usado na abertura do PRX BANK e no pedido
- * de vínculo com o responsável — o cadastro comum não pede idade).
- *   <16: só com o responsável (vínculo com a Conta Pai).
+ * de vínculo com o responsável). O cadastro comum só confere a idade mínima
+ * (signupBirthDateSchema, em age.ts).
+ *   <12: sem conta, nem com o responsável.
+ *   12–15: só com o responsável (vínculo com a Conta Pai).
  *   16–17: vínculo com o responsável ou emancipação comprovada.
  *   18–29: conta comum. 30+: fora do público do PRX BANK.
  */
 export function assertEligibleAge(input: Pick<IdentityInput, "birthDate" | "teenPath" | "parentEmail">, now = new Date()) {
   const group = ageGroup(input.birthDate, now);
+  if (group === "under") throw new FamilyError(UNDER_AGE_MESSAGE, 403, "UNDER_AGE");
   if (group === "over") throw new FamilyError(OVER_AGE_MESSAGE, 403, "OVER_AGE");
   if (group === "child" && input.teenPath !== "linked") throw new FamilyError(PARENT_REQUIRED_MESSAGE, 403, "PARENT_REQUIRED");
   if (group === "teen" && !input.teenPath) {
@@ -250,6 +255,7 @@ export async function createChildAccount(
   now = new Date()
 ) {
   await requireApprovedParent(parent.id);
+  if (ageOn(input.birthDate, now) < MIN_ACCOUNT_AGE) throw new FamilyError(UNDER_AGE_MESSAGE, 422, "UNDER_AGE");
   if (ageOn(input.birthDate, now) >= 18) throw new FamilyError("Maiores de 18 anos abrem a própria conta PRX.", 422);
   if (input.email === parent.email.toLowerCase()) throw new FamilyError("Use um e-mail do seu filho, diferente do seu.", 422);
   await assertCpfAvailable(input.cpf);

@@ -114,7 +114,7 @@ export function AppShowcaseSection() {
 /* -------------------------------------------------------------------------- */
 
 const STEPS: ReadonlyArray<{ title: string; text: string }> = [
-  { title: "Crie sua conta", text: "Baixe o app, cadastre-se em poucos minutos e aceite os Termos. Menores de idade entram com o consentimento do responsável." },
+  { title: "Crie sua conta", text: "Baixe o app, cadastre-se em poucos minutos e aceite os Termos. A idade mínima é 12 anos; menores de 18 entram com o consentimento do responsável." },
   { title: "Pague com Pix nos parceiros", text: "Cada pagamento é reconhecido na hora e categorizado no PRX Map: você vê para onde vai cada real, por nicho." },
   { title: "Ganhe coins e suba de nível", text: "Compras em parceiros, metas cumpridas e eventos rendem PRX Coins e XP. O PRX Level mostra o quanto você evoluiu." },
   { title: "Troque por experiências", text: "Use coins e o seu nível para destravar descontos de 20% a 50%, ingressos VIP, limites ampliados e lounges." },
@@ -517,7 +517,7 @@ const FAQ: ReadonlyArray<{ q: string; a: ReactNode }> = [
   { q: "Como ganho PRX Coins?", a: "Pagando com Pix em parceiros PRX (a compra é reconhecida na hora), cumprindo missões e metas e participando dos eventos da comunidade." },
   { q: "O que o PRX Level desbloqueia?", a: "Cada nível amplia limites e libera vantagens como anuidade zero, acesso a lounges VIP e benefícios maiores no PRX Pass e no PRX Live." },
   { q: "Como funciona a Conta Pai?", a: "O responsável abre a Conta Pai, cadastra o filho e define mesada automática e limites de gasto no cartão e no Pix. Tudo o que o filho faz aparece no extrato do responsável." },
-  { q: "Menor de idade pode usar o PRX?", a: "Pode, com a conta vinculada a um responsável: o cadastro pede os documentos e o consentimento do responsável, como manda a LGPD." },
+  { q: "Menor de idade pode usar o PRX?", a: "Pode, a partir de 12 anos e com a conta vinculada a um responsável: o cadastro pede os documentos e o consentimento do responsável, como manda a LGPD." },
   { q: "Onde uso o PRX Pass?", a: "Nos estabelecimentos parceiros credenciados. Você gera o cupom no app e mostra o QR Code protegido no balcão; o desconto sai na hora." },
   { q: "Quando chegam o PRX Invest e o PRX Me?", a: "Estão em construção. O Invest trará caixinhas e metas para os seus planos, e o Me, conteúdo de saúde mental e longevidade. Avisaremos no app." },
 ];

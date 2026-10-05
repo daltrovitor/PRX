@@ -1,5 +1,5 @@
 // Hello World
-import { ADULT_AGE, MAX_MEMBER_AGE, MIN_SELF_SIGNUP_AGE, type AgeGroup, type AllowanceFrequency } from "@/lib/family/types";
+import { ADULT_AGE, EMANCIPATION_AGE, MAX_MEMBER_AGE, MIN_ACCOUNT_AGE, UNDER_AGE_MESSAGE, birthDateSchema, type AgeGroup, type AllowanceFrequency } from "@/lib/family/types";
 
 const BRT_OFFSET_MS = 3 * 60 * 60 * 1000;
 
@@ -18,14 +18,18 @@ export function ageOn(birthDate: string, now = new Date()): number {
   return age;
 }
 
-/** <16 só pela Conta Pai · 16–17 Conta Filho ou emancipação · 18–29 conta comum · 30+ fora do público do app. */
+/** <12 sem conta · 12–15 só pela Conta Pai · 16–17 Conta Filho ou emancipação · 18–29 conta comum · 30+ fora do público do app. */
 export function ageGroup(birthDate: string, now = new Date()): AgeGroup {
   const age = ageOn(birthDate, now);
-  if (age < MIN_SELF_SIGNUP_AGE) return "child";
+  if (age < MIN_ACCOUNT_AGE) return "under";
+  if (age < EMANCIPATION_AGE) return "child";
   if (age < ADULT_AGE) return "teen";
   if (age <= MAX_MEMBER_AGE) return "adult";
   return "over";
 }
+
+/** Data de nascimento de quem se cadastra: real, no passado e com a idade mínima do PRX (12 anos). */
+export const signupBirthDateSchema = birthDateSchema.refine((value) => ageOn(value) >= MIN_ACCOUNT_AGE, UNDER_AGE_MESSAGE);
 
 /**
  * Próxima execução da mesada, sempre às 09:00 de Brasília (12:00 UTC):
