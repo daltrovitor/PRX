@@ -12,6 +12,7 @@ import { AdminEventsTab } from "@/components/admin/admin-events-tab";
 import { AdminFoundersTab } from "@/components/admin/admin-founders-tab";
 import { AdminStaffTab } from "@/components/admin/admin-staff-tab";
 import { AdminFinanceTab } from "@/components/admin/admin-finance-tab";
+import { AdminBankStatus } from "@/components/admin/admin-bank-status";
 import { AdminPointsTab } from "@/components/admin/admin-points-tab";
 import { AdminReelsTab } from "@/components/admin/admin-reels-tab";
 import { AdminFamilyTab } from "@/components/admin/admin-family-tab";
@@ -272,6 +273,7 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
                 onDraftConsumed={() => setBenefitDraft(null)}
               />
             )}
+            {tab === "finance" && <AdminBankStatus />}
             {tab === "finance" && (
               <AdminFinanceTab
                 economy={economy}

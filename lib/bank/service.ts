@@ -22,7 +22,7 @@ import { assertNightLimit } from "@/lib/bank/asaas/limits";
  */
 
 /** Conta marcada como ativa sem a integração do BaaS publicada nesta versão. */
-const BAAS_PENDING = "A integração com o banco parceiro ainda não foi publicada nesta versão do app.";
+const BAAS_PENDING = "O PRX BANK ainda não está ligado ao banco parceiro. Sua conta é ativada assim que a ligação estiver no ar.";
 
 /**
  * Sandbox do banco parceiro: simula aprovação da conta, saldo fictício e Pix
@@ -59,13 +59,20 @@ export async function accountView(userId: string): Promise<BankAccountView> {
   const kyc = await bankKycState(userId);
 
   const isSandbox = !isAsaas && sandboxEnabled(userId);
-  const [transactions, localKeys, cardRequest, charges, live] = await Promise.all([
+  // Conta real sem o banco parceiro ligado: o que estiver no espelho veio do sandbox (saldo fictício).
+  const preActivation = !isAsaas && !isSandbox && usesSupabaseBank(userId);
+  if (preActivation && account.status === "active") {
+    account = { ...account, status: "pending_activation", balance: 0, agency: null, accountNumber: null, activatedAt: null, virtualCard: null };
+  }
+  const [rawTransactions, localKeys, cardRequest, rawCharges, live] = await Promise.all([
     repo.listTransactions(userId, 200),
     repo.listPixKeys(userId),
     repo.getOpenCardRequest(userId),
     repo.listCharges(userId, 20),
     isAsaas ? providerSnapshot(userId) : Promise.resolve(null),
   ]);
+  const transactions = preActivation ? [] : rawTransactions;
+  const charges = preActivation ? [] : rawCharges;
 
   // Com o Asaas, só valem as chaves registradas no Pix pela subconta (as locais são do sandbox).
   const pixKeys = isAsaas ? (live?.pixKeys ?? []) : localKeys;

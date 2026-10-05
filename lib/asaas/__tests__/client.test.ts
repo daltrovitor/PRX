@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { AsaasClient, retryAfterMs } from "@/lib/asaas/client";
-import { readAsaasConfig, resolveBaseUrl, webhookTokenMatches, webhookUrls } from "@/lib/asaas/config";
+import { asaasChecklist, cleanApiKey, readAsaasConfig, resolveBaseUrl, webhookTokenMatches, webhookUrls } from "@/lib/asaas/config";
 import { AsaasError, toPartnerError } from "@/lib/asaas/errors";
 
 interface Call {
@@ -177,5 +177,28 @@ describe("toPartnerError", () => {
     expect(toPartnerError(new AsaasError(400, [{ code: "x", description: "Chave Pix não encontrada." }]))).toMatchObject({ status: 422, message: "Chave Pix não encontrada." });
     expect(toPartnerError(new AsaasError(401, [{ code: "invalid_access_token", description: "A chave de API é inválida" }])).status).toBe(503);
     expect(toPartnerError(new AsaasError(0, [], true)).message).toMatch(/Confira o extrato/);
+  });
+});
+
+describe("configuração colada com erros comuns", () => {
+  const prod = { BANK_PROVIDER: "asaas", ASAAS_ENVIRONMENT: "production", ASAAS_API_KEY: "$aact_prod_abc" };
+
+  it("aceita a chave com a barra do .env ou entre aspas", () => {
+    expect(cleanApiKey("\$aact_prod_abc")).toBe("$aact_prod_abc");
+    expect(cleanApiKey(' "$aact_prod_abc" ')).toBe("$aact_prod_abc");
+    expect(readAsaasConfig({ ...prod, ASAAS_API_KEY: "\$aact_prod_abc" })?.apiKey).toBe("$aact_prod_abc");
+  });
+
+  it("URL do sandbox esquecida na produção vira a URL oficial da produção, nunca a do sandbox", () => {
+    expect(readAsaasConfig({ ...prod, ASAAS_API_URL: "https://sandbox.asaas.com/api/v3" })?.baseUrl).toBe("https://api.asaas.com/v3");
+    expect(readAsaasConfig({ ...prod, ASAAS_API_URL: "https://evil.example.com/v3" })).toBeNull();
+  });
+
+  it("o diagnóstico aponta o que falta sem mostrar a chave", () => {
+    const checks = asaasChecklist({ ...prod, ASAAS_API_KEY: "$aact_hmlg_segredo123" });
+    const key = checks.find((c) => c.label.startsWith("ASAAS_API_KEY"));
+    expect(key).toMatchObject({ ok: false, hint: expect.stringContaining("sandbox") });
+    expect(JSON.stringify(checks)).not.toContain("segredo123");
+    expect(checks.find((c) => c.label.startsWith("BANK_ENCRYPTION_KEY"))?.ok).toBe(false);
   });
 });

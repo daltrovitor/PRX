@@ -59,10 +59,24 @@ function warnOnce(message: string): void {
   console.warn(`[asaas] ${message}`);
 }
 
+/**
+ * Chave como foi colada: sem aspas em volta e sem a barra de escape do .env
+ * ("\$aact_..."), que na Vercel vira parte do valor.
+ */
+export function cleanApiKey(raw: string | undefined): string {
+  return (raw ?? "")
+    .trim()
+    .replace(/^(["'])(.*)\1$/, "$2")
+    .trim()
+    .replace(/^\\(?=\$aact_)/, "");
+}
+
+const otherEnvironment = (environment: AsaasEnvironment): AsaasEnvironment => (environment === "production" ? "sandbox" : "production");
+
 /** Configuração ativa do Asaas, ou null quando o PRX BANK não usa o Asaas neste ambiente. */
 export function readAsaasConfig(env: Env = process.env): AsaasConfig | null {
   const provider = (env.BANK_PROVIDER ?? "").trim().toLowerCase();
-  const apiKey = (env.ASAAS_API_KEY ?? "").trim();
+  const apiKey = cleanApiKey(env.ASAAS_API_KEY);
   // Chave ausente, vazia ou placeholder: Asaas não liga
   if (!apiKey || apiKey.includes("coloque_sua_chave") || apiKey.includes("your_")) return null;
   // Só liga se BANK_PROVIDER for 'asaas'
@@ -78,12 +92,54 @@ export function readAsaasConfig(env: Env = process.env): AsaasConfig | null {
     warnOnce(`ASAAS_API_KEY é de ${keyEnv} mas ASAAS_ENVIRONMENT=${environment}. Integração desligada.`);
     return null;
   }
-  const baseUrl = resolveBaseUrl(env.ASAAS_API_URL, environment);
+  let baseUrl = resolveBaseUrl(env.ASAAS_API_URL, environment);
+  // URL oficial do outro ambiente esquecida (ex.: a do sandbox na produção): vale a do ambiente da chave.
+  if (!baseUrl && resolveBaseUrl(env.ASAAS_API_URL, otherEnvironment(environment))) {
+    warnOnce(`ASAAS_API_URL é do ${otherEnvironment(environment)}; usando ${DEFAULT_BASE_URL[environment]}. Corrija ou apague a variável.`);
+    baseUrl = DEFAULT_BASE_URL[environment];
+  }
   if (!baseUrl) {
     warnOnce("ASAAS_API_URL inválida (precisa ser https, host oficial do Asaas para o ambiente e terminar em /v3). Integração desligada.");
     return null;
   }
   return { apiKey, baseUrl, environment };
+}
+
+export interface AsaasCheck {
+  label: string;
+  ok: boolean;
+  /** O que fazer quando não está ok (nunca mostra o valor da variável). */
+  hint: string | null;
+}
+
+/** Diagnóstico das variáveis do PRX BANK para o painel admin, sem expor segredos. */
+export function asaasChecklist(env: Env = process.env): AsaasCheck[] {
+  const check = (label: string, ok: boolean, hint: string): AsaasCheck => ({ label, ok, hint: ok ? null : hint });
+  const provider = (env.BANK_PROVIDER ?? "").trim().toLowerCase();
+  const environment: AsaasEnvironment = (env.ASAAS_ENVIRONMENT ?? "").trim().toLowerCase() === "production" ? "production" : "sandbox";
+  const rawKey = (env.ASAAS_API_KEY ?? "").trim();
+  const apiKey = cleanApiKey(rawKey);
+  const keyEnv = keyEnvironment(apiKey);
+  const prefix = environment === "production" ? "$aact_prod_" : "$aact_hmlg_";
+  const url = (env.ASAAS_API_URL ?? "").trim();
+  const urlOk = !url || resolveBaseUrl(url, environment) !== null || resolveBaseUrl(url, otherEnvironment(environment)) !== null;
+  const encryption = (env.BANK_ENCRYPTION_KEY ?? "").trim();
+  const baasMode = (env.PRX_BAAS_MODE ?? "").trim();
+
+  let keyHint = `Cole em ASAAS_API_KEY a chave ${prefix}... da conta mãe (na Vercel, sem a barra \\).`;
+  if (apiKey && !apiKey.startsWith("$aact_")) keyHint = "O valor não é uma chave do Asaas (ela começa com $aact_). Na Vercel, cole sem aspas e sem a barra \\.";
+  else if (keyEnv && keyEnv !== environment) keyHint = `A chave é de ${keyEnv === "production" ? "produção" : "sandbox"}, mas ASAAS_ENVIRONMENT=${environment}. Use a chave ${prefix}... ou mude o ambiente.`;
+
+  return [
+    check("BANK_PROVIDER = asaas", provider === "asaas", `Defina BANK_PROVIDER=asaas (hoje: ${provider || "vazio"}).`),
+    check(`ASAAS_ENVIRONMENT = ${environment}`, environment === "production", "Para dinheiro real, defina ASAAS_ENVIRONMENT=production."),
+    check("ASAAS_API_KEY da conta mãe", Boolean(apiKey) && apiKey.startsWith("$aact_") && (!keyEnv || keyEnv === environment) && !apiKey.includes("coloque_sua_chave") && !apiKey.includes("your_"), keyHint),
+    check("ASAAS_API_URL", urlOk, "Apague ASAAS_API_URL ou use https://api.asaas.com/v3."),
+    check("ASAAS_WEBHOOK_AUTH_TOKEN (32+ caracteres)", webhookAuthToken(env) !== null, "Defina o mesmo token usado nos webhooks do Asaas, com 32 caracteres ou mais."),
+    check("URLs dos webhooks (https)", webhookUrls(env) !== null, "Defina NEXT_PUBLIC_APP_URL=https://prx.app.br (ou ASAAS_WEBHOOK_URL_EVENTS e ASAAS_WEBHOOK_URL_VALIDATE_WITHDRAW)."),
+    check("BANK_ENCRYPTION_KEY (32+ caracteres)", encryption.length >= 32, "Gere com openssl rand -base64 48 e não troque depois de abrir contas."),
+    check("PRX_BAAS_MODE apagado", !baasMode || environment === "production", "Apague PRX_BAAS_MODE: ele liga o sandbox com saldo fictício."),
+  ];
 }
 
 /** Token que o Asaas manda no header asaas-access-token dos webhooks (32+ caracteres). */
