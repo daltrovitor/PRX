@@ -377,7 +377,7 @@ function EventForm({ event, partners, onSaved }: { event: LiveEvent | null; part
       <Field label="Série">
         {(id) => (
           <Select id={id} value={draft.series} onChange={(e) => set("series", e.target.value as EventSeries)} disabled={Boolean(event)}>
-            {EVENT_SERIES.map((s) => (
+            {EVENT_SERIES.filter((s) => s !== "resenha" || event?.series === "resenha").map((s) => (
               <option key={s} value={s}>
                 {SERIES_LABEL[s]}
               </option>

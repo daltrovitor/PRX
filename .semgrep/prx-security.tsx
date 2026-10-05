@@ -20,6 +20,13 @@ export async function DELETE(req: NextRequest) {
 }
 
 // ok: prx-mutation-route-without-auth
+export async function PATCH(req: NextRequest) {
+  const { insider } = await requireInsider(req);
+  await db.from("t").update({ ok: true }).eq("insider_id", insider.id);
+  return NextResponse.json({ ok: true });
+}
+
+// ok: prx-mutation-route-without-auth
 export async function GET(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }

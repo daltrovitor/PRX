@@ -13,6 +13,7 @@ import { AdminFoundersTab } from "@/components/admin/admin-founders-tab";
 import { AdminStaffTab } from "@/components/admin/admin-staff-tab";
 import { AdminFinanceTab } from "@/components/admin/admin-finance-tab";
 import { AdminBankStatus } from "@/components/admin/admin-bank-status";
+import { AdminResenhaTab } from "@/components/admin/admin-resenha-tab";
 import { AdminPointsTab } from "@/components/admin/admin-points-tab";
 import { AdminReelsTab } from "@/components/admin/admin-reels-tab";
 import { AdminFamilyTab } from "@/components/admin/admin-family-tab";
@@ -34,7 +35,7 @@ import type { PointRule } from "@/lib/points/types";
 import type { ViabilityValues } from "@/components/admin/viability-calculator";
 import { behaviorCoinsPerMonth, coinsPerRealFromRules } from "@/lib/points/economics";
 
-type TabKey = "members" | "partners" | "benefits" | "finance" | "points" | "reels" | "missions" | "vouchers" | "events" | "founders" | "staff" | "family" | "waitlist" | "legal";
+type TabKey = "members" | "partners" | "benefits" | "finance" | "points" | "reels" | "missions" | "vouchers" | "events" | "resenha" | "founders" | "staff" | "family" | "waitlist" | "legal";
 
 export interface AdminIdentity {
   name?: string;
@@ -247,6 +248,7 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
             { value: "missions", label: "Missões", count: missions.length },
             { value: "vouchers", label: "Vouchers", count: vouchers.length },
             { value: "events", label: "Eventos" },
+            { value: "resenha", label: "Resenha" },
             { value: "founders", label: "Founders" },
             { value: "staff", label: "Equipe" },
             { value: "family", label: "Verificações" },
@@ -288,6 +290,7 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
             {tab === "missions" && <AdminMissionsTab missions={missions} onRefresh={loadData} />}
             {tab === "vouchers" && <AdminVouchersTab vouchers={vouchers} onRefresh={loadData} />}
             {tab === "events" && <AdminEventsTab />}
+            {tab === "resenha" && <AdminResenhaTab />}
             {tab === "founders" && <AdminFoundersTab />}
             {tab === "staff" && <AdminStaffTab />}
             {tab === "family" && <AdminFamilyTab />}

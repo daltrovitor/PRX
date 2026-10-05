@@ -6,18 +6,21 @@ import { NextRequest, NextResponse } from "next/server";
  *   adminprx.<domínio>   → /admin   (painel administrativo)
  *   partnerprx.<domínio> → /partner (portal do parceiro)
  *   staffprx.<domínio>   → /staff   (Equipe PRX: portaria de eventos e balcão)
+ *   insider.<domínio>    → /insider (portal dos Insiders da Resenha: liberam os pedidos do próprio link)
  *   show.<domínio>       → /apresentacao (apresentação do ecossistema, show.viraweb.online)
  * Os prefixos adminng./partnerng. são os domínios anteriores ao rebrand e
  * continuam aceitos enquanto o DNS é migrado.
  *
  * prx.app.br (e www.) → /em-breve (teaser de lançamento com a Lista VIP).
  * /teste (e o atalho /showcase) é a vitrine aberta da identidade Obsidian.
+ * /resenha/... (link do Insider e página do convidado) é público em qualquer domínio, inclusive no teaser.
  * Outros hosts de teaser podem ser adicionados em PRX_TEASER_HOSTS (vírgula).
  */
-const SUBDOMAIN_ROUTES: ReadonlyArray<{ prefixes: readonly string[]; path: "/admin" | "/partner" | "/staff" | "/apresentacao" }> = [
+const SUBDOMAIN_ROUTES: ReadonlyArray<{ prefixes: readonly string[]; path: "/admin" | "/partner" | "/staff" | "/insider" | "/apresentacao" }> = [
   { prefixes: ["adminprx.", "adminng."], path: "/admin" },
   { prefixes: ["partnerprx.", "partnerng."], path: "/partner" },
   { prefixes: ["staffprx."], path: "/staff" },
+  { prefixes: ["insider."], path: "/insider" },
   { prefixes: ["show."], path: "/apresentacao" },
 ];
 
@@ -25,6 +28,9 @@ const SUBDOMAIN_ROUTES: ReadonlyArray<{ prefixes: readonly string[]; path: "/adm
 const PUBLIC_PAGES = new Set(["/termos", "/privacidade", "/em-breve", "/sou-pai", "/teste", "/showcase"]);
 /** No domínio de teaser, só o teaser e os documentos legais. */
 const TEASER_PAGES = new Set(["/termos", "/privacidade"]);
+/** Páginas públicas com subcaminhos: a Resenha (/resenha/001 e /resenha/lista/<token>). */
+const PUBLIC_PREFIXES = ["/resenha/"];
+const isPublicPrefix = (pathname: string) => PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
 function isTeaserHost(host: string): boolean {
   const name = host.split(":")[0];
@@ -57,7 +63,7 @@ export function proxy(req: NextRequest) {
       url.pathname = "/em-breve";
       return NextResponse.rewrite(url);
     }
-    if (TEASER_PAGES.has(pathname)) return NextResponse.next();
+    if (TEASER_PAGES.has(pathname) || isPublicPrefix(pathname)) return NextResponse.next();
     url.pathname = "/";
     return NextResponse.redirect(url);
   }
@@ -73,7 +79,7 @@ export function proxy(req: NextRequest) {
 
   // Domínio principal: o app é uma única rota; qualquer caminho digitado volta para "/".
   // Exceção: páginas públicas (legais, teaser, Sou Pai e a vitrine /teste).
-  if (PUBLIC_PAGES.has(pathname)) return NextResponse.next();
+  if (PUBLIC_PAGES.has(pathname) || isPublicPrefix(pathname)) return NextResponse.next();
   if (pathname !== "/" && pathname !== "") {
     url.pathname = "/";
     return NextResponse.redirect(url);

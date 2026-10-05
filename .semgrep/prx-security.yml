@@ -14,7 +14,7 @@ rules:
   - id: prx-mutation-route-without-auth
     message: >-
       Rota que altera dados ($METHOD) sem verificar a sessão. Chame getCurrentUser/requireUser/
-      requireAdmin/requirePartnerSession/verify*Request antes de qualquer escrita, ou justifique
+      requireAdmin/requireInsider/requirePartnerSession/verify*Request antes de qualquer escrita, ou justifique
       a rota pública (login, cadastro, webhook assinado) com nosemgrep.
     severity: ERROR
     languages: [typescript]
@@ -26,7 +26,7 @@ rules:
       - metavariable-regex:
           metavariable: $METHOD
           regex: ^(POST|PUT|PATCH|DELETE)$
-      - pattern-not-regex: (getCurrentUser|requireUser|requireAdmin|requirePartnerSession|requirePartnerValidator|requireValidator|requireStaff|verifyAdminRequest|verifyPartnerRequest|verifyStaffRequest)\(
+      - pattern-not-regex: (getCurrentUser|requireUser|requireAdmin|requireInsider|requirePartnerSession|requirePartnerValidator|requireValidator|requireStaff|verifyAdminRequest|verifyPartnerRequest|verifyStaffRequest)\(
     metadata:
       category: security
       cwe: "CWE-862: Missing Authorization"

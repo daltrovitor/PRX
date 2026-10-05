@@ -9,7 +9,7 @@ import { MAX_GATE_LEVEL } from "@/lib/pass-data";
  * "aguardando pagamento" e a PRX confirma o pagamento pelo admin.
  */
 
-export const EVENT_SERIES = ["founders", "session", "ctrl", "talks", "run", "outro"] as const;
+export const EVENT_SERIES = ["founders", "session", "ctrl", "talks", "run", "outro", "resenha"] as const;
 export type EventSeries = (typeof EVENT_SERIES)[number];
 
 export const SERIES_LABEL: Record<EventSeries, string> = {
@@ -19,7 +19,11 @@ export const SERIES_LABEL: Record<EventSeries, string> = {
   talks: "PRX Talks",
   run: "PRX RUN",
   outro: "PRX LIVE",
+  resenha: "Resenha",
 };
+
+/** Série só por lista: não aparece na agenda dos membros e não tem reserva direta. */
+export const LIST_ONLY_SERIES: ReadonlyArray<EventSeries> = ["resenha"];
 
 export const EVENT_STATUSES = ["draft", "published", "cancelled"] as const;
 export type EventStatus = (typeof EVENT_STATUSES)[number];

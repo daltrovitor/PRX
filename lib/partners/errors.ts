@@ -23,7 +23,7 @@ export function isMissingColumn(error: { code?: string } | null | undefined): bo
 }
 
 export const MIGRATION_HINT =
-  "Faltam tabelas no Supabase. Aplique as migrações de supabase/migrations (20260925_prx_partner_program.sql, 20260926_prx_live_staff_bank.sql, 20260927_prx_points_reels_finance.sql, 20260928_prx_family_passkeys.sql, 20260929_prx_bank_kyc_consent.sql, 20260930_prx_notifications.sql, 20261001_prx_admin_legal_checklist.sql e 20261001_prx_asaas_baas.sql).";
+  "Faltam tabelas no Supabase. Aplique as migrações de supabase/migrations (20260925_prx_partner_program.sql, 20260926_prx_live_staff_bank.sql, 20260927_prx_points_reels_finance.sql, 20260928_prx_family_passkeys.sql, 20260929_prx_bank_kyc_consent.sql, 20260930_prx_notifications.sql, 20261001_prx_admin_legal_checklist.sql, 20261001_prx_asaas_baas.sql e 20261005_prx_resenha.sql).";
 
 /**
  * Converte erro do PostgREST em PartnerError. Tabela ausente vira 503 com a

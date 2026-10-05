@@ -5,7 +5,7 @@ export const NOTIFICATION_CHANNELS = ["email", "whatsapp"] as const;
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 
 /** Modelos enviados hoje. Cada novo modelo ganha nome próprio para o registro de envios. */
-export const NOTIFICATION_TEMPLATES = ["welcome_email", "phone_code"] as const;
+export const NOTIFICATION_TEMPLATES = ["welcome_email", "phone_code", "resenha_list"] as const;
 export type NotificationTemplate = (typeof NOTIFICATION_TEMPLATES)[number];
 
 export type EmailProvider = "resend";

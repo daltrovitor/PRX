@@ -17,6 +17,7 @@ import {
 } from "@/lib/live/rules";
 import {
   FOUNDERS_STATUSES,
+  LIST_ONLY_SERIES,
   SERIES_LABEL,
   runDetailsInputSchema,
   type EventInput,
@@ -223,7 +224,7 @@ function toMemberSubmission(s: FoundersSubmission): MemberSubmission {
 export async function listPublicEvents(): Promise<PublicEvent[]> {
   const events = await repo().listEvents({ statuses: ["published", "cancelled"] });
   const cutoff = Date.now() - 180 * 86_400_000;
-  const visible = events.filter((e) => new Date(e.startsAt).getTime() > cutoff);
+  const visible = events.filter((e) => new Date(e.startsAt).getTime() > cutoff && !LIST_ONLY_SERIES.includes(e.series));
   const tickets = await repo().listTickets({ eventIds: visible.map((e) => e.id) });
   return visible.map((e) => toPublicEvent(e, tickets.filter((t) => t.eventId === e.id)));
 }
@@ -265,6 +266,7 @@ export interface ReserveInput {
 export async function reserveTicket(user: StoredUser, input: ReserveInput): Promise<MemberTicket> {
   const event = await repo().getEvent(input.eventId);
   if (!event || event.status === "draft") throw new PartnerError("Evento não encontrado.", 404);
+  if (LIST_ONLY_SERIES.includes(event.series)) throw new PartnerError("Este evento é só por lista: o acesso vem do convite de um Insider.", 409);
 
   const eventTickets = await ticketsWithExpiry(event);
   const memberTickets = eventTickets.filter((t) => t.userId === user.id);
@@ -525,31 +527,44 @@ async function findMemberByEmail(rawEmail: string): Promise<{ id: string; email:
   return user ? { id: user.id, email, name: user.fullName } : null;
 }
 
-/** Convite (cortesia): ingresso válido emitido pela PRX para um membro. Conta na lotação. */
-export async function issueInvite(eventId: string, input: { email: string; note: string }, actor: string): Promise<LiveTicket> {
-  const event = await repo().getEvent(eventId);
-  if (!event) throw new PartnerError("Evento não encontrado.", 404);
+function assertEventTakesTickets(event: LiveEvent): void {
   if (event.status === "cancelled") throw new PartnerError("Evento cancelado.", 409);
   if (eventHasEnded(event)) throw new PartnerError("Este evento já terminou.", 409);
-  const member = await findMemberByEmail(input.email);
-  if (!member) throw new PartnerError("Nenhum membro PRX com este e-mail. O convidado precisa ter conta no app.", 404);
+}
 
+/** Quem recebe o ingresso: um membro ou, na lista da Resenha, um convidado sem conta. */
+export interface TicketHolder {
+  userId: string;
+  email: string;
+  name: string;
+}
+
+/**
+ * Emite um ingresso gratuito (origem "invite") e confere a lotação depois de
+ * inserir, para dois pedidos simultâneos do último lugar não passarem os dois.
+ */
+export async function issueTicketTo(
+  event: LiveEvent,
+  holder: TicketHolder,
+  meta: { batchId: string; batchName: string; issuedBy: string; note: string }
+): Promise<LiveTicket> {
+  assertEventTakesTickets(event);
   const tickets = await ticketsWithExpiry(event);
   if (event.capacity !== null && tickets.filter(isActiveTicket).length >= event.capacity) throw new PartnerError("Evento lotado.", 409);
 
   const ticket = await insertWithFreshCode(event.series, {
     eventId: event.id,
-    batchId: "cortesia",
-    batchName: "Convite PRX",
-    userId: member.id,
-    userEmail: member.email,
-    holderName: member.name,
+    batchId: meta.batchId,
+    batchName: meta.batchName,
+    userId: holder.userId,
+    userEmail: holder.email,
+    holderName: holder.name,
     price: 0,
     status: "valid",
     source: "invite",
     runDetails: null,
-    issuedBy: actor,
-    note: input.note.slice(0, 300),
+    issuedBy: meta.issuedBy,
+    note: meta.note.slice(0, 300),
     createdAt: new Date().toISOString(),
     paidAt: null,
     cancelledAt: null,
@@ -564,6 +579,16 @@ export async function issueInvite(eventId: string, input: { email: string; note:
     throw new PartnerError("Evento lotado.", 409);
   }
   return ticket;
+}
+
+/** Convite (cortesia): ingresso válido emitido pela PRX para um membro. Conta na lotação. */
+export async function issueInvite(eventId: string, input: { email: string; note: string }, actor: string): Promise<LiveTicket> {
+  const event = await repo().getEvent(eventId);
+  if (!event) throw new PartnerError("Evento não encontrado.", 404);
+  assertEventTakesTickets(event);
+  const member = await findMemberByEmail(input.email);
+  if (!member) throw new PartnerError("Nenhum membro PRX com este e-mail. O convidado precisa ter conta no app.", 404);
+  return issueTicketTo(event, { userId: member.id, email: member.email, name: member.name }, { batchId: "cortesia", batchName: "Convite PRX", issuedBy: actor, note: input.note });
 }
 
 export async function setRunResults(eventId: string, text: string): Promise<{ event: LiveEvent; errors: string[] }> {

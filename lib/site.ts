@@ -7,12 +7,15 @@ import { useSyncExternalStore } from "react";
  *   adminprx.x.com / partnerprx.x.com / staffprx.x.com → prx.x.com
  *   adminng.x.com  / partnerng.x.com  → nxtgen.x.com (domínios anteriores ao rebrand)
  *   show.x.com (apresentação) → prx.x.com
+ *   insider.x.com (portal dos Insiders) → x.com (insider.prx.app.br → prx.app.br)
  */
 export function getMainSiteUrl(): string {
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
   if (typeof window === "undefined") return "/";
 
   const { protocol, host } = window.location;
+  const insider = host.match(/^insider\.(.+)$/);
+  if (insider) return `${protocol}//${insider[1]}`;
   const match = host.match(/^(adminprx|partnerprx|staffprx|adminng|partnerng|show)\.(.+)$/);
   if (!match) return `${protocol}//${host}`;
 
