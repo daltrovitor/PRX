@@ -51,7 +51,7 @@ export async function subaccountDocuments(userId: string, deps: AsaasDeps): Prom
     const docs = await listDocuments(deps.client, apiKey);
     return { groups: docs.data.map(view), rejectReasons: docs.rejectReasons };
   } catch (err) {
-    throw toPartnerError(err, "Não foi possível consultar os documentos no banco parceiro.");
+    throw toPartnerError(err, "Não foi possível consultar os documentos no PRX BANK.");
   }
 }
 
@@ -77,7 +77,7 @@ export async function forwardKycDocuments(userId: string, deps: AsaasDeps): Prom
     }
     return sent;
   } catch (err) {
-    throw toPartnerError(err, "Não foi possível enviar os documentos ao banco parceiro.");
+    throw toPartnerError(err, "Não foi possível enviar os documentos ao PRX BANK.");
   }
 }
 
@@ -90,10 +90,10 @@ export async function uploadSubaccountDocument(userId: string, groupId: string, 
     const docs = await listDocuments(deps.client, apiKey);
     const group = docs.data.find((g) => g.id === groupId);
     if (!group) throw new PartnerError("Documento não encontrado. Atualize a lista e tente de novo.", 404);
-    if (group.onboardingUrl) throw new PartnerError("Este documento é enviado pelo link seguro do banco parceiro.", 409);
+    if (group.onboardingUrl) throw new PartnerError("Este documento é enviado pelo link seguro do PRX BANK.", 409);
     if (DONE.has(group.status.toUpperCase())) throw new PartnerError("Este documento já foi enviado.", 409);
     await uploadDocument(deps.client, apiKey, group.id, group.type, file, file.name || "documento");
   } catch (err) {
-    throw toPartnerError(err, "Não foi possível enviar o documento ao banco parceiro.");
+    throw toPartnerError(err, "Não foi possível enviar o documento ao PRX BANK.");
   }
 }

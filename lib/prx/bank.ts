@@ -205,4 +205,4 @@ export const TRANSACTION_LABEL: Record<TransactionKind, string> = {
 };
 
 /** Mensagem única para operações que dependem do banco parceiro. */
-export const ACTIVATION_REQUIRED = "Disponível quando sua conta PRX BANK for ativada com o banco parceiro.";
+export const ACTIVATION_REQUIRED = "Disponível quando sua conta PRX BANK for ativada.";

@@ -61,6 +61,13 @@ export function ProviderOnboarding({ provider, onChanged }: { provider: BankProv
     };
   }, [hasAccount]);
 
+  useEffect(() => {
+    if (provider.state !== "pending_activation") return;
+    // A aprovação chega por aviso do banco: relê a conta a cada 30s para a resposta aparecer sem o membro precisar voltar.
+    const timer = setInterval(() => onChanged(), 30_000);
+    return () => clearInterval(timer);
+  }, [provider.state, onChanged]);
+
   async function run(label: string, url: string, init: RequestInit, done?: (json: Record<string, unknown>) => void) {
     setBusy(label);
     setError(null);
@@ -82,7 +89,7 @@ export function ProviderOnboarding({ provider, onChanged }: { provider: BankProv
     form.append("file", file);
     void run(`upload-${groupId}`, "/api/bank/accounts/documents", { method: "POST", body: form }, (json) => {
       setGroups(Array.isArray(json.groups) ? (json.groups as DocumentGroup[]) : groups);
-      setInfo("Documento enviado ao banco parceiro.");
+      setInfo("Documento enviado ao PRX BANK.");
     });
   }
 
@@ -91,7 +98,7 @@ export function ProviderOnboarding({ provider, onChanged }: { provider: BankProv
       <div className="space-y-4 rounded-3xl glass p-5 sm:p-6">
         <h2 className="text-xl font-semibold tracking-[-0.02em] text-ink">Abrir sua conta de pagamento</h2>
         <p className="text-[15px] leading-relaxed text-muted-foreground">
-          Abrimos a conta em seu nome com o nosso banco parceiro, usando os dados e os documentos que você enviou. O banco parceiro confere tudo e aprova a conta, em geral em
+          Abrimos a conta em seu nome com o PRX BANK, usando os dados e os documentos que você enviou. O PRX BANK confere tudo e aprova a conta, em geral em
           até 2 dias úteis.
         </p>
         <Button
@@ -111,10 +118,10 @@ export function ProviderOnboarding({ provider, onChanged }: { provider: BankProv
   return (
     <div className="space-y-5 rounded-3xl glass p-5 sm:p-6">
       <div className="space-y-2">
-        <h2 className="text-xl font-semibold tracking-[-0.02em] text-ink">Documentos para o banco parceiro</h2>
+        <h2 className="text-xl font-semibold tracking-[-0.02em] text-ink">Documentos para o PRX BANK</h2>
         <p className="text-[15px] leading-relaxed text-muted-foreground">
           {provider.state === "rejected"
-            ? "O banco parceiro pediu um novo envio para liberar sua conta."
+            ? "O PRX BANK pediu um novo envio para liberar sua conta."
             : "Sua conta foi aberta e está em análise. Envie o que ainda falta para liberar Pix e boletos."}
         </p>
         {provider.rejectReason && <Notice tone="warning">{provider.rejectReason}</Notice>}
@@ -128,7 +135,7 @@ export function ProviderOnboarding({ provider, onChanged }: { provider: BankProv
           onClick={() =>
             void run("forward", "/api/bank/accounts/documents", post({ action: "forward_kyc" }), (json) => {
               setGroups(Array.isArray(json.groups) ? (json.groups as DocumentGroup[]) : groups);
-              setInfo(Number(json.sent) > 0 ? "Documentos do seu cadastro enviados ao banco parceiro." : "Nenhum documento do cadastro precisou ser reenviado.");
+              setInfo(Number(json.sent) > 0 ? "Documentos do seu cadastro enviados ao PRX BANK." : "Nenhum documento do cadastro precisou ser reenviado.");
             })
           }
         >
@@ -142,7 +149,7 @@ export function ProviderOnboarding({ provider, onChanged }: { provider: BankProv
       {groups === null ? (
         <p className="text-[13px] text-muted-foreground">Consultando documentos pendentes…</p>
       ) : groups.length === 0 ? (
-        <p className="text-[13px] text-muted-foreground">Nenhum documento pendente. A análise do banco parceiro costuma levar até 2 dias úteis.</p>
+        <p className="text-[13px] text-muted-foreground">Nenhum documento pendente. A análise do PRX BANK costuma levar até 2 dias úteis.</p>
       ) : (
         <ul className="space-y-2">
           {groups.map((g) => (

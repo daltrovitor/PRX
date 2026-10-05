@@ -10,6 +10,7 @@ import { asaasActiveFor } from "@/lib/bank/asaas/deps";
 import { getAsaasBankStore } from "@/lib/bank/asaas/store";
 import { readAsaasConfig } from "@/lib/asaas/config";
 import { errorMessage } from "@/lib/errors";
+import { isSandboxMode } from "@/lib/bank/repository";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
@@ -53,9 +54,11 @@ export async function POST(req: NextRequest) {
         const { ensureAsaasCustomerAndAccount } = await import("@/lib/bank/asaas/onboarding");
         await ensureAsaasCustomerAndAccount(user.id);
       } catch (err) {
-        providerError = errorMessage(err, "O banco parceiro não respondeu. Tentamos de novo quando você abrir o PRX BANK.");
-        console.warn("[kyc] abertura no Asaas adiada:", providerError);
+        providerError = errorMessage(err, "Não conseguimos abrir sua conta agora. Seus dados ficaram salvos: toque em Ativar minha conta para tentar de novo.");
+        console.warn("[kyc] abertura da conta adiada:", providerError);
       }
+    } else if (app.status === "approved" && !isSandboxMode()) {
+      providerError = "A ativação de contas ainda não está disponível. Seus dados ficaram salvos: tente de novo em instantes.";
     }
     return NextResponse.json({ success: true, kyc: await bankKycState(user.id), providerError }, { headers: NO_STORE });
   } catch (error) {

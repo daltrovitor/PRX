@@ -10,7 +10,7 @@ const NO_STORE = { "Cache-Control": "no-store" };
 
 async function member(req: NextRequest) {
   const user = await requireUser(req);
-  if (!asaasActiveFor(user.id)) throw new PartnerError("A integração com o banco parceiro não está ligada neste ambiente.", 503);
+  if (!asaasActiveFor(user.id)) throw new PartnerError("A ativação de contas ainda não está disponível neste ambiente.", 503);
   return user;
 }
 

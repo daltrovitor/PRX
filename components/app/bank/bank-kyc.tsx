@@ -43,7 +43,10 @@ function groupOf(birthDate: string) {
  * documentos. Menores de 18 abrem a conta com o responsável vinculado (ou
  * emancipação, a partir dos 16). Tudo é revalidado no servidor.
  */
-export function BankKycPanel({ member, kyc, onDone }: { member: User; kyc: BankKycState; onDone: () => Promise<void> | void }) {
+/** `providerError`: o envio foi salvo, mas a abertura da conta não pôde ser concluída agora. */
+type KycDone = (providerError?: string | null) => Promise<void> | void;
+
+export function BankKycPanel({ member, kyc, onDone }: { member: User; kyc: BankKycState; onDone: KycDone }) {
   if (kyc.status === "pending") return <KycPending kyc={kyc} />;
   return <KycForm member={member} rejectedNote={kyc.status === "rejected" ? kyc.reviewNote || "Revise os dados e os documentos." : null} onDone={onDone} />;
 }
@@ -108,7 +111,7 @@ function KycPending({ kyc }: { kyc: BankKycState }) {
         <Tag>Aguardando</Tag>
         <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-ink">Recebemos sua abertura de conta</h2>
         <p className="text-[15px] leading-relaxed text-muted-foreground">
-          Assim que a etapa abaixo for concluída, seus dados e documentos seguem direto para o banco parceiro, que aprova a conta. Você recebe o aviso aqui.
+          Assim que a etapa abaixo for concluída, seus dados e documentos seguem direto para o PRX BANK, que aprova a conta. Você recebe o aviso aqui.
         </p>
         {kyc.awaitingGuardian && (
           <Notice tone="warning">Como você tem menos de 18 anos, seu responsável precisa aceitar o vínculo na Conta Pai dele. Peça para ele abrir o PRX e aprovar.</Notice>
@@ -138,7 +141,8 @@ function KycPending({ kyc }: { kyc: BankKycState }) {
   );
 }
 
-function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote: string | null; onDone: () => Promise<void> | void }) {
+function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote: string | null; onDone: KycDone }) {
+  const [providerError, setProviderError] = useState<string | null>(null);
   const [started, setStarted] = useState(false);
   const [step, setStep] = useState<Step>("dados");
   const [busy, setBusy] = useState(false);
@@ -228,9 +232,11 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
     }
     setBusy(true);
     setError(null);
-    const result = await postJson("/api/bank/kyc", payload);
+    const result = await postJson<{ providerError?: string | null }>("/api/bank/kyc", payload);
     setBusy(false);
     if (!result.ok) return setError(result.error);
+    const pending = result.data.providerError ?? null;
+    setProviderError(pending);
 
     // Oferece biometria na hora do cadastro do banco se o dispositivo suportar
     const canBio = await canUseBiometrics();
@@ -243,7 +249,7 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
       return;
     }
 
-    await onDone();
+    await onDone(pending);
   }
 
   const setDoc = (kind: DocumentKind) => (ref: DocumentRef | null) => setDocs((d) => ({ ...d, [kind]: ref ?? undefined }));
@@ -258,7 +264,7 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
             <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-ink">Ativar biometria bancária</h2>
           </div>
           <p className="text-[15px] leading-relaxed text-muted-foreground">
-            Seus dados foram enviados ao banco parceiro! Para maior segurança e agilidade em transações Pix e acessos futuros, ative o Face ID, Touch ID ou a digital do aparelho.
+            Seus dados foram enviados ao PRX BANK! Para maior segurança e agilidade em transações Pix e acessos futuros, ative o Face ID, Touch ID ou a digital do aparelho.
           </p>
           {bioError && <Notice tone="error">{bioError}</Notice>}
           <div className="space-y-3 pt-4">
@@ -274,7 +280,7 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
                   if (typeof window !== "undefined") {
                     localStorage.setItem("prx_bank_biometrics_accepted", "true");
                   }
-                  await onDone();
+                  await onDone(providerError);
                 } else {
                   setBioError(res.error || "Não foi possível ativar neste momento.");
                 }
@@ -287,7 +293,7 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
               className="w-full min-h-12 cursor-pointer"
               disabled={bioBusy}
               onClick={async () => {
-                await onDone();
+                await onDone(providerError);
               }}
             >
               Agora não, concluir abertura
@@ -440,7 +446,7 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
                   onChange={setTermsAccepted}
                   label={
                     <>
-                      Li e aceito os termos da conta de pagamento e autorizo o uso dos meus dados pela PRX e pelo banco parceiro para abrir a conta e prevenir fraudes (
+                      Li e aceito os termos da conta de pagamento e autorizo o uso dos meus dados pela PRX e por instituição financeira parceira para abrir a conta e prevenir fraudes (
                       <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline-offset-2 hover:underline">
                         Política de Privacidade
                       </a>

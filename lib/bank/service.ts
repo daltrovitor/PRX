@@ -22,7 +22,7 @@ import { assertNightLimit } from "@/lib/bank/asaas/limits";
  */
 
 /** Conta marcada como ativa sem a integração do BaaS publicada nesta versão. */
-const BAAS_PENDING = "O PRX BANK ainda não está ligado ao banco parceiro. Sua conta é ativada assim que a ligação estiver no ar.";
+const BAAS_PENDING = "A ativação de contas ainda não está disponível. Sua conta é ativada assim que estiver no ar.";
 
 /**
  * Sandbox do banco parceiro: simula aprovação da conta, saldo fictício e Pix

@@ -68,7 +68,7 @@ async function handleTransfer(event: AsaasEvent, sub: Subaccount, deps: AsaasDep
     return "processed";
   }
   if (event.event === "TRANSFER_FAILED" || event.event === "TRANSFER_CANCELLED") {
-    const reason = str(transfer.failReason) ?? (event.event === "TRANSFER_CANCELLED" ? "Cancelada pelo banco parceiro." : "Falha na transferência.");
+    const reason = str(transfer.failReason) ?? (event.event === "TRANSFER_CANCELLED" ? "Cancelada pelo PRX BANK." : "Falha na transferência.");
     if (request) await deps.store.transitionOutgoing(request.id, ["awaiting_confirmation", ...OPEN], event.event === "TRANSFER_FAILED" ? "failed" : "cancelled", { failReason: reason });
     await deps.mirror.reverseTransaction(id);
     await notify(sub, event, "transfer_failed", value, counterparty, deps);

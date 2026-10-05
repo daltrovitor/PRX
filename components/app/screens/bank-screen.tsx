@@ -110,7 +110,7 @@ export function BankScreen({ member }: { member: User }) {
         {account.status === "blocked" && <Notice tone="warning">Conta bloqueada. Fale com o suporte PRX para entender o motivo.</Notice>}
       </header>
 
-      {account.status === "pending_activation" && <ActivationPanel account={account} onChanged={reload} />}
+      {account.status === "pending_activation" && <ActivationPanel account={account} member={member} onChanged={reload} />}
 
       <section aria-label="Carteira Central" className="grid gap-6 md:grid-cols-12 md:items-end">
         <BalanceFigure
@@ -551,18 +551,18 @@ function KeysPanel({ account, run }: { account: BankAccountView; run: Run }) {
       <form onSubmit={(e) => void add(e)} className="space-y-5 lg:col-span-5">
         {viaProvider && (
           <p className="text-[13px] leading-relaxed text-muted-foreground">
-            As chaves são registradas no Pix pelo banco parceiro, que pelo app só cria chave aleatória: até 5 por conta, com 1 minuto entre uma e outra.
+            As chaves são registradas no Pix pelo PRX BANK, que pelo app só cria chave aleatória: até 5 por conta, com 1 minuto entre uma e outra.
             Chave de CPF, e-mail ou celular não pode ser criada pela integração.
           </p>
         )}
         {waitingApproval ? (
           <p className="text-[13px] leading-relaxed text-muted-foreground">
-            Sua primeira chave é criada assim que o banco parceiro aprovar sua conta. Avisamos aqui no app.
+            Sua primeira chave é criada assim que o PRX BANK aprovar sua conta. Avisamos aqui no app.
           </p>
         ) : (
           account.status === "pending_activation" && (
             <p className="text-[13px] leading-relaxed text-muted-foreground">
-              Pré-cadastro: a chave fica reservada na sua conta e é registrada no Pix (DICT) quando o banco parceiro ativar a conta. Até lá ela ainda não recebe
+              Pré-cadastro: a chave fica reservada na sua conta e é registrada no Pix (DICT) quando o PRX BANK ativar a conta. Até lá ela ainda não recebe
               pagamentos.
             </p>
           )

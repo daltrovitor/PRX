@@ -49,7 +49,7 @@ export function ProviderStatement({ hidden }: { hidden: boolean }) {
   }
 
   return (
-    <section aria-label="Extrato oficial do banco parceiro" className="space-y-4">
+    <section aria-label="Extrato oficial do PRX BANK" className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-lg font-semibold tracking-[-0.02em] text-ink">Extrato oficial</h2>
         {items === null && (
@@ -61,7 +61,7 @@ export function ProviderStatement({ hidden }: { hidden: boolean }) {
 
       {items !== null &&
         (items.length === 0 ? (
-          <p className="text-[13px] text-muted-foreground">Nenhum lançamento no banco parceiro ainda.</p>
+          <p className="text-[13px] text-muted-foreground">Nenhum lançamento no PRX BANK ainda.</p>
         ) : (
           <ul className="divide-y divide-line">
             {items.map((tx) => (

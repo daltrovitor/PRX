@@ -119,7 +119,7 @@ export class AsaasClient {
           await this.sleep(this.backoff(attempt, null));
           continue;
         }
-        throw new AsaasError(0, [{ code: "network_error", description: "Sem resposta do banco parceiro." }], method !== "GET");
+        throw new AsaasError(0, [{ code: "network_error", description: "Sem resposta do PRX BANK." }], method !== "GET");
       }
 
       if (res.status === 429 && canRetry) {
@@ -149,7 +149,7 @@ export class AsaasClient {
       const parsed = schema.safeParse(json);
       if (!parsed.success) {
         console.warn("[asaas] resposta fora do formato esperado:", method, path, parsed.error.issues[0]?.path.join("."));
-        throw new AsaasError(502, [{ code: "invalid_response", description: "Resposta inesperada do banco parceiro." }], method !== "GET");
+        throw new AsaasError(502, [{ code: "invalid_response", description: "Resposta inesperada do PRX BANK." }], method !== "GET");
       }
       return parsed.data;
     }

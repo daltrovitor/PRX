@@ -45,7 +45,7 @@ async function readDocument(path: string): Promise<{ blob: Blob; filename: strin
 
 export function asaasDeps(): AsaasDeps {
   const client = getAsaasClient();
-  if (!client) throw new PartnerError("A integração com o banco parceiro não está ligada neste ambiente.", 503);
+  if (!client) throw new PartnerError("A ativação de contas ainda não está disponível neste ambiente.", 503);
   return {
     client,
     store: getAsaasBankStore(),

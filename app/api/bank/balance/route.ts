@@ -10,7 +10,7 @@ import { providerBalance } from "@/lib/bank/asaas/statement";
 export async function GET(req: NextRequest) {
   try {
     const user = await requireUser(req);
-    if (!asaasActiveFor(user.id)) throw new PartnerError("A integração com o banco parceiro não está ligada neste ambiente.", 503);
+    if (!asaasActiveFor(user.id)) throw new PartnerError("A ativação de contas ainda não está disponível neste ambiente.", 503);
     const rate = checkRateLimit(`bank_balance_${user.id}`, 60, 60);
     if (!rate.allowed) throw new PartnerError(`Muitas consultas. Aguarde ${rate.resetInSeconds}s.`, 429);
     const balance = await providerBalance(user.id, asaasDeps());

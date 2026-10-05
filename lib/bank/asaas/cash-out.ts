@@ -167,7 +167,7 @@ export async function executeOutgoing(userId: string, requestId: string, deps: A
       const type = detectPixKeyType(claimed.target);
       if (!type) throw new PartnerError("Chave Pix inválida.", 422);
       const transfer = await createPixTransfer(deps.client, apiKey, { key: claimed.target, type, value: claimed.amount, description: claimed.description, externalReference: claimed.id });
-      if (transfer.status === "FAILED" || transfer.status === "CANCELLED") throw new PartnerError(transfer.failReason ?? "O banco parceiro recusou a transferência.", 422);
+      if (transfer.status === "FAILED" || transfer.status === "CANCELLED") throw new PartnerError(transfer.failReason ?? "O PRX BANK recusou a transferência.", 422);
       providerRef = transfer.id;
     } else if (claimed.kind === "pix_qr") {
       providerRef = (await payPixQrCode(deps.client, apiKey, { payload: claimed.target, value: claimed.amount, description: claimed.description })).id;
@@ -179,7 +179,7 @@ export async function executeOutgoing(userId: string, requestId: string, deps: A
   } catch (err) {
     // Recusa clara: o pedido falha e nada saiu. Resultado incerto: fica "pedido" até o webhook decidir.
     if (!(err instanceof AsaasError && err.ambiguous)) {
-      const reason = err instanceof Error ? err.message : "Recusado pelo banco parceiro.";
+      const reason = err instanceof Error ? err.message : "Recusado pelo PRX BANK.";
       await deps.store.transitionOutgoing(claimed.id, ["requested", "approved"], "failed", { failReason: reason });
     }
     throw toPartnerError(err, "Não foi possível concluir a operação.");

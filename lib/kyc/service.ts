@@ -47,7 +47,7 @@ export async function submitBankKyc(
 
   const latest = await kycRepo().latestForUser(user.id);
   if (latest?.status === "pending") throw new FamilyError("Sua abertura de conta já está em análise.", 409);
-  if (latest?.status === "approved" && !options.allowRedo) throw new FamilyError("Sua conta PRX BANK já foi aberta no banco parceiro.", 409);
+  if (latest?.status === "approved" && !options.allowRedo) throw new FamilyError("Sua conta PRX BANK já foi aberta.", 409);
 
   // Documentos: só da própria pasta, com frente e verso do documento com foto.
   if (input.documents.some((d) => !ownsDocument(user.id, d))) throw new FamilyError("Documento inválido. Envie os arquivos de novo.", 422);

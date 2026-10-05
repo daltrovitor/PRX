@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     const deps = asaasDeps();
     return NextResponse.json({ provider: "asaas", subaccount: subaccountView(await currentSubaccount(user.id, deps)) }, { headers: NO_STORE });
   } catch (error) {
-    return familyErrorResponse(error, "Erro ao consultar a conta no banco parceiro.");
+    return familyErrorResponse(error, "Erro ao consultar a conta no PRX BANK.");
   }
 }
 
@@ -31,7 +31,7 @@ const schema = z.object({ action: z.enum(["open", "refresh"]).default("open") })
 export async function POST(req: NextRequest) {
   try {
     const user = await requireUser(req);
-    if (!asaasActiveFor(user.id)) throw new PartnerError("A integração com o banco parceiro não está ligada neste ambiente.", 503);
+    if (!asaasActiveFor(user.id)) throw new PartnerError("A ativação de contas ainda não está disponível neste ambiente.", 503);
     const rate = checkRateLimit(`bank_accounts_${user.id}`, 6, 300);
     if (!rate.allowed) throw new PartnerError(`Muitas tentativas. Tente em ${rate.resetInSeconds}s.`, 429);
     const parsed = schema.safeParse(await body(req));
@@ -40,6 +40,6 @@ export async function POST(req: NextRequest) {
     const subaccount = parsed.data.action === "refresh" ? await refreshSubaccountStatus(user.id, deps) : await openSubaccount(user.id, deps);
     return NextResponse.json({ success: true, subaccount }, { headers: NO_STORE });
   } catch (error) {
-    return familyErrorResponse(error, "Não foi possível abrir a conta no banco parceiro.");
+    return familyErrorResponse(error, "Não foi possível abrir a conta no PRX BANK.");
   }
 }

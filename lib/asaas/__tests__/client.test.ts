@@ -205,9 +205,9 @@ describe("configuração colada com erros comuns", () => {
 });
 
 describe("nome do parceiro escondido do membro", () => {
-  it("troca o nome do provedor por banco parceiro nos textos que vêm dele", () => {
-    expect(hideProviderName("Saldo insuficiente na sua conta Asaas.")).toBe("Saldo insuficiente na sua conta banco parceiro.");
-    expect(hideProviderName("Taxa do ASAAS Gestão Financeira Instituição de Pagamento S.A.")).toBe("Taxa do banco parceiro");
+  it("troca o nome do provedor por PRX BANK nos textos que vêm dele", () => {
+    expect(hideProviderName("Saldo insuficiente na sua conta Asaas.")).toBe("Saldo insuficiente na sua conta PRX BANK.");
+    expect(hideProviderName("Taxa do ASAAS Gestão Financeira Instituição de Pagamento S.A.")).toBe("Taxa do PRX BANK");
     expect(hideProviderName("Pix recebido")).toBe("Pix recebido");
   });
 });

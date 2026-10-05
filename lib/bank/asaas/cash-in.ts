@@ -40,13 +40,13 @@ export async function providerPixKeys(userId: string, deps: AsaasDeps): Promise<
 export async function createProviderPixKey(userId: string, type: PixKeyType, deps: AsaasDeps): Promise<PixKey> {
   const { apiKey } = await requireActiveSubaccount(userId, deps);
   if (type !== "random") {
-    throw new PartnerError("Pelo app, o banco parceiro só registra chave aleatória. Chave de CPF, e-mail ou celular não pode ser criada pela integração.", 422);
+    throw new PartnerError("Pelo app, o PRX BANK só registra chave aleatória. Chave de CPF, e-mail ou celular não pode ser criada pela integração.", 422);
   }
   try {
     const keys = (await listPixKeys(deps.client, apiKey)).map(toPixKey).filter(Boolean);
     if (keys.length >= MAX_PIX_KEYS) throw new PartnerError(`Limite de ${MAX_PIX_KEYS} chaves Pix por conta.`, 409);
     const created = toPixKey(await createEvpKey(deps.client, apiKey));
-    if (!created) throw new PartnerError("O banco parceiro não confirmou a chave. Tente de novo em instantes.", 503);
+    if (!created) throw new PartnerError("O PRX BANK não confirmou a chave. Tente de novo em instantes.", 503);
     return created;
   } catch (err) {
     throw toPartnerError(err, "Não foi possível cadastrar a chave Pix.");

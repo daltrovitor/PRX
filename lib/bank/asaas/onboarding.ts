@@ -138,7 +138,7 @@ export async function openSubaccount(userId: string, deps: AsaasDeps): Promise<S
   } catch (err) {
     // Recusa clara libera para tentar de novo; resultado incerto mantém a trava (nada de conta dupla).
     if (!(err instanceof AsaasError && err.ambiguous)) await deps.store.releaseSubaccount(userId);
-    throw toPartnerError(err, "Não foi possível abrir sua conta no banco parceiro.");
+    throw toPartnerError(err, "Não foi possível abrir sua conta no PRX BANK.");
   }
 
   const { agency, accountNumber } = formatAccount(created.accountNumber);
@@ -166,7 +166,7 @@ export async function openSubaccount(userId: string, deps: AsaasDeps): Promise<S
 /** Subconta já criada no Asaas, com a apiKey aberta só para a chamada. */
 export async function requireSubaccount(userId: string, deps: AsaasDeps): Promise<{ sub: Subaccount; apiKey: string }> {
   const sub = await currentSubaccount(userId, deps);
-  if (!sub?.asaasAccountId || !sub.apiKeySealed) throw new PartnerError("Abra sua conta no banco parceiro primeiro.", 409);
+  if (!sub?.asaasAccountId || !sub.apiKeySealed) throw new PartnerError("Abra sua conta no PRX BANK primeiro.", 409);
   return { sub, apiKey: decryptSecret(sub.apiKeySealed) };
 }
 
@@ -189,7 +189,7 @@ async function liftEmancipatedMinor(userId: string, deps: AsaasDeps): Promise<vo
   if (app?.minorPath !== "emancipated") return;
   const family = getFamilyRepository();
   const request = await family.latestEmancipation(userId).catch(() => null);
-  if (request?.status === "pending") await family.decideEmancipation(request.id, "approved", "Certidão aprovada pelo banco parceiro.", "banco parceiro");
+  if (request?.status === "pending") await family.decideEmancipation(request.id, "approved", "Certidão aprovada pelo PRX BANK.", "PRX BANK");
   await family.updateIdentity(userId, { accountType: "member", status: "active" });
 }
 
@@ -231,7 +231,7 @@ export async function refreshSubaccountStatus(userId: string, deps: AsaasDeps): 
     const known: GeneralStatus = general === "APPROVED" || general === "REJECTED" || general === "AWAITING_APPROVAL" ? general : "PENDING";
     return subaccountView(await applyGeneralApproval(sub, known, known === "REJECTED" ? sub.rejectReason : null, deps));
   } catch (err) {
-    throw toPartnerError(err, "Não foi possível consultar sua conta no banco parceiro.");
+    throw toPartnerError(err, "Não foi possível consultar sua conta no PRX BANK.");
   }
 }
 
