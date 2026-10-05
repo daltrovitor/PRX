@@ -34,7 +34,10 @@ interface Person {
   email: string;
   fullName: string;
   avatarUrl: string;
+  /** Conta de acesso criada só agora por esta conclusão (pode ser desfeita se algo falhar). */
   isNew: boolean;
+  /** Cadastro novo: recebe o e-mail de boas-vindas. Não é o mesmo que isNew: o perfil vazio criado pelo gatilho do banco já existe. */
+  welcome: boolean;
 }
 
 /** Quem está concluindo: o cadastro Google pendente (cookie assinado) ou o membro logado sem CPF/celular. */
@@ -42,11 +45,18 @@ async function whoIsCompleting(req: NextRequest): Promise<Person> {
   const token = req.cookies.get(PENDING_GOOGLE_COOKIE)?.value;
   const pending = token ? verifyPendingGoogleToken(token) : null;
   if (pending) {
-    return { authUserId: pending.authUserId, email: pending.email, fullName: pending.fullName, avatarUrl: pending.avatarUrl || "", isNew: !pending.authUserId };
+    return {
+      authUserId: pending.authUserId,
+      email: pending.email,
+      fullName: pending.fullName,
+      avatarUrl: pending.avatarUrl || "",
+      isNew: !pending.authUserId,
+      welcome: pending.welcome ?? !pending.authUserId,
+    };
   }
   const user = await getCurrentUser(req);
   if (user && user.role === "user" && (!user.cpf || !user.phone)) {
-    return { authUserId: user.id, email: user.email, fullName: user.fullName, avatarUrl: user.avatarUrl, isNew: false };
+    return { authUserId: user.id, email: user.email, fullName: user.fullName, avatarUrl: user.avatarUrl, isNew: false, welcome: false };
   }
   throw new PartnerError("Sessão de cadastro expirada. Entre com o Google de novo.", 400);
 }
@@ -142,7 +152,7 @@ export async function POST(req: NextRequest) {
       finalUser = userStore.findOrCreateGoogleUser(email, fullName, person.avatarUrl, cpf, phone);
     }
 
-    if (person.isNew) {
+    if (person.welcome) {
       const recipient = { id: finalUser.id, email, fullName: finalUser.fullName };
       after(() => sendWelcomeEmail(recipient));
     }

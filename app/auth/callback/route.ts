@@ -6,7 +6,7 @@ import { createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { asMemberRole, type SessionCookieOptions } from "@/lib/db-rows";
 import { CONSENT_COOKIE, TERMS_VERSION, recordConsent } from "@/lib/legal";
-import { createPendingGoogleToken, pendingGoogleCookie } from "@/lib/google-pending";
+import { createPendingGoogleToken, isBlankProfile, pendingGoogleCookie } from "@/lib/google-pending";
 
 /** Conta criada agora pelo próprio Google (sem senha nem outro provedor): pode ser desfeita sem perda. */
 function isFreshGoogleOnly(user: { created_at?: string; identities?: ReadonlyArray<{ provider: string }> | null }): boolean {
@@ -74,7 +74,9 @@ export async function GET(req: NextRequest) {
             // Cadastro incompleto: nada fica gravado. O app abre pedindo CPF, celular e o aceite;
             // só a conclusão cria o perfil (e a conta de acesso, se o Google acabou de criá-la).
             if (!existing && isFreshGoogleOnly(authUser)) await supabaseAdmin.auth.admin.deleteUser(authUser.id).catch(() => undefined);
-            const pending = createPendingGoogleToken({ authUserId: existing ? authUser.id : undefined, email, fullName: String(fullName), avatarUrl: String(avatarUrl) });
+            // O gatilho handle_new_user cria um perfil vazio quando o Google cria o acesso: "existe perfil" não é "já é membro".
+            // Perfil vazio = cadastro novo, que ao concluir recebe o e-mail de boas-vindas.
+            const pending = createPendingGoogleToken({ authUserId: existing ? authUser.id : undefined, welcome: isBlankProfile(existing), email, fullName: String(fullName), avatarUrl: String(avatarUrl) });
             const pendingResponse = NextResponse.redirect(`${origin}/`);
             pendingResponse.cookies.set(pendingGoogleCookie(pending));
             pendingResponse.cookies.set({ name: CONSENT_COOKIE, value: "", path: "/", maxAge: 0, expires: new Date(0) });
