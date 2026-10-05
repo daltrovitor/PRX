@@ -68,7 +68,6 @@ export default function OfflinePage() {
         gsap.set(q("[data-tag-clip]"), { attr: { width: PRX_LAYOUT.viewBox.full[2] } });
         gsap.set(q("[data-piece='white'], [data-piece='color'], [data-piece='x-arm']"), { autoAlpha: 1, x: 0, y: 0 });
         gsap.set(q("[data-letter]"), { y: 0 });
-        gsap.set(q("[data-bar]"), { scaleX: 1 });
         gsap.set(q("[data-logo]"), { autoAlpha: 1 });
         transitionToTop();
         return;
@@ -89,7 +88,7 @@ export default function OfflinePage() {
         .from(q("[data-letter]"), { y: 130, duration: 0.9, stagger: 0.09 }, 1.38)
         .from(q("[data-piece='x-arm']"), { x: 46, y: -46, autoAlpha: 0, duration: 0.7, ease: "back.out(2)" }, 1.78)
         .to(q("[data-tag-clip]"), { attr: { width: PRX_LAYOUT.viewBox.full[2] }, duration: 0.9, ease: "power3.inOut" }, 2.0)
-        .from(q("[data-bar]"), { scaleX: 0, transformOrigin: "50% 50%", duration: 0.7, ease: "power3.out" }, 2.35)
+        .to({}, { duration: 0.7 }, 2.35) // a barra saiu da marca; o tempo da sequência segue igual ao do PrxLoader online
         .to({}, { duration: 0.35 });
 
       // Estados iniciais já aplicados pelos .from(): agora o SVG pode aparecer sem "piscar" montado.
@@ -159,8 +158,7 @@ export default function OfflinePage() {
   }, [retrying]);
 
   const [vx, vy, vw, vh] = PRX_LAYOUT.viewBox.full;
-  const { symbol: sg, x: xg, bar: bg } = PRX_GRADIENTS;
-  const bar = PRX_LAYOUT.bar;
+  const { symbol: sg, x: xg } = PRX_GRADIENTS;
 
   return (
     <div ref={containerRef} className="min-h-screen w-full bg-background text-foreground transition-colors overflow-x-hidden relative">
@@ -197,11 +195,6 @@ export default function OfflinePage() {
                 <stop key={offset} offset={offset} stopColor={color} />
               ))}
             </linearGradient>
-            <linearGradient id="app-offline-b" gradientUnits="userSpaceOnUse" x1={bar.x} y1={0} x2={bar.x + bar.w} y2={0}>
-              {bg.stops.map(([offset, color]) => (
-                <stop key={offset} offset={offset} stopColor={color} />
-              ))}
-            </linearGradient>
 
             <clipPath id="app-offline-wc">
               <rect x={90} y={296} width={500} height={112} />
@@ -228,10 +221,16 @@ export default function OfflinePage() {
           </g>
 
           <g clipPath="url(#app-offline-tc)" style={{ clipPath: "url(#app-offline-tc)" }}>
-            <path fill="currentColor" transform={PRX_LAYOUT.tagline} d={PRX_PATHS.tagline} />
+            <text
+              x={541}
+              y={153}
+              textAnchor="middle"
+              fill="currentColor"
+              style={{ fontFamily: "var(--font-sans, system-ui, sans-serif)", fontSize: "21px", fontWeight: 500, letterSpacing: "0.28em" }}
+            >
+              the next pays
+            </text>
           </g>
-
-          <rect data-bar x={bar.x} y={bar.y} width={bar.w} height={bar.h} fill="url(#app-offline-b)" />
         </svg>
       </div>
 

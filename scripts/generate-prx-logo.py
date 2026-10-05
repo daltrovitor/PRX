@@ -95,6 +95,8 @@ def defs(prefix):
             f'<linearGradient id="{prefix}x" gradientUnits="userSpaceOnUse" x1="{x["x1"]}" y1="{x["y1"]}" x2="{x["x2"]}" y2="{x["y2"]}">{st(x["stops"])}</linearGradient>'
             f'<linearGradient id="{prefix}b" gradientUnits="userSpaceOnUse" x1="{bar["x"]}" y1="0" x2="{bar["x"] + bar["w"]}" y2="0">{st(b["stops"])}</linearGradient></defs>')
 
+SIGNATURE_STYLE = "font-family:system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:21px;font-weight:500;letter-spacing:0.28em"
+
 def svg(kind, ink):
     vb = layout["viewBox"][kind]
     out = [f'<!-- Hello World -->\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="{" ".join(str(v) for v in vb)}" role="img" aria-label="PRX">', defs("prx")]
@@ -104,9 +106,10 @@ def svg(kind, ink):
         # gradient for X lives in master coords, so place it inside the translated group
         out.append(f'<g transform="{wt}"><path fill="{ink}" fill-rule="evenodd" d="{P}{R}"/><path fill="url(#prxx)" d="{X_MAIN}{X_ARM}"/></g>')
     if kind == "full":
-        bar = layout["bar"]
-        out.append(f'<path fill="{ink}" transform="{layout["tagline"]}" d="{TAGLINE}"/>')
-        out.append(f'<rect x="{bar["x"]}" y="{bar["y"]}" width="{bar["w"]}" height="{bar["h"]}" fill="url(#prxb)"/>')
+        # Assinatura atual: "the next pays" em texto, centrada sob o wordmark e sem a barra (mesmo desenho de
+        # components/brand/prx-logo.tsx). A assinatura antiga em contorno segue em lib/brand/prx-logo-data.ts
+        # só por compatibilidade: nenhum componente a usa mais.
+        out.append(f'<text x="541" y="153" text-anchor="middle" fill="{ink}" style="{SIGNATURE_STYLE}">the next pays</text>')
     out.append("</svg>\n")
     return "".join(out)
 

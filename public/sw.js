@@ -5,7 +5,8 @@
  * Android (Chrome e PWA instalada) e navegadores desktop modernos.
  */
 
-const CACHE_NAME = 'prx-offline-v5';
+// v6: logo nova (assinatura "the next pays", sem a barra) na página offline e nos logos pré-armazenados.
+const CACHE_NAME = 'prx-offline-v6';
 const OFFLINE_URL = '/offline.html';
 
 // Lista de assets críticos pré-armazenados no cache durante o install
