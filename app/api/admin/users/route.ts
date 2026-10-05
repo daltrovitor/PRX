@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
           } catch {}
 
             // Query bank accounts for PRX BANK balance
-            let bankMap = new Map<string, { balance: number; status: string }>();
+            const bankMap = new Map<string, { balance: number; status: string }>();
             try {
               const { data: bankData } = await supabaseAdmin.from("bank_accounts").select("user_id, balance, status");
               if (bankData) {
@@ -127,8 +127,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { id, email, role, bankBalance } = body;
-    const bankBalanceInput = body.bankBalance !== undefined && body.bankBalance !== "" ? Math.max(0, Math.round(Number(body.bankBalance) * 100) / 100) : undefined;
+    const { id, email, role } = body;
     // Régua infinita: nível e XP andam juntos. XP informado define o nível; só o nível
     // informado leva o XP ao piso daquele nível.
     const scoreInput = body.prxScore !== undefined && body.prxScore !== "" ? Math.max(0, Math.floor(Number(body.prxScore) || 0)) : undefined;
@@ -177,23 +176,13 @@ export async function PUT(req: NextRequest) {
           }
         }
 
-        // B) Update bank balance if provided
-        if (targetUserId && bankBalanceInput !== undefined) {
-          try {
-            const { setAdminBankBalance } = await import("@/lib/bank/repository");
-            await setAdminBankBalance(targetUserId, bankBalanceInput, "Ajuste de saldo administrativo (Sandbox)");
-          } catch (bankErr) {
-            console.warn("Notice: setAdminBankBalance error:", bankErr);
-          }
-        }
-
-        // C) Update fields in profiles table
+        // B) Update fields in profiles table
         const updatePayload: Record<string, unknown> = {};
         if (prxLevel !== undefined) updatePayload.nxt_level = Number(prxLevel);
         if (prxScore !== undefined) updatePayload.nxt_score = Number(prxScore);
         if (role !== undefined) updatePayload.role = role;
 
-        if (Object.keys(updatePayload).length > 0 || bankBalanceInput !== undefined) {
+        if (Object.keys(updatePayload).length > 0) {
           let updateQuery = supabaseAdmin.from("profiles").update(updatePayload);
           if (id) {
             updateQuery = updateQuery.eq("id", id);
@@ -231,7 +220,6 @@ export async function PUT(req: NextRequest) {
               prxLevel: updatedProfile?.nxt_level ?? p.nxt_level,
               prxScore: updatedProfile?.nxt_score ?? p.nxt_score,
               walletBalance: Number(updatedProfile?.wallet_balance ?? p.wallet_balance ?? 0),
-              bankBalance: bankBalanceInput !== undefined ? bankBalanceInput : undefined,
             };
           }
         }
@@ -247,16 +235,6 @@ export async function PUT(req: NextRequest) {
       role: role !== undefined ? role : undefined,
     });
 
-    if (bankBalanceInput !== undefined) {
-      try {
-        const { setAdminBankBalance } = await import("@/lib/bank/repository");
-        const resolvedId = updatedStore?.id || id || targetKey;
-        await setAdminBankBalance(resolvedId, bankBalanceInput, "Ajuste de saldo administrativo (Sandbox)");
-      } catch (bankErr) {
-        console.warn("Notice: setAdminBankBalance userStore error:", bankErr);
-      }
-    }
-
     if (updatedStore) {
       userFound = true;
       if (!returnUser) {
@@ -268,7 +246,6 @@ export async function PUT(req: NextRequest) {
           prxLevel: updatedStore.prxLevel,
           prxScore: updatedStore.prxScore,
           walletBalance: updatedStore.walletBalance,
-          bankBalance: bankBalanceInput !== undefined ? bankBalanceInput : undefined,
         };
       }
     }

@@ -166,7 +166,7 @@ export class SupabaseAsaasBankStore implements AsaasBankStore {
     // Subconta de outro ambiente (sandbox antes da produção): recomeça do zero neste.
     const replaced = await this.db
       .from("bank_subaccounts")
-      .update({ ...EMPTY_SUBACCOUNT, environment, provisioning_started_at: now, updated_at: now })
+      .update({ ...EMPTY_SUBACCOUNT, environment, provisioning_started_at: now, created_at: now, updated_at: now })
       .eq("id", userId)
       .neq("environment", environment)
       .select("id");

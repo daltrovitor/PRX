@@ -3,8 +3,8 @@ import crypto from "crypto";
 import { z } from "zod";
 import { PartnerError } from "@/lib/partners/errors";
 import { errorMessage } from "@/lib/errors";
-import { getBankRepository, isSandboxMode, repoSendPix, sandboxActivate, sandboxCategorize, sandboxSendPix, usesSupabaseBank } from "@/lib/bank/repository";
-import { ACTIVATION_REQUIRED, MAX_PIX_KEYS, type BankAccountView, type CardRequest, type PixCharge, type PixKey, type VirtualCard } from "@/lib/prx/bank";
+import { getBankRepository, isSandboxMode, repoSendPix, sandboxActivate, sandboxCategorize, usesSupabaseBank } from "@/lib/bank/repository";
+import { ACTIVATION_REQUIRED, MAX_PIX_KEYS, type BankAccountView, type PixCharge, type PixKey } from "@/lib/prx/bank";
 import { detectPixKeyType, isValidCpf } from "@/lib/prx/pix";
 import { DEMO_ACCOUNTS_ENABLED } from "@/lib/server-secrets";
 import { processPartnerPixTransfer, type PartnerPixResult } from "@/lib/points/service";
@@ -12,7 +12,7 @@ import { assertCanHoldMoney, assertMinorSpend } from "@/lib/family/guards";
 import { assertBankKycApproved, bankKycState } from "@/lib/kyc/guards";
 import { asaasActiveFor, asaasDeps } from "@/lib/bank/asaas/deps";
 import { providerSnapshot } from "@/lib/bank/asaas/view";
-import { createProviderCharge, createProviderPixKey } from "@/lib/bank/asaas/cash-in";
+import { createProviderCharge, createProviderPixKey, removeProviderPixKey } from "@/lib/bank/asaas/cash-in";
 import { assertNightLimit } from "@/lib/bank/asaas/limits";
 
 /**
@@ -67,8 +67,8 @@ export async function accountView(userId: string): Promise<BankAccountView> {
     isAsaas ? providerSnapshot(userId) : Promise.resolve(null),
   ]);
 
-  // Chave guardada antes da conta real (sandbox) só vale depois de registrada no Asaas.
-  const pixKeys = live?.pixKeys ?? (isAsaas ? localKeys.map((k) => ({ ...k, status: "pending_activation" as const })) : localKeys);
+  // Com o Asaas, só valem as chaves registradas no Pix pela subconta (as locais são do sandbox).
+  const pixKeys = isAsaas ? (live?.pixKeys ?? []) : localKeys;
   const provider = isAsaas ? (live?.provider ?? null) : null;
   const status = isSandbox && account.status === "pending_activation" ? "active" : (live?.provider?.state === "active" ? "active" : account.status);
   const virtualCard = account.virtualCard ?? (isSandbox ? { last4: "4242", expiry: "12/30", locked: false } : null);
@@ -179,8 +179,9 @@ export async function addPixKey(userId: string, input: z.output<typeof pixKeyInp
   const repo = getBankRepository(userId);
   const account = await repo.getOrCreateAccount(userId);
   if (account.status === "blocked") throw new PartnerError("Conta bloqueada. Fale com o suporte PRX.", 403);
-  // Conta aprovada no banco parceiro: a chave é registrada no DICT pelo Asaas.
-  if (account.status === "active" && asaasActiveFor(userId)) return createProviderPixKey(userId, input.type, asaasDeps());
+  // Com o banco parceiro, a chave vai direto ao Pix (DICT) pelo Asaas, só com a conta aprovada.
+  // Nada de pré-cadastro local: pela API o Asaas registra só a chave aleatória.
+  if (asaasActiveFor(userId)) return createProviderPixKey(userId, input.type, asaasDeps());
   const keys = await repo.listPixKeys(userId);
   if (keys.length >= MAX_PIX_KEYS) throw new PartnerError(`Limite de ${MAX_PIX_KEYS} chaves Pix por conta.`, 409);
   if (keys.some((k) => k.value === input.value)) throw new PartnerError("Esta chave já está cadastrada.", 409);
@@ -206,40 +207,14 @@ export async function createCharge(userId: string, input: z.output<typeof charge
   return repo.insertCharge(userId, { amount: input.amount ?? null, description: input.description, payload });
 }
 
-export async function toggleCardLock(userId: string): Promise<VirtualCard> {
-  return getBankRepository(userId).toggleCardLock(userId);
-}
-
 export async function removePixKey(userId: string, keyId: string): Promise<void> {
+  if (asaasActiveFor(userId)) return removeProviderPixKey(userId, keyId, asaasDeps());
   const removed = await getBankRepository(userId).deletePixKey(userId, keyId);
   if (!removed) throw new PartnerError("Chave não encontrada.", 404);
 }
 
-export const cardAddressSchema = z.object({
-  cep: z
-    .string()
-    .transform((v) => v.replace(/\D/g, ""))
-    .refine((v) => v.length === 8, "CEP precisa de 8 dígitos."),
-  street: z.string().trim().min(3, "Informe o endereço.").max(120),
-  number: z.string().trim().min(1, "Informe o número.").max(20),
-  complement: z.string().trim().max(60).default(""),
-  city: z.string().trim().min(2, "Informe a cidade e UF.").max(80),
-});
-
-export async function requestPhysicalCard(userId: string, address: z.output<typeof cardAddressSchema>): Promise<CardRequest> {
-  await assertBankKycApproved(userId);
-  const repo = getBankRepository(userId);
-  const account = await repo.getOrCreateAccount(userId);
-  if (account.status === "blocked") throw new PartnerError("Conta bloqueada. Fale com o suporte PRX.", 403);
-  if (await repo.getOpenCardRequest(userId)) throw new PartnerError("Você já pediu o cartão físico.", 409);
-  const full = `${address.street}, ${address.number}${address.complement ? ` — ${address.complement}` : ""} · ${address.city} · CEP ${address.cep.replace(/(\d{5})(\d{3})/, "$1-$2")}`;
-  return repo.insertCardRequest(userId, full);
-}
-
-export async function cancelPhysicalCard(userId: string, requestId: string): Promise<void> {
-  const cancelled = await getBankRepository(userId).cancelCardRequest(userId, requestId);
-  if (!cancelled) throw new PartnerError("Só pedidos que ainda aguardam a ativação podem ser cancelados.", 409);
-}
+/** Cartões PRX (virtual e físico) ainda não são emitidos. */
+export const CARDS_SOON = "O cartão PRX ainda não está funcionando. Ele chega em breve, sem anuidade.";
 
 /** Movimentação bancária só com a conta no status "active" (nunca em ativação ou bloqueada). */
 export async function assertAccountActive(userId: string): Promise<void> {

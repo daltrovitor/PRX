@@ -2,7 +2,7 @@
 import crypto from "crypto";
 import { PartnerError } from "@/lib/partners/errors";
 import { toPartnerError } from "@/lib/asaas/errors";
-import { createCustomer, createEvpKey, createPixPayment, customerName, getPaymentQrCode, listPixKeys, type AsaasPixKey } from "@/lib/asaas/pix";
+import { createCustomer, createEvpKey, createPixPayment, customerName, deletePixKey, getPaymentQrCode, listPixKeys, type AsaasPixKey } from "@/lib/asaas/pix";
 import { todayInBrasilia } from "@/lib/family/age";
 import { MAX_PIX_KEYS, type PixCharge, type PixKey } from "@/lib/prx/bank";
 import type { PixKeyType } from "@/lib/prx/pix";
@@ -50,6 +50,18 @@ export async function createProviderPixKey(userId: string, type: PixKeyType, dep
     return created;
   } catch (err) {
     throw toPartnerError(err, "Não foi possível cadastrar a chave Pix.");
+  }
+}
+
+/** Exclui uma chave da própria subconta (a lista do Asaas confirma que ela é do membro). */
+export async function removeProviderPixKey(userId: string, keyId: string, deps: AsaasDeps): Promise<void> {
+  const { apiKey } = await requireActiveSubaccount(userId, deps);
+  try {
+    const keys = await listPixKeys(deps.client, apiKey);
+    if (!keys.some((k) => k.id === keyId && toPixKey(k))) throw new PartnerError("Chave não encontrada.", 404);
+    await deletePixKey(deps.client, apiKey, keyId);
+  } catch (err) {
+    throw toPartnerError(err, "Não foi possível excluir a chave Pix.");
   }
 }
 
@@ -116,7 +128,7 @@ export async function handlePaymentEvent(event: AsaasEvent, sub: Subaccount, dep
   await deps.mirror.markChargePaid(id, now);
   let payer: string | null = null;
   const customer = str(payment.customer);
-  if (customer && sub.apiKeySealed) {
+  if (customer && customer !== sub.customerId && sub.apiKeySealed) {
     const { apiKey } = await requireActiveSubaccount(sub.userId, deps).catch(() => ({ apiKey: null }));
     if (apiKey) payer = await customerName(deps.client, apiKey, customer).catch(() => null);
   }

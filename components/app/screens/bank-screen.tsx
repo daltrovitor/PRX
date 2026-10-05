@@ -18,10 +18,9 @@ import { CardVisual } from "@/components/app/bank/card-visual";
 import { QrScanner } from "@/components/app/qr-scanner";
 import { CopyButton, useQrDataUrl } from "@/components/app/pass/voucher-sheet";
 import { BalanceFigure, Button, EmptyState, Field, IconButton, Input, Notice, Segmented, Select, Sheet, Tag, Textarea, formatBRL } from "@/components/app/ui";
-import { IconEye, IconEyeOff, IconLock, IconTrash, IconUnlock } from "@/components/icons/prx-icons";
+import { IconEye, IconEyeOff, IconTrash } from "@/components/icons/prx-icons";
 import {
   ACCOUNT_STATUS_LABEL,
-  CARD_REQUEST_STATUS_LABEL,
   MAX_PIX_KEYS,
   PIX_KEY_STATUS_LABEL,
   filterTransactions,
@@ -162,7 +161,7 @@ export function BankScreen({ member }: { member: User }) {
       {section === "contas" && <BillPanel onPaid={() => void reload()} />}
       {section === "cobrar" && <ChargePanel account={account} run={run} />}
       {section === "mapa" && <PrxMap transactions={account.transactions} hidden={hidden} />}
-      {section === "cartoes" && <CardsPanel account={account} run={run} holder={member.name || "Membro PRX"} />}
+      {section === "cartoes" && <CardsPanel holder={member.name || "Membro PRX"} />}
       {section === "chaves" && <KeysPanel account={account} run={run} />}
     </div>
   );
@@ -482,119 +481,33 @@ function ChargePanel({ account, run }: { account: BankAccountView; run: Run }) {
 
 /* ------------------------------------------------------------------------ */
 
-const EMPTY_ADDRESS = { cep: "", street: "", number: "", complement: "", city: "" };
-
-function CardsPanel({ account, run, holder }: { account: BankAccountView; run: Run; holder: string }) {
-  const [requestOpen, setRequestOpen] = useState(false);
-  const [address, setAddress] = useState(EMPTY_ADDRESS);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const card = account.virtualCard;
-  const request = account.cardRequest;
-
-  async function act(body: { action: string } & Record<string, unknown>, onDone?: () => void) {
-    setBusy(true);
-    setError(null);
-    const result = await run(body);
-    setBusy(false);
-    if (!result.ok) return setError(result.error);
-    onDone?.();
-  }
-
-  function submitRequest(event: FormEvent) {
-    event.preventDefault();
-    void act({ action: "request_card", address }, () => {
-      setRequestOpen(false);
-      setAddress(EMPTY_ADDRESS);
-    });
-  }
-
+/** Cartões PRX ainda não emitidos: a aba deixa claro que chegam em breve. */
+function CardsPanel({ holder }: { holder: string }) {
   return (
     <section aria-label="Cartões" className="grid gap-12 lg:grid-cols-12 pb-36 lg:pb-8">
       <div className="space-y-6 lg:col-span-6">
-        <h2 className="text-xl font-semibold tracking-[-0.02em] text-ink">Cartão virtual</h2>
-        <CardVisual card={card} holder={holder} />
-        {card ? (
-          <Button variant={card.locked ? "primary" : "danger"} size="sm" disabled={busy} onClick={() => void act({ action: "toggle_lock" })}>
-            {card.locked ? <IconUnlock size={16} /> : <IconLock size={16} />}
-            {card.locked ? "Desbloquear" : "Bloquear"}
-          </Button>
-        ) : (
-          <p className="text-[13px] text-muted-foreground">O cartão virtual é emitido automaticamente quando a conta for ativada, sem anuidade.</p>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-xl font-semibold tracking-[-0.02em] text-ink">Cartão virtual</h2>
+          <Tag tone="accent">Em breve</Tag>
+        </div>
+        <CardVisual holder={holder} label="Virtual" />
+        <p className="text-[13px] leading-relaxed text-muted-foreground">
+          O cartão virtual PRX ainda não está funcionando. Ele chega em breve, sem anuidade, e avisamos aqui no app quando liberar. Enquanto isso, pague com Pix.
+        </p>
       </div>
 
       <div className="space-y-6 lg:col-span-6">
-        <h2 className="text-xl font-semibold tracking-[-0.02em] text-ink">Cartão físico</h2>
-        {request ? (
-          <div className="space-y-4 rounded-3xl glass p-5 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-[15px] font-medium text-ink">Pedido registrado</p>
-              <Tag tone={request.status === "delivered" ? "success" : "neutral"}>{CARD_REQUEST_STATUS_LABEL[request.status]}</Tag>
-            </div>
-            <dl className="space-y-2 text-sm">
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Entrega</dt>
-                <dd className="text-right text-ink">{request.address}</dd>
-              </div>
-              {request.trackingCode && (
-                <div className="flex justify-between gap-4">
-                  <dt className="text-muted-foreground">Rastreio</dt>
-                  <dd className="font-mono text-ink">{request.trackingCode}</dd>
-                </div>
-              )}
-            </dl>
-            {request.status === "waiting_activation" && (
-              <>
-                <p className="text-[13px] text-muted-foreground">O pedido foi recebido e está em processamento para envio.</p>
-                <Button variant="ghost" size="sm" disabled={busy} onClick={() => void act({ action: "cancel_card_request", id: request.id })}>
-                  Cancelar pedido
-                </Button>
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-4 rounded-3xl glass p-5 sm:p-6">
-            <p className="text-[15px] text-ink">Peça o cartão físico sem anuidade com entrega no seu endereço.</p>
-            <Button onClick={() => setRequestOpen(true)}>Pedir cartão físico</Button>
-          </div>
-        )}
-        {error && !requestOpen && <Notice tone="error">{error}</Notice>}
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-xl font-semibold tracking-[-0.02em] text-ink">Cartão físico</h2>
+          <Tag tone="accent">Em breve</Tag>
+        </div>
+        <div className="space-y-2 rounded-3xl glass p-5 sm:p-6">
+          <p className="text-[15px] text-ink">O cartão físico PRX ainda não está funcionando.</p>
+          <p className="text-[13px] leading-relaxed text-muted-foreground">
+            Ele chega em breve, sem anuidade. Quando liberar, você pede por aqui e recebe no seu endereço.
+          </p>
+        </div>
       </div>
-
-      <Sheet
-        open={requestOpen}
-        onClose={() => setRequestOpen(false)}
-        title="Endereço de entrega"
-        footer={
-          <Button block type="submit" form="physical-card-form" disabled={busy}>
-            {busy ? "Registrando…" : "Confirmar pedido"}
-          </Button>
-        }
-      >
-        <form id="physical-card-form" onSubmit={submitRequest} className="grid gap-4 sm:grid-cols-6">
-          <Field label="CEP" className="sm:col-span-2">
-            {(id) => <Input id={id} inputMode="numeric" autoComplete="postal-code" value={address.cep} onChange={(e) => setAddress({ ...address, cep: e.target.value })} />}
-          </Field>
-          <Field label="Endereço" className="sm:col-span-4">
-            {(id) => <Input id={id} autoComplete="address-line1" value={address.street} onChange={(e) => setAddress({ ...address, street: e.target.value })} />}
-          </Field>
-          <Field label="Número" className="sm:col-span-2">
-            {(id) => <Input id={id} value={address.number} onChange={(e) => setAddress({ ...address, number: e.target.value })} />}
-          </Field>
-          <Field label="Complemento" className="sm:col-span-4">
-            {(id) => <Input id={id} autoComplete="address-line2" value={address.complement} onChange={(e) => setAddress({ ...address, complement: e.target.value })} />}
-          </Field>
-          <Field label="Cidade / UF" className="sm:col-span-6">
-            {(id) => <Input id={id} autoComplete="address-level2" value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} />}
-          </Field>
-          {error && (
-            <Notice tone="error" className="sm:col-span-6">
-              {error}
-            </Notice>
-          )}
-        </form>
-      </Sheet>
     </section>
   );
 }
@@ -607,8 +520,10 @@ function KeysPanel({ account, run }: { account: BankAccountView; run: Run }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const full = account.pixKeys.length >= MAX_PIX_KEYS;
-  // Conta ativa no banco parceiro: pelo app, só a chave aleatória é registrada no DICT.
-  const onlyRandom = account.provider?.state === "active";
+  // Banco parceiro: pelo app, só a chave aleatória é registrada no Pix, e só com a conta aprovada.
+  const viaProvider = account.provider !== null;
+  const onlyRandom = viaProvider;
+  const waitingApproval = viaProvider && account.provider?.state !== "active";
 
   async function add(event: FormEvent) {
     event.preventDefault();
@@ -621,7 +536,8 @@ function KeysPanel({ account, run }: { account: BankAccountView; run: Run }) {
     setValue("");
   }
 
-  async function remove(id: string) {
+  async function remove(id: string, value: string) {
+    if (viaProvider && !window.confirm(`Excluir a chave ${value}? Ela deixa de receber Pix.`)) return;
     setError(null);
     const result = await run({ action: "remove_pix_key", id });
     if (!result.ok) setError(result.error);
@@ -630,11 +546,17 @@ function KeysPanel({ account, run }: { account: BankAccountView; run: Run }) {
   return (
     <section aria-label="Chaves Pix" className="grid gap-10 lg:grid-cols-12 pb-36 lg:pb-8">
       <form onSubmit={(e) => void add(e)} className="space-y-5 lg:col-span-5">
-        {account.status === "pending_activation" && (
+        {waitingApproval ? (
           <p className="text-[13px] leading-relaxed text-muted-foreground">
-            Pré-cadastro: a chave fica reservada na sua conta e é registrada no Pix (DICT) quando o banco parceiro ativar a conta. Até lá ela ainda não recebe
-            pagamentos.
+            Sua chave Pix é criada assim que o banco parceiro aprovar sua conta. Avisamos aqui no app.
           </p>
+        ) : (
+          account.status === "pending_activation" && (
+            <p className="text-[13px] leading-relaxed text-muted-foreground">
+              Pré-cadastro: a chave fica reservada na sua conta e é registrada no Pix (DICT) quando o banco parceiro ativar a conta. Até lá ela ainda não recebe
+              pagamentos.
+            </p>
+          )
         )}
         <Field label="Tipo de chave">
           {(id) => (
@@ -663,7 +585,7 @@ function KeysPanel({ account, run }: { account: BankAccountView; run: Run }) {
             )}
           </Field>
         )}
-        <Button type="submit" block disabled={busy || full}>
+        <Button type="submit" block disabled={busy || full || waitingApproval}>
           {full ? `Limite de ${MAX_PIX_KEYS} chaves` : busy ? "Cadastrando…" : "Cadastrar chave"}
         </Button>
         {error && <Notice tone="error">{error}</Notice>}
@@ -684,8 +606,8 @@ function KeysPanel({ account, run }: { account: BankAccountView; run: Run }) {
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <CopyButton value={k.value} />
-                  {k.status === "pending_activation" && (
-                    <Button variant="ghost" size="sm" aria-label={`Excluir chave ${k.value}`} onClick={() => void remove(k.id)}>
+                  {(viaProvider || k.status === "pending_activation") && (
+                    <Button variant="ghost" size="sm" aria-label={`Excluir chave ${k.value}`} onClick={() => void remove(k.id, k.value)}>
                       <IconTrash size={16} />
                     </Button>
                   )}

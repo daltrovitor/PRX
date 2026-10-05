@@ -40,7 +40,7 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<AdminUser | null>(null);
   const [inspecting, setInspecting] = useState<AdminUser | null>(null);
-  const [form, setForm] = useState({ level: 1, score: 0, role: "user" as MemberRole, bankBalance: "0" });
+  const [form, setForm] = useState({ level: 1, score: 0, role: "user" as MemberRole });
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -59,7 +59,6 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
       level: calculatePrxLevel(user.prxScore),
       score: user.prxScore,
       role: user.role,
-      bankBalance: String(user.bankBalance ?? 0),
     });
     setFeedback(null);
   }
@@ -76,7 +75,6 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
         body: JSON.stringify({
           id: editing.id,
           prxScore: form.score,
-          bankBalance: Math.max(0, Number(form.bankBalance) || 0),
           ...(form.role === "staff" ? {} : { role: form.role }),
         }),
       });
@@ -87,7 +85,7 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
       }
       setFeedback({
         ok: true,
-        text: `${editing.name} atualizado: nível ${form.level}, ${form.score.toLocaleString("pt-BR")} XP, Saldo PRX Bank R$ ${Number(form.bankBalance).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}.`,
+        text: `${editing.name} atualizado: nível ${form.level}, ${form.score.toLocaleString("pt-BR")} XP.`,
       });
       setEditing(null);
       await onRefresh();
@@ -249,77 +247,9 @@ export function AdminMembersTab({ users, onRefresh }: AdminMembersTabProps) {
             )}
           </Field>
 
-          <div className="sm:col-span-2 space-y-3 rounded-2xl border border-line bg-surface/50 p-4">
-            <div className="flex items-center justify-between">
-              <label htmlFor="member-bank-balance" className="text-sm font-semibold text-ink">
-                Saldo PRX BANK (Sandbox / Testes)
-              </label>
-              <Tag tone="success">Conta Ativa · Sandbox</Tag>
-            </div>
-            <p className="text-[13px] text-muted-foreground">
-              Defina quanto dinheiro este membro tem em conta para realizar testes de Pix, compras e pagamentos no sandbox.
-            </p>
-            <div className="relative">
-              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
-                R$
-              </span>
-              <Input
-                id="member-bank-balance"
-                type="number"
-                min={0}
-                step="0.01"
-                placeholder="0,00"
-                value={form.bankBalance}
-                onFocus={(e) => {
-                  if (e.target.value === "0") {
-                    e.target.select();
-                  }
-                }}
-                onChange={(e) => {
-                  let val = e.target.value;
-                  if (/^0\d+/.test(val)) {
-                    val = String(Number(val));
-                  }
-                  setForm((prev) => ({ ...prev, bankBalance: val }));
-                }}
-                className="pl-10 font-mono text-base font-semibold"
-              />
-            </div>
-            <div className="flex flex-wrap gap-2 pt-1">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setForm((prev) => ({ ...prev, bankBalance: "500" }))}
-              >
-                R$ 500
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setForm((prev) => ({ ...prev, bankBalance: "1000" }))}
-              >
-                R$ 1.000
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setForm((prev) => ({ ...prev, bankBalance: "5000" }))}
-              >
-                R$ 5.000
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setForm((prev) => ({ ...prev, bankBalance: "0" }))}
-              >
-                Zerar saldo
-              </Button>
-            </div>
-          </div>
+          <p className="sm:col-span-2 text-[13px] text-muted-foreground">
+            O saldo do PRX BANK vem do banco parceiro e não pode ser alterado pelo painel.
+          </p>
         </form>
       </Sheet>
 

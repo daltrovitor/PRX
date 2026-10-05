@@ -52,6 +52,8 @@ Ao abrir o PRX BANK com `ASAAS_ENVIRONMENT=production`:
 - Subconta aberta no sandbox não vale: o membro abre outra em produção, no mesmo registro.
 - Saldo, cartão, agência e data de ativação fictícios do sandbox voltam a "em ativação". A conta só fica ativa quando o Asaas aprova a subconta real.
 - Extrato e cobranças mostram só lançamentos vindos do Asaas (`provider_ref`). Os do sandbox continuam no banco, mas não aparecem nem contam nos limites.
+- Avisos do sino e o limite noturno de Pix só consideram o que aconteceu depois da subconta de produção existir.
+- Chaves Pix locais do sandbox não aparecem: valem só as registradas no Pix pela subconta.
 - Quem nunca enviou a abertura preenche o formulário. Nenhum dado é inventado.
 
 ## Garantias
@@ -66,4 +68,6 @@ Ao abrir o PRX BANK com `ASAAS_ENVIRONMENT=production`:
 - **Rotacionar `ASAAS_WEBHOOK_AUTH_TOKEN`**: o valor antigo foi publicado no repositório público, no commit `249d8f0`. Gere outro com `openssl rand -hex 24` e atualize o `.env.local`, a Vercel e os webhooks já criados no Asaas.
 - **Nome comercial**: a Res. Conjunta nº 16/2025 veda "banco/bank" para instituição não autorizada (ver `docs/PLANO_BAAS.md`, seção 2).
 - **Menores de idade**: confirme com o Asaas a regra de subconta para menores antes de abrir para a Conta Família.
-- **Chaves Pix por CPF, e-mail ou celular**: pela API, o Asaas cria só chave aleatória (EVP).
+- **Chaves Pix por CPF, e-mail ou celular**: pela API, o Asaas cria só chave aleatória (EVP). O app cria e exclui chaves só com a conta aprovada no Asaas; não existe mais pré-cadastro local.
+- **Cartões**: virtual e físico ainda não são emitidos. A aba Cartões e o cartão da Home mostram "Em breve", e `request_card` / `toggle_lock` respondem 409.
+- **Saldo**: vem só do Asaas. O ajuste manual de saldo pelo painel admin foi removido.

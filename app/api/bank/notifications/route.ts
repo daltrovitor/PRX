@@ -2,7 +2,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { familyErrorResponse, invalid, requireUser } from "@/lib/family/http";
-import { asaasActiveFor } from "@/lib/bank/asaas/deps";
+import { asaasActiveFor, asaasDeps } from "@/lib/bank/asaas/deps";
+import { currentSubaccount, sinceSubaccount } from "@/lib/bank/asaas/onboarding";
 import { getAsaasBankStore } from "@/lib/bank/asaas/store";
 
 const NO_STORE = { "Cache-Control": "no-store" };
@@ -12,7 +13,10 @@ export async function GET(req: NextRequest) {
   try {
     const user = await requireUser(req);
     if (!asaasActiveFor(user.id)) return NextResponse.json({ notices: [], unread: 0 }, { headers: NO_STORE });
-    const list = await getAsaasBankStore().listNotifications(user.id, 20);
+    const deps = asaasDeps();
+    const sub = await currentSubaccount(user.id, deps);
+    // Avisos do sandbox (antes da subconta deste ambiente) não aparecem.
+    const list = sub ? (await deps.store.listNotifications(user.id, 20)).filter((n) => sinceSubaccount(sub, n.createdAt)) : [];
     const notices = list.map((n) => ({ id: n.id, eventType: n.eventType, title: n.title, body: n.body, amount: n.amount, read: Boolean(n.readAt), createdAt: n.createdAt }));
     return NextResponse.json({ notices, unread: notices.filter((n) => !n.read).length }, { headers: NO_STORE });
   } catch (error) {

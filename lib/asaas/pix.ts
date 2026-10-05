@@ -36,6 +36,14 @@ export function createEvpKey(client: AsaasClient, apiKey: string): Promise<Asaas
   return client.post("/pix/addressKeys", { type: "EVP" }, { apiKey }, pixKeySchema);
 }
 
+const PIX_KEY_ID = /^[A-Za-z0-9-]{8,64}$/;
+
+/** Exclui a chave do Pix (DICT). O Asaas recusa a exclusão de chaves com motivo (cannotBeDeletedReason). */
+export async function deletePixKey(client: AsaasClient, apiKey: string, keyId: string): Promise<void> {
+  if (!PIX_KEY_ID.test(keyId)) throw new Error("[asaas] chave Pix inválida.");
+  await client.delete(`/pix/addressKeys/${keyId}`, { apiKey });
+}
+
 const customerSchema = z.object({ id: z.string().min(1) });
 
 export function createCustomer(client: AsaasClient, apiKey?: string, input?: { name: string; cpfCnpj: string; email: string; mobilePhone: string }): Promise<{ id: string }> {

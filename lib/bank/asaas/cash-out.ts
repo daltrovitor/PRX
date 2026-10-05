@@ -11,7 +11,7 @@ import { PIX_KEY_LABEL, detectPixKeyType, parsePixPayload } from "@/lib/prx/pix"
 import type { AsaasDeps } from "@/lib/bank/asaas/deps";
 import { assertNightLimit } from "@/lib/bank/asaas/limits";
 import { brl } from "@/lib/bank/asaas/messages";
-import { requireActiveSubaccount } from "@/lib/bank/asaas/onboarding";
+import { requireActiveSubaccount, sinceSubaccount } from "@/lib/bank/asaas/onboarding";
 import type { OutgoingKind, OutgoingRequest } from "@/lib/bank/asaas/types";
 
 /**
@@ -67,9 +67,10 @@ export function maskDocument(doc: string | null | undefined): string | null {
 
 /** Limites do membro e saldo no Asaas. Repetido na confirmação: o tempo passou desde a revisão. */
 async function assertCanSend(userId: string, amount: number, fee: number, deps: AsaasDeps, transactions: ReadonlyArray<BankTransaction>): Promise<string> {
-  const { apiKey } = await requireActiveSubaccount(userId, deps);
+  const { sub, apiKey } = await requireActiveSubaccount(userId, deps);
   await assertMinorSpend(userId, amount, transactions, deps.now());
-  await assertNightLimit(amount, deps.now(), (since) => deps.store.outgoingTotalSince(userId, since));
+  // Saídas do sandbox (antes da subconta deste ambiente) não contam no limite noturno.
+  await assertNightLimit(amount, deps.now(), (since) => deps.store.outgoingTotalSince(userId, sinceSubaccount(sub, since) ? since : sub.createdAt));
   let balance: number;
   try {
     balance = await getBalance(deps.client, apiKey);

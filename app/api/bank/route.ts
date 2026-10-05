@@ -11,16 +11,13 @@ import {
   activateSandbox,
   addPixKey,
   assertBankOperational,
-  cancelPhysicalCard,
-  cardAddressSchema,
+  CARDS_SOON,
   chargeSchema,
   createCharge,
   pixKeyInputSchema,
   removePixKey,
-  requestPhysicalCard,
   sendPix,
   sendPixSchema,
-  toggleCardLock,
 } from "@/lib/bank/service";
 import { previewPartnerPix, type PartnerPixResult } from "@/lib/points/service";
 
@@ -41,7 +38,6 @@ const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("add_pix_key"), key: z.unknown() }),
   z.object({ action: z.literal("remove_pix_key"), id: z.string().min(1).max(100) }),
   z.object({ action: z.literal("request_card"), address: z.unknown() }),
-  z.object({ action: z.literal("cancel_card_request"), id: z.string().min(1).max(100) }),
   z.object({ action: z.literal("send_pix") }).loose(),
   z.object({ action: z.literal("lookup_partner"), key: z.string().trim().min(1).max(140), recipientName: z.string().trim().max(80).nullish(), amount: z.coerce.number().min(0).max(50_000).optional() }),
   z.object({ action: z.literal("sandbox_activate") }),
@@ -65,12 +61,11 @@ function rewardView(result: PartnerPixResult | null) {
 /**
  * POST /api/bank
  *   add_pix_key / remove_pix_key          pré-cadastro de chaves (registradas no banco na ativação)
- *   request_card / cancel_card_request    pedido do cartão físico (enviado ao emissor na ativação)
+ *   request_card / toggle_lock            cartões PRX: chegam em breve (409)
  *   lookup_partner                        identifica se a chave é de um parceiro PRX (tela de revisão)
  *   send_pix                              sandbox: liquida e passa pelo motor de compras em parceiros
  *   sandbox_activate                      só no ambiente de testes: conta ativa com saldo fictício
  *   create_charge                         cobrança Pix com QR Code dinâmico (banco parceiro; 409 até a ativação)
- *   toggle_lock                           depende do emissor de cartões: 409 até a ativação
  */
 export async function POST(req: NextRequest) {
   try {
@@ -94,15 +89,9 @@ export async function POST(req: NextRequest) {
       case "remove_pix_key":
         await removePixKey(user.id, body.id);
         break;
-      case "request_card": {
-        const address = cardAddressSchema.safeParse(body.address);
-        if (!address.success) throw new PartnerError(firstIssue(address.error), 422);
-        await requestPhysicalCard(user.id, address.data);
-        break;
-      }
-      case "cancel_card_request":
-        await cancelPhysicalCard(user.id, body.id);
-        break;
+      case "request_card":
+      case "toggle_lock":
+        throw new PartnerError(CARDS_SOON, 409);
       case "lookup_partner":
         return NextResponse.json({ success: true, partner: await previewPartnerPix(body) }, { headers: NO_STORE });
       case "sandbox_activate":
@@ -120,9 +109,6 @@ export async function POST(req: NextRequest) {
         await createCharge(user.id, charge.data);
         break;
       }
-      case "toggle_lock":
-        await toggleCardLock(user.id);
-        break;
       default:
         await assertBankOperational(user.id);
     }

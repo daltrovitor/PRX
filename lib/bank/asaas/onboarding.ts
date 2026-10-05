@@ -12,7 +12,7 @@ import type { AsaasDeps } from "@/lib/bank/asaas/deps";
 import { bankMessage } from "@/lib/bank/asaas/messages";
 import { ACTIVATION_REQUIRED } from "@/lib/prx/bank";
 import type { Subaccount, SubaccountKycStatus, SubaccountStatus } from "@/lib/bank/asaas/types";
-import { createCustomer, createEvpKey } from "@/lib/asaas/pix";
+import { createCustomer } from "@/lib/asaas/pix";
 import { ensureDefaultPixKey } from "@/lib/bank/asaas/cash-in";
 import type { AsaasClient } from "@/lib/asaas/client";
 import { asaasDeps } from "@/lib/bank/asaas/deps";
@@ -93,6 +93,11 @@ function formatAccount(number: CreatedSubaccount["accountNumber"]): { agency: st
 export async function currentSubaccount(userId: string, deps: AsaasDeps): Promise<Subaccount | null> {
   const sub = await deps.store.getSubaccount(userId);
   return sub && sub.environment !== deps.client.environment ? null : sub;
+}
+
+/** Só vale o que aconteceu depois da subconta deste ambiente existir (antes, era dinheiro de teste). */
+export function sinceSubaccount(sub: Subaccount, iso: string): boolean {
+  return Date.parse(iso) >= Date.parse(sub.createdAt);
 }
 
 /** Dados reais da abertura enviada pelo membro. Sem ela não existe subconta. */

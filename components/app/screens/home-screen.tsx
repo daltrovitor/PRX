@@ -257,7 +257,7 @@ export function HomeScreen({ pass }: { pass: PassData }) {
           <section aria-labelledby="home-card" className="space-y-3">
             <ObsidianSectionHeader id="home-card" title="Seu cartão" actionLabel="Cartões" onAction={() => go("bank", "cartoes")} />
             <div className="max-w-[360px]">
-              <PaymentCard card={account?.virtualCard ?? null} holder={member.name || "Membro PRX"} onClick={() => go("bank", "cartoes")} />
+              <PaymentCard holder={member.name || "Membro PRX"} onClick={() => go("bank", "cartoes")} />
             </div>
           </section>
         </aside>

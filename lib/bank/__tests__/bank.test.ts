@@ -1,6 +1,6 @@
 // Hello World
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { cardAddressSchema, pixKeyInputSchema } from "@/lib/bank/service";
+import { pixKeyInputSchema } from "@/lib/bank/service";
 import { filterTransactions, summarize, type BankTransaction } from "@/lib/prx/bank";
 
 describe("pré-cadastro de chave Pix", () => {
@@ -21,14 +21,6 @@ describe("pré-cadastro de chave Pix", () => {
     expect(pixKeyInputSchema.safeParse({ type: "email", value: "ana@" }).success).toBe(false);
     expect(pixKeyInputSchema.safeParse({ type: "phone", value: "98765" }).success).toBe(false);
     expect(pixKeyInputSchema.safeParse({ type: "cnpj", value: "11222333000181" }).success).toBe(false);
-  });
-});
-
-describe("pedido do cartão físico", () => {
-  it("exige CEP de 8 dígitos e endereço completo", () => {
-    expect(cardAddressSchema.safeParse({ cep: "01310-100", street: "Av. Paulista", number: "1000", city: "São Paulo/SP" }).success).toBe(true);
-    expect(cardAddressSchema.safeParse({ cep: "0131", street: "Av. Paulista", number: "1000", city: "São Paulo/SP" }).success).toBe(false);
-    expect(cardAddressSchema.safeParse({ cep: "01310100", street: "", number: "1000", city: "São Paulo/SP" }).success).toBe(false);
   });
 });
 
@@ -81,47 +73,21 @@ describe("modo sandbox e saldo admin", () => {
     expect(view.provider).toBeNull();
   });
 
-  it("admin pode definir o saldo da conta diretamente para testes no sandbox", async () => {
-    const { setAdminBankBalance } = await import("@/lib/bank/repository");
-    const { accountView } = await import("@/lib/bank/service");
-
-    const updated = await setAdminBankBalance(testUserId, 1500.5);
-    expect(updated.balance).toBe(1500.5);
-    expect(updated.status).toBe("active");
-
-    const view = await accountView(testUserId);
-    expect(view.balance).toBe(1500.5);
-  });
-
-  it("envio de Pix no sandbox debita o saldo e registra a transação imediatamente", async () => {
-    const { sendPix, accountView } = await import("@/lib/bank/service");
-    const { setAdminBankBalance } = await import("@/lib/bank/repository");
-
-    await setAdminBankBalance(testUserId, 200);
-    const result = await sendPix(testUserId, {
-      key: "teste@prx.dev",
-      amount: 50,
-      description: "Teste Sandbox Pix",
-      recipientName: "Parceiro Teste",
-    });
-
-    expect(result).toBeDefined();
-    const view = await accountView(testUserId);
-    expect(view.balance).toBe(150);
-    expect(view.transactions.length).toBeGreaterThan(0);
-    expect(view.transactions[0].kind).toBe("pix_out");
-    expect(view.transactions[0].amount).toBe(50);
+  it("ninguém cria saldo: sem dinheiro na conta o Pix do sandbox é recusado", async () => {
+    const repository = await import("@/lib/bank/repository");
+    const { sendPix } = await import("@/lib/bank/service");
+    expect("setAdminBankBalance" in repository).toBe(false);
+    await expect(sendPix(testUserId, { key: "teste@prx.dev", amount: 50, description: "Teste", recipientName: "Parceiro Teste" })).rejects.toThrow(/Saldo insuficiente/);
   });
 
   it("Asaas em produção desliga o sandbox mesmo com PRX_BAAS_MODE=sandbox esquecido", async () => {
     const origEnv = process.env.ASAAS_ENVIRONMENT;
     process.env.ASAAS_ENVIRONMENT = "production";
     try {
-      const { isSandboxMode, setAdminBankBalance } = await import("@/lib/bank/repository");
+      const { isSandboxMode } = await import("@/lib/bank/repository");
       const { bankKycState } = await import("@/lib/kyc/guards");
       expect(isSandboxMode()).toBe(false);
       expect((await bankKycState("user-prod-no-kyc")).status).toBe("none");
-      await expect(setAdminBankBalance("user-prod-no-kyc", 1000)).rejects.toMatchObject({ status: 403 });
     } finally {
       process.env.ASAAS_ENVIRONMENT = origEnv;
     }

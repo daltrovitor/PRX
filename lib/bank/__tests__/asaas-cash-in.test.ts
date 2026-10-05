@@ -1,7 +1,7 @@
 // Hello World
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { openSubaccount, applyGeneralApproval } from "@/lib/bank/asaas/onboarding";
-import { createProviderCharge, createProviderPixKey, providerPixKeys } from "@/lib/bank/asaas/cash-in";
+import { createProviderCharge, createProviderPixKey, providerPixKeys, removeProviderPixKey } from "@/lib/bank/asaas/cash-in";
 import { handleAsaasEvent } from "@/lib/bank/asaas/webhooks";
 import { ASAAS_TEST_ENV, USER_ID, fakeAsaas, testDeps } from "./asaas-fakes";
 
@@ -33,6 +33,19 @@ describe("chaves Pix da subconta", () => {
     const create = calls.find((c) => c.method === "POST" && c.path === "/pix/addressKeys");
     expect(create?.body).toEqual({ type: "EVP" });
     expect(create?.apiKey).toBe(CREATED.apiKey);
+  });
+
+  it("exclui no Pix só a chave que é da própria subconta", async () => {
+    const keys = { data: [{ id: "4f1c2a9e-0000-4000-8000-000000000001", key: "a1b2-c3", type: "EVP", status: "ACTIVE" }] };
+    const { deps, calls } = await activeAccount({ "GET /pix/addressKeys": { body: keys }, "DELETE /pix/addressKeys/*": { body: { id: keys.data[0].id, status: "AWAITING_DELETION" } } });
+
+    await expect(removeProviderPixKey(USER_ID, "4f1c2a9e-0000-4000-8000-0000000000ff", deps)).rejects.toMatchObject({ status: 404 });
+    expect(calls.some((c) => c.method === "DELETE")).toBe(false);
+
+    await removeProviderPixKey(USER_ID, keys.data[0].id, deps);
+    const removed = calls.find((c) => c.method === "DELETE");
+    expect(removed?.path).toBe(`/pix/addressKeys/${keys.data[0].id}`);
+    expect(removed?.apiKey).toBe(CREATED.apiKey);
   });
 
   it("conta ainda em análise não registra chave no parceiro", async () => {
@@ -94,6 +107,16 @@ describe("Pix recebido (PAYMENT_RECEIVED)", () => {
     const notices = (await store.listNotifications(USER_ID, 10)).filter((n) => n.eventType === "PAYMENT_RECEIVED");
     expect(notices).toHaveLength(1);
     expect(notices[0].title).toMatch(/^Pix recebido! R\$\s50,00 de Bruno Lima\.$/);
+  });
+
+  it("cobrança paga: o cliente é o próprio titular, então o extrato não mostra o nome dele como pagador", async () => {
+    const { deps, store, mirror, calls } = await activeAccount({ "GET /customers/*": { body: { name: "Ana Souza" } } });
+    await store.saveSubaccount(USER_ID, { customerId: "cus_holder" });
+    const event = { id: "evt_own", event: "PAYMENT_RECEIVED", account: { id: "acc_9" }, payment: { id: "pay_own", value: 30, netValue: 29.01, billingType: "PIX", customer: "cus_holder" } };
+
+    await expect(handleAsaasEvent(event, deps)).resolves.toBe("processed");
+    expect(mirror.transactions[0]).toMatchObject({ amount: 29.01, counterparty: "Pix recebido" });
+    expect(calls.some((c) => c.path.startsWith("/customers/"))).toBe(false);
   });
 
   it("ignora cobranças que não são Pix e estorna no PAYMENT_REFUNDED", async () => {
