@@ -39,10 +39,11 @@ type Step = "auth" | "offer";
 /**
  * Tela de login dedicada da conta lembrada ("Lembrar de mim"), no padrão dos
  * apps de banco: foto e nome do membro, e só a senha ou a biometria/rosto.
- * Com a sessão ainda ativa, funciona como bloqueio da nova visita. Com a
- * biometria ativada neste aparelho, o pedido do rosto/digital abre sozinho.
+ * Com a conta PRX BANK ativa e a sessão ainda aberta, funciona como bloqueio de
+ * cada entrada no app (lib/lock.ts). Com a biometria ativada neste aparelho, o
+ * pedido do rosto/digital abre sozinho.
  */
-export function QuickLogin({ account }: { account: KnownAccount }) {
+export function QuickLogin({ account, remember = true }: { account: KnownAccount; remember?: boolean }) {
   useThemeScope("app");
   const { login, loginWithPasskey, loginWithGoogle, markUnlocked, forgetAccount } = useAuth();
   const [password, setPassword] = useState("");
@@ -70,8 +71,8 @@ export function QuickLogin({ account }: { account: KnownAccount }) {
     setBusy("password");
     setError(null);
     // Com biometria disponível e ainda não ativada, oferece antes de entrar.
-    const offer = biometrics && !account.passkey;
-    const result = await login(account.email, password, true, false, { unlock: !offer });
+    const offer = remember && biometrics && !account.passkey;
+    const result = await login(account.email, password, remember, false, { unlock: !offer });
     setBusy(null);
     if (!result.success) {
       setPassword("");
@@ -203,7 +204,7 @@ export function QuickLogin({ account }: { account: KnownAccount }) {
                     disabled={busy !== null}
                     onClick={() => {
                       setBusy("google");
-                      void loginWithGoogle(true, false).then((r) => {
+                      void loginWithGoogle(remember, false).then((r) => {
                         setBusy(null);
                         if (!r.success) setError(r.error || "Não foi possível entrar com o Google.");
                       });

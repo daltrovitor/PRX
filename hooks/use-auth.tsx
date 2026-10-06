@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { CONSENT_COOKIE, TERMS_VERSION } from "@/lib/legal-version";
 import { forgetKnownAccount, readKnownAccount, saveKnownAccount, unlock, updateKnownAccount } from "@/lib/known-account";
 import { authenticatePasskey } from "@/lib/passkeys/client";
+import { shouldRelock } from "@/lib/lock";
 
 export interface User {
   id: string;
@@ -29,11 +30,15 @@ interface LoginOptions {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  /**
-   * Aba desbloqueada. Com uma conta lembrada neste aparelho, cada nova visita
-   * abre a tela de login dedicada até a senha ou a biometria serem confirmadas.
-   */
+  /** Aba desbloqueada (senha ou biometria confirmadas desde que o app foi aberto). */
   unlocked: boolean;
+  /**
+   * Conta PRX BANK aberta e funcionando: a cada entrada no app (nova visita ou volta depois de
+   * mais de 1 minuto fora) a tela dedicada pede senha ou biometria. Antes disso o app abre direto.
+   */
+  requiresUnlock: boolean;
+  /** Entrou pela tela dedicada e ainda responde à oferta de biometria: ela continua aberta até a resposta. */
+  offering: boolean;
   markUnlocked: () => void;
   login: (email: string, pass: string, rememberMe?: boolean, termsAccepted?: boolean, options?: LoginOptions) => Promise<AuthResult>;
   loginWithPasskey: (userId: string) => Promise<AuthResult & { missing?: boolean }>;
@@ -50,8 +55,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const REMEMBER_KEY = "prx_remember_me";
 const TAB_KEY = "prx_tab_active";
-/** Fora do app por mais que isso, com biometria ativa neste aparelho: volta pedindo o rosto/digital. */
-const LOCK_AFTER_MS = 60_000;
+const HIDDEN_KEY = "prx_hidden_at";
 
 function errorMessage(err: unknown, fallback: string): string {
   return err instanceof Error && err.message ? err.message : fallback;
@@ -82,31 +86,55 @@ function safe<T>(fn: () => T, fallback: T): T {
   }
 }
 
+/** Hora em que o app saiu de vista, guardada na sessão: sobrevive ao sistema descartar a aba para liberar memória. */
+const hiddenStamp = {
+  set: (at: number) => safe(() => sessionStorage.setItem(HIDDEN_KEY, String(at)), undefined),
+  clear: () => safe(() => sessionStorage.removeItem(HIDDEN_KEY), undefined),
+  /** Há quanto tempo o app está fora de vista (0 se não saiu). */
+  away: () =>
+    safe(() => {
+      const at = Number(sessionStorage.getItem(HIDDEN_KEY));
+      return at > 0 ? Date.now() - at : 0;
+    }, 0),
+};
+
+interface Session {
+  user: User | null;
+  requiresUnlock: boolean;
+}
+
+const NO_SESSION: Session = { user: null, requiresUnlock: false };
+
 /**
  * Resolve a sessão atual. Contas sem "lembrar de mim" encerram quando a aba
  * é fechada; administradores e parceiros nunca são deslogados automaticamente.
  */
-async function resolveSession(): Promise<User | null> {
+async function resolveSession(): Promise<Session> {
   try {
     const res = await fetch("/api/auth/me", { cache: "no-store" });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { user?: User | null; rememberMe?: boolean };
+    if (!res.ok) return NO_SESSION;
+    const data = (await res.json()) as { user?: User | null; rememberMe?: boolean; requiresUnlock?: boolean };
     const user = data.user;
-    if (!user) return null;
+    if (!user) return NO_SESSION;
 
     if (user.role === "admin" || user.role === "partner") {
       storage.mark(true);
-      return user;
+      return { user, requiresUnlock: false };
     }
 
     const remembered = typeof data.rememberMe === "boolean" ? data.rememberMe : storage.remembered();
     if (!remembered && !storage.tabActive() && !storage.remembered()) {
       await fetch("/api/auth/logout", { method: "POST" });
       storage.clear();
-      return null;
+      return NO_SESSION;
     }
 
     storage.mark(remembered);
+
+    // Conta do banco ativa: o app que o sistema descartou e voltou depois de muito tempo fora pede o desbloqueio de novo.
+    const requiresUnlock = data.requiresUnlock === true;
+    if (shouldRelock(hiddenStamp.away(), requiresUnlock)) unlock.clear();
+    hiddenStamp.clear();
 
     // Volta da entrada com o Google: a aba fica desbloqueada e, com "lembrar de mim", a conta é lembrada.
     if (unlock.takePending()) {
@@ -118,9 +146,9 @@ async function resolveSession(): Promise<User | null> {
     if (known && known.id === user.id && (known.name !== user.name || known.avatarUrl !== user.avatarUrl)) {
       updateKnownAccount({ name: user.name, avatarUrl: user.avatarUrl });
     }
-    return user;
+    return { user, requiresUnlock };
   } catch {
-    return null;
+    return NO_SESSION;
   }
 }
 
@@ -133,51 +161,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [unlocked, setUnlocked] = useState(false);
+  const [requiresUnlock, setRequiresUnlock] = useState(false);
+  const [offering, setOffering] = useState(false);
 
   const markUnlocked = useCallback(() => {
+    hiddenStamp.clear();
     unlock.mark();
     setUnlocked(true);
+    setOffering(false);
   }, []);
 
-  const refreshUser = useCallback(async () => {
-    setUser(await resolveSession());
+  const applySession = useCallback((session: Session) => {
+    setUser(session.user);
+    setRequiresUnlock(session.requiresUnlock);
     setUnlocked(unlock.isUnlocked());
     setLoading(false);
   }, []);
 
-  // Bloqueio de app de banco: saiu do PRX por mais de 1 minuto e tem biometria aqui → a volta pede a biometria.
+  const refreshUser = useCallback(async () => applySession(await resolveSession()), [applySession]);
+
+  // Bloqueio de app de banco: com a conta PRX BANK ativa, sair do PRX por mais de 1 minuto faz a volta pedir senha ou biometria.
   useEffect(() => {
-    if (!user) return;
-    let hiddenAt = 0;
+    if (!user || !requiresUnlock) return;
     const onVisibility = () => {
-      if (document.visibilityState === "hidden") {
-        hiddenAt = Date.now();
-        return;
-      }
-      const away = hiddenAt ? Date.now() - hiddenAt : 0;
-      hiddenAt = 0;
-      const known = readKnownAccount();
-      if (away >= LOCK_AFTER_MS && known?.passkey && known.id === user.id) {
+      if (document.visibilityState === "hidden") return hiddenStamp.set(Date.now());
+      const away = hiddenStamp.away();
+      hiddenStamp.clear();
+      if (shouldRelock(away, requiresUnlock)) {
         unlock.clear();
         setUnlocked(false);
       }
     };
+    const onPageHide = () => hiddenStamp.set(Date.now());
     document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, [user]);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+  }, [user, requiresUnlock]);
 
   useEffect(() => {
     let active = true;
-    resolveSession().then((sessionUser) => {
-      if (!active) return;
-      setUser(sessionUser);
-      setUnlocked(unlock.isUnlocked());
-      setLoading(false);
+    resolveSession().then((session) => {
+      if (active) applySession(session);
     });
     return () => {
       active = false;
     };
-  }, []);
+  }, [applySession]);
 
   const login = useCallback(async (email: string, pass: string, rememberMe = true, termsAccepted = false, options: LoginOptions = {}): Promise<AuthResult> => {
     try {
@@ -192,11 +224,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       rememberAccount(data.user, rememberMe, "password");
       setUser(data.user);
       if (options.unlock !== false) markUnlocked();
+      else setOffering(true);
+      void refreshUser();
       return { success: true };
     } catch (err) {
       return { success: false, error: errorMessage(err, "Erro de conexão") };
     }
-  }, [markUnlocked]);
+  }, [markUnlocked, refreshUser]);
 
   const loginWithPasskey = useCallback(
     async (userId: string): Promise<AuthResult & { missing?: boolean }> => {
@@ -210,9 +244,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateKnownAccount({ name: result.user.name, avatarUrl: result.user.avatarUrl, passkey: true });
       setUser(result.user);
       markUnlocked();
+      void refreshUser();
       return { success: true };
     },
-    [markUnlocked]
+    [markUnlocked, refreshUser]
   );
 
   const signup = useCallback(
@@ -290,7 +325,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       storage.clear();
       unlock.clear();
+      hiddenStamp.clear();
       setUnlocked(false);
+      setRequiresUnlock(false);
+      setOffering(false);
       setUser(null);
     }
   }, []);
@@ -302,14 +340,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       storage.clear();
       unlock.clear();
       forgetKnownAccount();
+      hiddenStamp.clear();
       setUnlocked(false);
+      setRequiresUnlock(false);
+      setOffering(false);
       setUser(null);
     }
   }, []);
 
   const value = useMemo(
-    () => ({ user, loading, unlocked, markUnlocked, login, loginWithPasskey, forgetAccount, signup, loginWithGoogle, logout, refreshUser }),
-    [user, loading, unlocked, markUnlocked, login, loginWithPasskey, forgetAccount, signup, loginWithGoogle, logout, refreshUser]
+    () => ({ user, loading, unlocked, requiresUnlock, offering, markUnlocked, login, loginWithPasskey, forgetAccount, signup, loginWithGoogle, logout, refreshUser }),
+    [user, loading, unlocked, requiresUnlock, offering, markUnlocked, login, loginWithPasskey, forgetAccount, signup, loginWithGoogle, logout, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -9,13 +9,21 @@ import { CompleteRegistration, usePendingGoogle } from "@/components/auth/comple
 import { ParentShell } from "@/components/family/parent-shell";
 import { useFamilyState } from "@/components/family/family-client";
 import { familyNotice } from "@/components/family/family-notice";
-import { useKnownAccount } from "@/lib/known-account";
+import { useKnownAccount, type KnownAccount } from "@/lib/known-account";
+import { needsQuickLogin } from "@/lib/lock";
 import { PrxLoader } from "@/components/brand/prx-loader";
 import { useAuth } from "@/hooks/use-auth";
 
 export default function HomePage() {
-  const { user, loading, logout, unlocked } = useAuth();
+  const { user, loading, logout, unlocked, requiresUnlock, offering } = useAuth();
   const known = useKnownAccount();
+  // Conta que a tela dedicada mostra: a lembrada neste aparelho ou, se o bloqueio vem de uma sessão sem conta lembrada, a da própria sessão.
+  const lockAccount: KnownAccount | null =
+    known && (!user || known.id === user.id)
+      ? known
+      : user
+        ? { id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl, provider: "password", passkey: false }
+        : null;
   // Contas de equipe (admin, parceiro, staff) não passam pelas regras de família.
   const member = user && user.role === "user" ? user : null;
   const { state: family, unavailable: familyUnavailable } = useFamilyState(member?.id ?? null);
@@ -31,9 +39,9 @@ export default function HomePage() {
     content = null;
   } else if (!loading && !user && pendingGoogle) {
     content = <CompleteRegistration person={pendingGoogle} mode="pending" />;
-  } else if (!loading && known && (!user || !unlocked)) {
-    // "Lembrar de mim": pula a landing e abre a tela de login dedicada (senha ou biometria).
-    content = <QuickLogin account={known} />;
+  } else if (!loading && lockAccount && needsQuickLogin({ hasKnownAccount: Boolean(known), hasSession: Boolean(user), requiresUnlock, unlocked, offering })) {
+    // Conta lembrada sem sessão, ou conta PRX BANK ativa a cada entrada no app: a tela de login dedicada (senha ou biometria).
+    content = <QuickLogin account={lockAccount} remember={lockAccount === known} />;
   } else if (!loading && member && !family && !familyUnavailable) {
     // Carregando a situação da conta na família (tipo e pendências).
     content = null;

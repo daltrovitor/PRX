@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getCurrentUser, AUTH_COOKIE_NAME } from "@/lib/auth";
+import { bankAccountIsActive } from "@/lib/bank/lock";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -12,6 +13,8 @@ export async function GET() {
 
   const cookieStore = await cookies();
   const rememberMe = cookieStore.get("prx_remember")?.value !== "0";
+  // Conta PRX BANK aberta e funcionando: a cada entrada no app pede senha ou biometria (lib/lock.ts).
+  const requiresUnlock = user.role === "user" && (await bankAccountIsActive(user.id));
 
   return NextResponse.json({
     user: {
@@ -27,6 +30,7 @@ export async function GET() {
       phone: user.phone,
     },
     rememberMe,
+    requiresUnlock,
   }, { headers: { "Cache-Control": "no-store" } });
 }
 

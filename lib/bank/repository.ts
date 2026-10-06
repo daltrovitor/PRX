@@ -56,6 +56,8 @@ export function isSandboxMode(): boolean {
 
 export interface BankRepository {
   getOrCreateAccount(userId: string): Promise<BankAccountRecord>;
+  /** Só lê a conta: nunca cria a linha (a aba PRX BANK cria no primeiro uso). */
+  findAccount(userId: string): Promise<BankAccountRecord | null>;
   listTransactions(userId: string, limit: number): Promise<BankTransaction[]>;
   listPixKeys(userId: string): Promise<PixKey[]>;
   insertPixKey(userId: string, key: { type: PixKeyType; value: string; status: PixKeyStatus }): Promise<PixKey>;
@@ -182,6 +184,12 @@ type SupabaseClient = NonNullable<typeof supabaseAdmin>;
 
 class SupabaseBankRepository implements BankRepository {
   constructor(private readonly db: SupabaseClient) {}
+
+  async findAccount(userId: string) {
+    const found = await this.db.from("bank_accounts").select("*").eq("user_id", userId).maybeSingle();
+    if (found.error) throw dbError(found.error, "Não foi possível consultar a conta");
+    return found.data ? mapAccount(found.data as AccountRow) : null;
+  }
 
   async getOrCreateAccount(userId: string) {
     const isSandbox = isSandboxMode();
@@ -395,6 +403,11 @@ function memoryBank(userId: string): MemoryBank {
 }
 
 class MemoryBankRepository implements BankRepository {
+  async findAccount(userId: string) {
+    const bank = memory().get(userId);
+    return bank ? structuredClone(bank.account) : null;
+  }
+
   async getOrCreateAccount(userId: string) {
     return structuredClone(memoryBank(userId).account);
   }
