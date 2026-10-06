@@ -83,15 +83,21 @@ export function resetNotificationMemory(): void {
   delete globalState.__prxNotificationLog;
 }
 
+export interface DeliveryHistory {
+  records: DeliveryRecord[];
+  /** false: a tabela notification_log não existe (migração 20260930 não aplicada) ou não pôde ser lida. A lista vazia, então, não prova que nada foi enviado. */
+  available: boolean;
+}
+
 /** Últimos envios para o painel admin (Supabase ou memória). */
-export async function recentDeliveries(limit = 50): Promise<DeliveryRecord[]> {
-  if (!supabaseAdmin) return memory().slice(0, limit);
+export async function deliveryHistory(limit = 50): Promise<DeliveryHistory> {
+  if (!supabaseAdmin) return { records: memory().slice(0, limit), available: true };
   const { data, error } = await supabaseAdmin.from("notification_log").select("*").order("created_at", { ascending: false }).limit(limit);
   if (error) {
     if (!isMissingTable(error)) console.warn("[notifications] falha ao listar envios:", error.code, error.message);
-    return [];
+    return { records: [], available: false };
   }
-  return ((data ?? []) as LogRow[]).map((r) => ({
+  const records = ((data ?? []) as LogRow[]).map((r) => ({
     id: r.id,
     userId: r.user_id,
     channel: r.channel,
@@ -103,6 +109,7 @@ export async function recentDeliveries(limit = 50): Promise<DeliveryRecord[]> {
     error: r.error,
     createdAt: r.created_at,
   }));
+  return { records, available: true };
 }
 
 interface LogRow {

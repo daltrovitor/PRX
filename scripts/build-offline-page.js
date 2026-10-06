@@ -564,8 +564,8 @@ ${gsapMin}
 
   <footer class="credit">
     <span>Desenvolvido por</span>
-    <a href="https://viraweb.online" target="_blank" rel="noopener noreferrer" aria-label="ViraWeb (abre em nova aba)">
-      <img src="https://viraweb.online/viraweb3.png" alt="ViraWeb" height="20" loading="lazy" decoding="async">
+    <a href="https://viraweb.dev.br" target="_blank" rel="noopener noreferrer" aria-label="ViraWeb (abre em nova aba)">
+      <img src="https://viraweb.dev.br/viraweb3.png" alt="ViraWeb" height="20" loading="lazy" decoding="async">
     </a>
   </footer>
 

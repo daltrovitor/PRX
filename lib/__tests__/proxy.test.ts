@@ -53,12 +53,12 @@ describe("roteamento por domínio", () => {
   });
 
   it("os endereços antigos continuam abrindo os portais", () => {
-    expect(route("adminprx.viraweb.online")).toEqual(rewrite("/admin"));
+    expect(route("admin.prx.app.br")).toEqual(rewrite("/admin"));
     expect(route("adminng.exemplo.com")).toEqual(rewrite("/admin"));
-    expect(route("partnerprx.viraweb.online")).toEqual(rewrite("/partner"));
+    expect(route("partner.prx.app.br")).toEqual(rewrite("/partner"));
     expect(route("partnerng.exemplo.com")).toEqual(rewrite("/partner"));
-    expect(route("staffprx.viraweb.online")).toEqual(rewrite("/staff"));
-    expect(route("show.viraweb.online")).toEqual(rewrite("/apresentacao"));
+    expect(route("staff.prx.app.br")).toEqual(rewrite("/staff"));
+    expect(route("show.prx.app.br")).toEqual(rewrite("/apresentacao"));
   });
 
   it("API, assets e o callback do OAuth passam em qualquer domínio", () => {

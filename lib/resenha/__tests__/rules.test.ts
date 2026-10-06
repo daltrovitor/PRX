@@ -75,8 +75,8 @@ describe("links públicos", () => {
       expect(resenhaBaseUrl(host)).toBe("https://prx.app.br");
     }
     // endereços antigos (antes de prx.app.br) também caem no domínio principal
-    expect(resenhaBaseUrl("adminprx.viraweb.online")).toBe("https://prx.app.br");
-    expect(resenhaBaseUrl("prx.viraweb.online")).toBe("https://prx.app.br");
+    expect(resenhaBaseUrl("admin.prx.app.br")).toBe("https://prx.app.br");
+    expect(resenhaBaseUrl("teste.prx.app.br")).toBe("https://prx.app.br");
     expect(resenhaBaseUrl(null)).toBe("https://prx.app.br");
     expect(resenhaBaseUrl("evil host/x")).toBe("https://prx.app.br");
     expect(resenhaBaseUrl("127.0.0.1/evil")).toBe("https://prx.app.br");
@@ -111,7 +111,7 @@ describe("e-mail Você tá na lista", () => {
     address: "Rua A, 1",
     city: "São Paulo, SP",
     ticketUrl: "https://prx.app.br/resenha/lista/abc",
-    assetsUrl: "https://prx.viraweb.online",
+    assetsUrl: "https://teste.prx.app.br",
   };
 
   it("traz quando, onde e o link do ingresso, no HTML e no texto", () => {

@@ -14,7 +14,7 @@ Tudo vive na zona `prx.app.br`. O mapa fica em `lib/domains.ts` (uma fonte só) 
 | `show.prx.app.br` | Apresentação do ecossistema |
 
 - **`/api/*` responde em todos os domínios.** Webhooks (Asaas) e o login Google não dependem do subdomínio do app.
-- **Endereços antigos:** `adminprx.`, `adminng.`, `partnerprx.`, `partnerng.`, `staffprx.` e `show.` (inclusive `show.viraweb.online`) continuam abrindo os portais enquanto o DNS antigo existir. Os links gerados a partir deles já apontam para o domínio novo.
+- **Endereços antigos:** `adminprx.`, `adminng.`, `partnerprx.`, `partnerng.`, `staffprx.` e `show.` (inclusive `show.prx.app.br`) continuam abrindo os portais enquanto o DNS antigo existir. Os links gerados a partir deles já apontam para o domínio novo.
 - **Desenvolvimento:** `localhost:3100` é o app; `admin.localhost:3100`, `partner.localhost:3100`, `staff.localhost:3100`, `insider.localhost:3100` e `show.localhost:3100` são os portais (o Chrome resolve `*.localhost` sozinho).
 
 ## Colocar no ar

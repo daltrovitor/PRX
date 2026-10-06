@@ -8,7 +8,7 @@ import { sendWelcomeEmail } from "@/lib/notifications/welcome";
 import { sendWhatsAppCode, whatsappCodePayload } from "@/lib/notifications/whatsapp";
 import { sanitizeInput } from "@/lib/security";
 
-const BASE = { email: "gabi@exemplo.com", siteUrl: "https://prx.viraweb.online/", assetsUrl: "https://prx.viraweb.online", startingCoins: 0 };
+const BASE = { email: "gabi@exemplo.com", siteUrl: "https://teste.prx.app.br/", assetsUrl: "https://teste.prx.app.br", startingCoins: 0 };
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -45,8 +45,8 @@ describe("e-mail de boas-vindas", () => {
     expect(email.text).toContain("Hey, Gabriela.");
     expect(email.text).toContain("Ideia boa merece sair do bloco de notas.");
     // Links e imagens absolutos, sem barra dupla.
-    expect(email.html).toContain('href="https://prx.viraweb.online"');
-    expect(email.html).toContain("https://prx.viraweb.online/email/hero.jpg");
+    expect(email.html).toContain('href="https://teste.prx.app.br"');
+    expect(email.html).toContain("https://teste.prx.app.br/email/hero.jpg");
     expect(email.html).not.toContain("//email/");
   });
 

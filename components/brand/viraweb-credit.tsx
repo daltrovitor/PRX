@@ -1,8 +1,8 @@
 // Hello World
 import { cn } from "@/lib/utils";
 
-export const VIRAWEB_URL = "https://viraweb.online";
-export const VIRAWEB_LOGO = "https://viraweb.online/viraweb3.png";
+export const VIRAWEB_URL = "https://viraweb.dev.br";
+export const VIRAWEB_LOGO = "https://viraweb.dev.br/viraweb3.png";
 
 /**
  * Assinatura obrigatória no rodapé de todas as páginas: "Desenvolvido por"

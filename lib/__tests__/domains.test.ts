@@ -26,16 +26,16 @@ describe("mapa de domínios", () => {
   });
 
   it("os rótulos antigos continuam roteando os portais", () => {
-    expect(portalOfHost("adminprx.viraweb.online")).toBe("admin");
+    expect(portalOfHost("admin.prx.app.br")).toBe("admin");
     expect(portalOfHost("adminng.exemplo.com")).toBe("admin");
     expect(portalOfHost("partnerprx.localhost:3100")).toBe("partner");
     expect(portalOfHost("partnerng.exemplo.com")).toBe("partner");
-    expect(portalOfHost("staffprx.viraweb.online")).toBe("staff");
-    expect(portalOfHost("show.viraweb.online")).toBe("show");
+    expect(portalOfHost("staff.prx.app.br")).toBe("staff");
+    expect(portalOfHost("show.prx.app.br")).toBe("show");
   });
 
   it("o apex, o app e hosts comuns não são portais", () => {
-    for (const host of ["prx.app.br", "www.prx.app.br", "teste.prx.app.br", "localhost:3100", "127.0.0.1:3100", "prx.viraweb.online", "administrador.prx.app.br", ""]) {
+    for (const host of ["prx.app.br", "www.prx.app.br", "teste.prx.app.br", "localhost:3100", "127.0.0.1:3100", "teste.prx.app.br", "administrador.prx.app.br", ""]) {
       expect(portalOfHost(host)).toBeNull();
     }
   });
@@ -47,11 +47,11 @@ describe("mapa de domínios", () => {
 
   it("zona prx.app.br: o apex e todos os subdomínios", () => {
     for (const host of ["prx.app.br", "teste.prx.app.br", "admin.prx.app.br", "prx.app.br:443"]) expect(isPrxZoneHost(host)).toBe(true);
-    for (const host of ["app.br", "evilprx.app.br", "prx.app.br.evil.com", "localhost:3100", "prx.viraweb.online"]) expect(isPrxZoneHost(host)).toBe(false);
+    for (const host of ["app.br", "evilprx.app.br", "prx.app.br.evil.com", "localhost:3100", "teste.prx.app.br"]) expect(isPrxZoneHost(host)).toBe(false);
   });
 
   it("o host do app: teste.prx.app.br em produção, o próprio localhost em desenvolvimento", () => {
-    for (const host of ["prx.app.br", "teste.prx.app.br", "admin.prx.app.br", "show.prx.app.br", "adminprx.viraweb.online", "prx.viraweb.online"]) {
+    for (const host of ["prx.app.br", "teste.prx.app.br", "admin.prx.app.br", "show.prx.app.br", "admin.prx.app.br", "teste.prx.app.br"]) {
       expect(appHostOf(host)).toBe("teste.prx.app.br");
     }
     for (const host of ["localhost:3100", "admin.localhost:3100", "insider.localhost:3100", "teste.localhost:3100"]) expect(appHostOf(host)).toBe("localhost:3100");
@@ -62,7 +62,7 @@ describe("mapa de domínios", () => {
     expect(portalHostOf("teste.prx.app.br", "staff")).toBe("staff.prx.app.br");
     expect(portalHostOf("admin.prx.app.br", "partner")).toBe("partner.prx.app.br");
     expect(portalHostOf("prx.app.br", "admin")).toBe("admin.prx.app.br");
-    expect(portalHostOf("adminprx.viraweb.online", "staff")).toBe("staff.prx.app.br");
+    expect(portalHostOf("admin.prx.app.br", "staff")).toBe("staff.prx.app.br");
     expect(portalHostOf("localhost:3000", "admin")).toBe("admin.localhost:3000");
     expect(portalHostOf("staff.localhost:3100", "partner")).toBe("partner.localhost:3100");
   });
@@ -85,7 +85,7 @@ describe("links entre o app e os painéis (lib/site.ts)", () => {
   });
 
   it("os endereços antigos já levam para o domínio novo", () => {
-    at("https:", "adminprx.viraweb.online");
+    at("https:", "admin.prx.app.br");
     expect(getMainSiteUrl()).toBe("https://teste.prx.app.br");
     expect(getPanelUrl("staff")).toBe("https://staff.prx.app.br");
   });

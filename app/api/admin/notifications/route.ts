@@ -3,8 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { checkRateLimit } from "@/lib/security";
 import { PartnerError } from "@/lib/partners/errors";
 import { errorResponse, requireAdmin } from "@/lib/partners/http";
-import { canSimulateDelivery, emailConfig, whatsappConfig } from "@/lib/notifications/config";
-import { recentDeliveries } from "@/lib/notifications/log";
+import { canSimulateDelivery, emailConfig, publicSiteUrl, whatsappConfig } from "@/lib/notifications/config";
+import { deliveryHistory } from "@/lib/notifications/log";
 import { buildWelcomeEmail, sendWelcomeEmail } from "@/lib/notifications/welcome";
 
 const NO_STORE = { "Cache-Control": "no-store" };
@@ -33,13 +33,17 @@ export async function GET(req: NextRequest) {
     await requireAdmin(req);
     const email = emailConfig();
     const whatsapp = whatsappConfig();
+    const history = await deliveryHistory(50);
     return NextResponse.json(
       {
         channels: {
           email: { provider: "resend", configured: Boolean(email.apiKey), from: email.from },
           whatsapp: { provider: "whatsapp_cloud", configured: Boolean(whatsapp.accessToken && whatsapp.phoneNumberId), template: whatsapp.otpTemplate, language: whatsapp.language },
         },
-        deliveries: await recentDeliveries(50),
+        // Para onde levam os links e as imagens do e-mail (NEXT_PUBLIC_SITE_URL).
+        siteUrl: publicSiteUrl(),
+        deliveries: history.records,
+        logAvailable: history.available,
       },
       { headers: NO_STORE },
     );
