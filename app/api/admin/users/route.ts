@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { calculatePrxLevel, xpForLevel } from "@/lib/pass-data";
 import { userStore, verifyAdminRequest } from "@/lib/auth";
 import { passStore } from "@/lib/pass-store";
+import { isRegisteredMember } from "@/lib/members";
 import { errorMessage } from "@/lib/errors";
 import type { AuthUserLike } from "@/lib/db-rows";
 
@@ -53,13 +54,22 @@ export async function GET(req: NextRequest) {
               console.warn("Supabase bank_accounts query error:", bankErr);
             }
 
-            users = dbProfiles.map((p) => {
+            // A Conta Pai e os filhos guardam o CPF na identidade de família, não no perfil.
+            const familyCpf = new Map<string, string>();
+            try {
+              const { data: identities } = await supabaseAdmin.from("family_identities").select("user_id, cpf");
+              for (const row of identities ?? []) familyCpf.set(String(row.user_id), String(row.cpf ?? ""));
+            } catch {}
+
+            users = dbProfiles.flatMap((p) => {
               const userVouchers = passStore.getUserVouchers(p.id);
               const metadataRole = authRolesMap.get(p.id) || (p.email ? authRolesMap.get(p.email.toLowerCase()) : null);
               const effectiveRole = p.role !== "user" ? p.role : (metadataRole || p.role || "user");
+              // Sem CPF válido não é membro: o Supabase cria o perfil assim que o Google entra, antes do cadastro.
+              if (!isRegisteredMember({ role: effectiveRole, cpf: p.cpf }, familyCpf.get(p.id))) return [];
               const bankInfo = bankMap.get(p.id);
 
-              return {
+              return [{
                 id: p.id,
                 email: p.email,
                 name: p.full_name || p.name || p.email.split("@")[0],
@@ -72,7 +82,7 @@ export async function GET(req: NextRequest) {
                 createdAt: p.created_at,
                 vouchersCount: userVouchers.length,
                 vouchers: userVouchers,
-              };
+              }];
             });
           }
         }
@@ -83,7 +93,7 @@ export async function GET(req: NextRequest) {
       // 2. Fallback to userStore only if Supabase has no records
       if (users.length === 0) {
         const { getBankRepository } = await import("@/lib/bank/repository");
-        const allUsers = userStore.getAllUsers();
+        const allUsers = userStore.getAllUsers().filter((u) => isRegisteredMember({ role: u.role, cpf: u.cpf }));
         users = await Promise.all(
           allUsers.map(async (u) => {
             const userVouchers = passStore.getUserVouchers(u.id);
