@@ -281,6 +281,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // O aceite dos Termos/LGPD atravessa o redirecionamento do Google e é gravado no callback.
       if (termsAccepted) document.cookie = `${CONSENT_COOKIE}=${TERMS_VERSION}; path=/; max-age=1800; SameSite=Lax`;
 
+      // Login direto pelo app: o Google mostra o endereço do PRX no lugar do endereço do Supabase.
+      // Sem as chaves do Google no servidor, a rota responde { direct: false } e o fluxo segue pelo Supabase.
+      const start = await fetch("/api/auth/google/start", { method: "POST" })
+        .then((r) => (r.ok ? (r.json() as Promise<{ direct?: boolean; url?: string }>) : null))
+        .catch(() => null);
+      if (start?.direct && start.url) {
+        window.location.href = start.url;
+        return { success: true };
+      }
+
       const { supabase, isUsingLiveSupabase } = await import("@/lib/supabase/client");
       if (isUsingLiveSupabase && supabase) {
         const { data, error } = await supabase.auth.signInWithOAuth({

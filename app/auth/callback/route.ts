@@ -7,6 +7,7 @@ import { supabaseAdmin } from "@/lib/supabase/client";
 import { asMemberRole, type SessionCookieOptions } from "@/lib/db-rows";
 import { CONSENT_COOKIE, TERMS_VERSION, recordConsent } from "@/lib/legal";
 import { createPendingGoogleToken, isBlankProfile, pendingGoogleCookie } from "@/lib/google-pending";
+import { handleDirectGoogleCallback } from "@/lib/google-direct";
 
 /** Conta criada agora pelo próprio Google (sem senha nem outro provedor): pode ser desfeita sem perda. */
 function isFreshGoogleOnly(user: { created_at?: string; identities?: ReadonlyArray<{ provider: string }> | null }): boolean {
@@ -16,6 +17,10 @@ function isFreshGoogleOnly(user: { created_at?: string; identities?: ReadonlyArr
 }
 
 export async function GET(req: NextRequest) {
+  // Login com o Google feito direto pelo app (cookie da ida): não passa pelo Supabase.
+  const direct = await handleDirectGoogleCallback(req);
+  if (direct) return direct;
+
   const requestUrl = new URL(req.url);
   const code = requestUrl.searchParams.get("code");
   const origin = requestUrl.origin;
@@ -73,10 +78,16 @@ export async function GET(req: NextRequest) {
           if (!complete) {
             // Cadastro incompleto: nada fica gravado. O app abre pedindo CPF, celular e o aceite;
             // só a conclusão cria o perfil (e a conta de acesso, se o Google acabou de criá-la).
-            if (!existing && isFreshGoogleOnly(authUser)) await supabaseAdmin.auth.admin.deleteUser(authUser.id).catch(() => undefined);
             // O gatilho handle_new_user cria um perfil vazio quando o Google cria o acesso: "existe perfil" não é "já é membro".
-            // Perfil vazio = cadastro novo, que ao concluir recebe o e-mail de boas-vindas.
-            const pending = createPendingGoogleToken({ authUserId: existing ? authUser.id : undefined, welcome: isBlankProfile(existing), email, fullName: String(fullName), avatarUrl: String(avatarUrl) });
+            // Acesso criado agora, só com o Google e sem nada preenchido: desfaz (a conclusão cria de novo). Se não desfizer, o acesso fica
+            // no cadastro pendente. Perfil vazio = cadastro novo, que ao concluir recebe o e-mail de boas-vindas.
+            const blank = isBlankProfile(existing);
+            let authUserId: string | undefined = existing ? authUser.id : undefined;
+            if (blank && isFreshGoogleOnly(authUser)) {
+              const removed = await supabaseAdmin.auth.admin.deleteUser(authUser.id).then(({ error: removeError }) => !removeError, () => false);
+              if (removed) authUserId = undefined;
+            }
+            const pending = createPendingGoogleToken({ authUserId, welcome: blank, email, fullName: String(fullName), avatarUrl: String(avatarUrl) });
             const pendingResponse = NextResponse.redirect(`${origin}/`);
             pendingResponse.cookies.set(pendingGoogleCookie(pending));
             pendingResponse.cookies.set({ name: CONSENT_COOKIE, value: "", path: "/", maxAge: 0, expires: new Date(0) });

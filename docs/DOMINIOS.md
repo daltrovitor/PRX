@@ -27,6 +27,7 @@ Tudo vive na zona `prx.app.br`. O mapa fica em `lib/domains.ts` (uma fonte só) 
    - `RESENHA_PUBLIC_URL`: opcional, sem ela o link da Resenha já sai em `https://prx.app.br`.
    - `PRX_WEBAUTHN_RP_ID` e `PRX_WEBAUTHN_ORIGINS`: se existirem apontando para o domínio antigo, apague. Em `prx.app.br` o RP ID já é `prx.app.br`.
 4. **Supabase → Authentication → URL Configuration:** Site URL `https://teste.prx.app.br` e, em Redirect URLs, `https://teste.prx.app.br/**`. O Google volta para o domínio de onde o login começou.
+5. **Google no endereço do PRX (opcional):** para a tela do Google mostrar o PRX em vez do endereço do Supabase, siga [LOGIN_GOOGLE.md](LOGIN_GOOGLE.md) (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e a URI `https://teste.prx.app.br/auth/callback` no Google Cloud).
 
 ## O que muda para quem já usa
 
