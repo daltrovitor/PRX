@@ -19,6 +19,7 @@ import { AdminReelsTab } from "@/components/admin/admin-reels-tab";
 import { AdminFamilyTab } from "@/components/admin/admin-family-tab";
 import { AdminWaitlistTab } from "@/components/admin/admin-waitlist-tab";
 import { AdminLegalTab } from "@/components/admin/admin-legal-tab";
+import { AdminNotificationsTab } from "@/components/admin/admin-notifications-tab";
 import type { LegalMetrics } from "@/lib/legal/checklist-store";
 import type { PartnerOverview } from "@/lib/partners/service";
 import { PrxLogo } from "@/components/brand/prx-logo";
@@ -35,7 +36,7 @@ import type { PointRule } from "@/lib/points/types";
 import type { ViabilityValues } from "@/components/admin/viability-calculator";
 import { behaviorCoinsPerMonth, coinsPerRealFromRules } from "@/lib/points/economics";
 
-type TabKey = "members" | "partners" | "benefits" | "finance" | "points" | "reels" | "missions" | "vouchers" | "events" | "resenha" | "founders" | "staff" | "family" | "waitlist" | "legal";
+type TabKey = "members" | "partners" | "benefits" | "finance" | "points" | "reels" | "missions" | "vouchers" | "events" | "resenha" | "founders" | "staff" | "family" | "waitlist" | "legal" | "notifications";
 
 export interface AdminIdentity {
   name?: string;
@@ -254,6 +255,7 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
             { value: "family", label: "Verificações" },
             { value: "waitlist", label: "Lista de Espera", count: waitlistCount },
             { value: "legal", label: "Jurídico", count: legalOpen },
+            { value: "notifications", label: "Notificações" },
           ]}
         />
 
@@ -296,6 +298,7 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
             {tab === "family" && <AdminFamilyTab />}
             {tab === "waitlist" && <AdminWaitlistTab onCount={setWaitlistCount} />}
             {tab === "legal" && <AdminLegalTab onMetrics={onLegalMetrics} />}
+            {tab === "notifications" && <AdminNotificationsTab />}
           </>
         )}
       </main>

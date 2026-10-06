@@ -41,6 +41,8 @@ function toRecord(input: LogInput): DeliveryRecord {
 export async function recordDelivery(input: LogInput): Promise<DeliveryRecord> {
   const record = toRecord(input);
   if (record.status === "failed") console.warn(`[notifications] ${record.channel}/${record.template} falhou para ${record.recipient}: ${record.error}`);
+  // Produção sem chave do provedor: o envio é pulado em silêncio, então o log do servidor avisa.
+  if (record.status === "skipped") console.warn(`[notifications] ${record.channel}/${record.template} não enviado para ${record.recipient}: ${record.error}`);
 
   if (!supabaseAdmin) {
     const list = memory();
