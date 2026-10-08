@@ -10,6 +10,7 @@ import {
   type OutgoingPatch,
   type OutgoingRequest,
   type OutgoingStatus,
+  type ProvisioningLogEntry,
   type Subaccount,
   type SubaccountPatch,
   type WebhookRecord,
@@ -22,6 +23,7 @@ export class MemoryAsaasBankStore implements AsaasBankStore {
   private webhooks = new Map<string, { processedAt: string | null; error: string | null }>();
   private notifications: Array<BankNotification & { eventId: string | null }> = [];
   private outgoing = new Map<string, OutgoingRequest>();
+  private provisioning: ProvisioningLogEntry[] = [];
 
   static shared(): MemoryAsaasBankStore {
     const g = globalThis as unknown as { __prxAsaasStore?: MemoryAsaasBankStore };
@@ -81,6 +83,15 @@ export class MemoryAsaasBankStore implements AsaasBankStore {
     const next = { ...current, ...defined };
     this.subaccounts.set(userId, next);
     return { ...next };
+  }
+
+  async logProvisioning(entry: ProvisioningLogEntry) {
+    this.provisioning.push({ ...entry });
+  }
+
+  /** Só para testes: envios registrados. */
+  provisioningLog(): ProvisioningLogEntry[] {
+    return [...this.provisioning];
   }
 
   async recordWebhook(input: WebhookRecord): Promise<WebhookRecordResult> {

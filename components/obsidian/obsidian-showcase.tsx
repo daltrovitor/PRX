@@ -2,6 +2,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Tagline } from "@/components/marketing/tagline";
 import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
@@ -111,11 +112,7 @@ export function ObsidianShowcase() {
         <section aria-labelledby="teste-title" className="grid items-center gap-10 pt-8 lg:min-h-[calc(100dvh-88px)] lg:grid-cols-12 lg:gap-6 lg:pt-0">
           <div className="min-w-0 lg:col-span-5">
             <h1 id="teste-title" className="ob-display text-[30px] text-ink min-[380px]:text-[34px] sm:text-[46px] lg:text-[38px] xl:text-[46px]">
-              O futuro
-              <br />
-              não se assiste.
-              <br />
-              Se constrói.
+              <Tagline />
             </h1>
             <p className="mt-6 max-w-md text-[15px] leading-relaxed text-muted-foreground">
               Showcase da identidade Cyber-Luxury Obsidian do PRX: o celular 3D com o app vivo na tela, a visão em tela cheia, os componentes e os assets

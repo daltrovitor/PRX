@@ -59,7 +59,7 @@ export function WalletTriad({ balance, balanceLabel, coins, xp, hidden, onToggle
             <IconChevronRight size={16} className="text-muted-foreground transition-transform group-hover:translate-x-0.5" />
           </span>
           <span>
-            <span className="block truncate text-[30px] font-normal leading-none tracking-[-0.035em] text-ink [font-feature-settings:'pnum'] sm:text-[34px]">
+            <span className="block truncate font-[family-name:var(--font-light),var(--font-sans)] text-[30px] font-light leading-none tracking-[-0.035em] text-ink [font-feature-settings:'pnum'] sm:text-[34px]">
               {coins === null ? "—" : hidden ? "••••" : integer.format(coins)}
             </span>
             <span className="mt-2 block truncate text-[12px] text-muted-foreground">Resgate no PASS</span>
@@ -74,7 +74,7 @@ export function WalletTriad({ balance, balanceLabel, coins, xp, hidden, onToggle
         >
           <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink">PRX Level</span>
           <span>
-            <span className="block truncate text-[30px] font-normal leading-none tracking-[-0.035em] text-ink [font-feature-settings:'pnum'] sm:text-[34px]">
+            <span className="block truncate font-[family-name:var(--font-light),var(--font-sans)] text-[30px] font-light leading-none tracking-[-0.035em] text-ink [font-feature-settings:'pnum'] sm:text-[34px]">
               Nível {integer.format(progress.level)}
             </span>
             <span className="mt-3 block">

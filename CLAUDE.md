@@ -41,3 +41,14 @@
 - `lib/waitlist.ts`: Serviço de persistência de leads (Supabase `waitlist_signups` + fallback in-memory).
 - `lib/auth.ts`: Mecanismo central de autenticação e verificação de papéis (`verifyAdminRequest`).
 - `components/admin/`: Componentes modulares das abas do painel administrativo.
+
+## Skills / Práticas Sempre Ativas
+
+Aplicar em toda tarefa, sem precisar ser pedido:
+
+1. **Vercel React Best Practices** — Server Components por padrão, `"use client"` só nas folhas; evitar waterfalls (`Promise.all`, `Suspense`); imports diretos (sem barrel files pesados); `next/dynamic` para código pesado; `next/image` e `next/font`; minimizar props serializadas RSC→cliente; derivar estado em vez de `useEffect`; listas com keys estáveis.
+2. **code-search** — consultar `graphify query/explain/path` primeiro; depois Grep/Glob direcionados. Nunca varrer o repo inteiro.
+3. **targeted-reading** — ler só o trecho necessário (`offset`/`limit`), nunca arquivos inteiros sem motivo.
+4. **minimal-output** — respostas curtas: o que mudou, caminhos, verificação. Sem recapitular código.
+5. **incremental-editing** — `Edit` cirúrgico em vez de reescrever arquivos; uma mudança coesa por vez; validar (`typecheck`/`lint`) a cada etapa.
+6. **project-memory** — registrar decisões não óbvias em `memory/` e manter este arquivo conciso.

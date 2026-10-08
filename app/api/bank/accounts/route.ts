@@ -6,6 +6,7 @@ import { PartnerError } from "@/lib/partners/errors";
 import { body, familyErrorResponse, invalid, requireUser } from "@/lib/family/http";
 import { asaasActiveFor, asaasDeps } from "@/lib/bank/asaas/deps";
 import { currentSubaccount, openSubaccount, refreshSubaccountStatus, subaccountView } from "@/lib/bank/asaas/onboarding";
+import { logAsaasUnavailable } from "@/lib/bank/asaas/provisioning-log";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
@@ -31,7 +32,10 @@ const schema = z.object({ action: z.enum(["open", "refresh"]).default("open") })
 export async function POST(req: NextRequest) {
   try {
     const user = await requireUser(req);
-    if (!asaasActiveFor(user.id)) throw new PartnerError("A ativação de contas ainda não está disponível neste ambiente.", 503);
+    if (!asaasActiveFor(user.id)) {
+      await logAsaasUnavailable(user.id);
+      throw new PartnerError("A ativação de contas ainda não está disponível neste ambiente.", 503);
+    }
     const rate = checkRateLimit(`bank_accounts_${user.id}`, 6, 300);
     if (!rate.allowed) throw new PartnerError(`Muitas tentativas. Tente em ${rate.resetInSeconds}s.`, 429);
     const parsed = schema.safeParse(await body(req));

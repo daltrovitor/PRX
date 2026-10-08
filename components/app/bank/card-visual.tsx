@@ -6,7 +6,7 @@ import { motion } from "motion/react";
 import { PrxLogo } from "@/components/brand/prx-logo";
 import { cn } from "@/lib/utils";
 
-const cardShell = "prx-holo flex aspect-[1.586/1] w-full select-none flex-col justify-between rounded-[22px] p-5 text-left";
+const cardShell = "prx-holo prx-card-black flex aspect-[1.586/1] w-full select-none flex-col justify-between rounded-[22px] p-5 text-left";
 
 /**
  * A película holográfica acompanha o ponteiro (variáveis CSS, sem re-render).
@@ -54,7 +54,7 @@ export function PaymentCard({ holder, onClick }: { holder: string; onClick?: () 
           <span className="block truncate text-[13px] font-semibold uppercase tracking-[0.02em]">{holder}</span>
           <span className="mt-0.5 block text-[11px] font-medium text-white/80">Cartão chega em breve</span>
         </span>
-        <PrxLogo variant="symbol" title="" className="h-7 w-auto shrink-0 text-white" />
+        <PrxLogo variant="compact" title="" className="h-7 w-auto shrink-0 text-white" />
       </span>
     </motion.button>
   );
@@ -87,9 +87,12 @@ export function CardVisual({ holder, label }: { holder: string; label: string })
           <span className="block font-medium text-white/70">Titular</span>
           <span className="block truncate font-semibold uppercase">{holder}</span>
         </div>
-        <div className="shrink-0 text-right">
-          <span className="block font-medium text-white/70">Validade</span>
-          <span className="block font-mono">••/••</span>
+        <div className="flex shrink-0 items-end gap-4 text-right">
+          <div>
+            <span className="block font-medium text-white/70">Validade</span>
+            <span className="block font-mono">••/••</span>
+          </div>
+          <PrxLogo variant="compact" title="" className="h-7 w-auto text-white" />
         </div>
       </div>
     </motion.div>

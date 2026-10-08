@@ -312,7 +312,7 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
         <h1 className="ob-display text-[28px] text-ink sm:text-[40px]">PRX BANK</h1>
         {rejectedNote && <Notice tone="warning">Sua abertura anterior não foi aprovada: {rejectedNote}</Notice>}
         <section className="prx-holo space-y-4 rounded-[28px] p-6 sm:p-8">
-          <h2 className="text-[26px] font-semibold leading-tight tracking-[-0.03em] text-white">Abra sua conta digital</h2>
+          <h2 className="font-[family-name:var(--font-light),var(--font-sans)] text-[26px] font-light leading-tight tracking-[-0.03em] text-white">Abra sua conta digital</h2>
           <p className="text-[15px] leading-relaxed text-white/85">
             Pix, cartão e PRX Coins em cada compra em parceiro. Leva uns 3 minutos: seus dados, endereço para o cartão e uma foto do documento.
           </p>

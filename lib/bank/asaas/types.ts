@@ -77,6 +77,19 @@ export interface WebhookRecord {
 /** new: primeiro recebimento; retry: já recebido, mas o processamento falhou; duplicate: já processado. */
 export type WebhookRecordResult = "new" | "retry" | "duplicate";
 
+/** sent: o Asaas aceitou; failed: recusou ou o PRX falhou; uncertain: sem resposta; blocked: o PRX nem enviou. */
+export type ProvisioningOutcome = "sent" | "failed" | "uncertain" | "blocked";
+
+/** Um envio do cadastro ao Asaas (bank_provisioning_log), só para o admin. */
+export interface ProvisioningLogEntry {
+  userId: string;
+  environment: AsaasEnvironment;
+  step: "account" | "documents";
+  outcome: ProvisioningOutcome;
+  asaasAccountId: string | null;
+  detail: string | null;
+}
+
 export interface AsaasBankStore {
   getSubaccount(userId: string): Promise<Subaccount | null>;
   findSubaccountByAsaasId(asaasAccountId: string): Promise<Subaccount | null>;
@@ -87,6 +100,9 @@ export interface AsaasBankStore {
 
   recordWebhook(input: WebhookRecord): Promise<WebhookRecordResult>;
   finishWebhook(eventId: string, error: string | null): Promise<void>;
+
+  /** Registra o envio do cadastro. Nunca lança: falha aqui não derruba a abertura. */
+  logProvisioning(entry: ProvisioningLogEntry): Promise<void>;
 
   /** false quando o aviso daquele evento já existia. */
   insertNotification(input: NewNotification): Promise<boolean>;

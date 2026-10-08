@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode, type Ref } from "react";
+import { Tagline } from "@/components/marketing/tagline";
 import Image, { type StaticImageData } from "next/image";
 import {
   AnimatePresence,
@@ -640,11 +641,7 @@ function PinnedStory({ appUrl, reduceMotion, onTone }: { appUrl: string; reduceM
         >
           <div className="max-w-[560px]">
             <h1 id="manifesto" className="ob-display text-[clamp(25px,8.2vw,46px)] leading-[1.1] tracking-[0.07em] text-white lg:text-[clamp(40px,3.9vw,60px)]">
-              O futuro
-              <br />
-              não se assiste.
-              <br />
-              Se constrói.
+              <Tagline />
             </h1>
             <p className="mt-4 max-w-[460px] text-[15px] leading-relaxed text-white/75 sm:mt-6 sm:text-[17px]">
               Sua vida financeira, benefícios reais e comunidade exclusiva unificados em um só ecossistema. Cada gasto em parceiro vira PRX Coins e impulsiona o seu nível.

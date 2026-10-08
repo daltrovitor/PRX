@@ -162,6 +162,9 @@ export async function reviewBankKyc(id: string, decision: "approve" | "reject", 
       if (asaasEnabled()) {
         const { ensureAsaasCustomerAndAccount } = await import("@/lib/bank/asaas/onboarding");
         await ensureAsaasCustomerAndAccount(decided.userId);
+      } else {
+        const { logAsaasUnavailable } = await import("@/lib/bank/asaas/provisioning-log");
+        await logAsaasUnavailable(decided.userId);
       }
     } catch (err) {
       console.warn("[kyc] Aviso ao provisionar Asaas após aprovação de KYC:", err);

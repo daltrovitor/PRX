@@ -18,6 +18,8 @@ import { getFamilyRepository } from "@/lib/family/repository";
 import { ensureDefaultPixKey } from "@/lib/bank/asaas/cash-in";
 import type { AsaasClient } from "@/lib/asaas/client";
 import { asaasDeps } from "@/lib/bank/asaas/deps";
+import { describeError, logProvisioning } from "@/lib/bank/asaas/provisioning-log";
+import type { ProvisioningOutcome } from "@/lib/bank/asaas/types";
 
 /**
  * Abertura da conta no Asaas (subconta white label) com os dados da abertura
@@ -111,24 +113,47 @@ async function approvedKyc(userId: string, deps: AsaasDeps): Promise<BankKycAppl
   throw new PartnerError("Sua abertura de conta não foi aprovada. Revise os dados na aba PRX BANK e envie de novo.", 403);
 }
 
+/** O membro não vê o erro do Asaas: o detalhe fica em bank_provisioning_log. */
+export const ACCOUNT_OPEN_RETRY = "Não foi possível abrir sua conta agora. Seus dados estão salvos: tente de novo em alguns minutos.";
+
 export const MINOR_NEEDS_EMANCIPATION =
   "Contas de menores de 18 anos só podem ser abertas com emancipação (a partir dos 16 anos). Enquanto isso, sua conta fica em ativação.";
 
 /** Cria a subconta no Asaas (idempotente: quem já tem conta recebe a situação atual). */
 export async function openSubaccount(userId: string, deps: AsaasDeps): Promise<SubaccountView> {
-  await assertCanHoldMoney(userId);
-  const app = await approvedKyc(userId, deps);
+  // Cada tentativa fica para o admin (Supabase + Vercel); o membro só vê mensagens genéricas.
+  const log = (outcome: ProvisioningOutcome, detail: string | null, asaasAccountId: string | null = null) =>
+    logProvisioning(deps, { userId, step: "account", outcome, detail, asaasAccountId });
+
+  let app: BankKycApplication;
+  try {
+    await assertCanHoldMoney(userId);
+    app = await approvedKyc(userId, deps);
+  } catch (err) {
+    await log("blocked", describeError(err));
+    throw err;
+  }
   const existing = await currentSubaccount(userId, deps);
   if (existing?.asaasAccountId) return subaccountView(existing);
   // O banco parceiro só abre conta de menor emancipado (e pede a certidão de emancipação).
-  if (ageOn(app.birthDate, deps.now()) < 18 && app.minorPath !== "emancipated") throw new PartnerError(MINOR_NEEDS_EMANCIPATION, 409);
+  if (ageOn(app.birthDate, deps.now()) < 18 && app.minorPath !== "emancipated") {
+    await log("blocked", MINOR_NEEDS_EMANCIPATION);
+    throw new PartnerError(MINOR_NEEDS_EMANCIPATION, 409);
+  }
 
-  const webhook = subaccountWebhook();
-  // Sem como cifrar a chave, nem chama o Asaas: a apiKey só vem uma vez.
-  encryptSecret("probe");
+  let webhook: SubaccountWebhook;
+  try {
+    webhook = subaccountWebhook();
+    // Sem como cifrar a chave, nem chama o Asaas: a apiKey só vem uma vez.
+    encryptSecret("probe");
+  } catch (err) {
+    await log("failed", `Configuração do servidor incompleta: ${describeError(err)}`);
+    throw new PartnerError(ACCOUNT_OPEN_RETRY, 503);
+  }
 
   const staleBefore = new Date(deps.now().getTime() - PROVISIONING_STALE_MS).toISOString();
   if (!(await deps.store.reserveSubaccount(userId, deps.client.environment, staleBefore))) {
+    await log("blocked", "Outra abertura deste membro já está em andamento (trava de provisionamento ativa).");
     throw new PartnerError("A abertura da sua conta já está em andamento. Aguarde alguns instantes.", 409);
   }
 
@@ -137,8 +162,10 @@ export async function openSubaccount(userId: string, deps: AsaasDeps): Promise<S
     created = await createSubaccount(deps.client, subaccountInput(app, webhook));
   } catch (err) {
     // Recusa clara libera para tentar de novo; resultado incerto mantém a trava (nada de conta dupla).
-    if (!(err instanceof AsaasError && err.ambiguous)) await deps.store.releaseSubaccount(userId);
-    throw toPartnerError(err, "Não foi possível abrir sua conta no PRX BANK.");
+    const uncertain = err instanceof AsaasError && err.ambiguous;
+    if (!uncertain) await deps.store.releaseSubaccount(userId);
+    await log(uncertain ? "uncertain" : "failed", describeError(err));
+    throw new PartnerError(ACCOUNT_OPEN_RETRY, 503);
   }
 
   const { agency, accountNumber } = formatAccount(created.accountNumber);
@@ -154,11 +181,12 @@ export async function openSubaccount(userId: string, deps: AsaasDeps): Promise<S
       rejectReason: null,
       provisioningStartedAt: null,
     });
+    await log("sent", "Subconta criada no Asaas; aguardando a análise dele.", created.id);
     await deps.mirror.linkAccount(userId, { providerAccountId: created.id, agency, accountNumber });
     return subaccountView(saved);
   } catch (err) {
-    // A chave não volta mais: o id da conta vai para o log para o suporte gerar uma nova no Asaas.
-    console.error("[bank] subconta criada no Asaas mas não gravada no PRX:", created.id, userId);
+    // A chave não volta mais: o id da conta fica no registro para o suporte gerar uma nova no Asaas.
+    await log("failed", `Subconta criada no Asaas, mas falhou ao gravar no PRX (gerar nova apiKey no painel do Asaas): ${describeError(err)}`, created.id);
     throw err;
   }
 }
@@ -251,7 +279,12 @@ export async function ensureAsaasCustomerAndAccount(userId: string, deps: AsaasD
     sub = await currentSubaccount(userId, deps);
     const { forwardKycDocuments } = await import("@/lib/bank/asaas/documents");
     // Falha aqui não desfaz a conta: o membro reenvia pela tela de documentos.
-    await forwardKycDocuments(userId, deps).catch((err: unknown) => console.warn("[bank] documentos do KYC não enviados ao Asaas:", err instanceof Error ? err.message : err));
+    const docs = { userId, step: "documents" as const, asaasAccountId: sub?.asaasAccountId ?? null };
+    await forwardKycDocuments(userId, deps)
+      .then((sent) =>
+        logProvisioning(deps, sent > 0 ? { ...docs, outcome: "sent", detail: `${sent} documento(s) enviados ao Asaas.` } : { ...docs, outcome: "blocked", detail: "Nenhum documento enviado (sem arquivos ou nada pendente no Asaas)." })
+      )
+      .catch((err: unknown) => logProvisioning(deps, { ...docs, outcome: "failed", detail: describeError(err) }));
   }
 
   if (sub && deps.client.environment === "sandbox" && sub.status !== "active") {

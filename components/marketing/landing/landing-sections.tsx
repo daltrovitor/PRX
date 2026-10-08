@@ -2,6 +2,7 @@
 "use client";
 
 import { useId, useState, type ComponentType, type ReactNode } from "react";
+import { Tagline } from "@/components/marketing/tagline";
 import { AnimatePresence, motion } from "motion/react";
 import { ObsidianPhone3D } from "@/components/obsidian/obsidian-phone";
 import {
@@ -587,9 +588,7 @@ export function FinalCtaSection({ links }: { links: LandingLinks }) {
       <div className="relative mx-auto max-w-[760px]">
         <Reveal amount={0.6}>
           <h2 id="comecar-title" className="ob-display text-balance text-[clamp(26px,7vw,40px)] leading-[1.12] tracking-[0.06em] md:text-[clamp(40px,4.2vw,56px)]">
-            O futuro não se assiste.
-            <br />
-            Se constrói.
+            <Tagline />
           </h2>
         </Reveal>
         <Reveal index={1} amount={0.6}>

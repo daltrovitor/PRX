@@ -1,7 +1,7 @@
 // Hello World
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { Barlow, Bricolage_Grotesque, Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { Barlow, Bricolage_Grotesque, Inter, JetBrains_Mono, Roboto, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { APP_URL } from "@/lib/domains";
@@ -40,6 +40,15 @@ const barlow = Barlow({
   subsets: ["latin"],
   variable: "--font-obsidian",
   weight: ["300", "400", "500", "600"],
+  display: "swap",
+  preload: false,
+});
+
+/* Roboto Light: nome do perfil, níveis, PRX Coins e "Abra sua conta digital". */
+const robotoLight = Roboto({
+  subsets: ["latin"],
+  variable: "--font-light",
+  weight: "300",
   display: "swap",
   preload: false,
 });
@@ -96,7 +105,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
     <html
       lang="pt-BR"
       suppressHydrationWarning
-      className={cn("dark h-full antialiased", inter.variable, spaceGrotesk.variable, bricolage.variable, barlow.variable, jetbrainsMono.variable)}
+      className={cn("dark h-full antialiased", inter.variable, spaceGrotesk.variable, bricolage.variable, barlow.variable, robotoLight.variable, jetbrainsMono.variable)}
     >
       <head>
         <ThemeScript />

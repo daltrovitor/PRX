@@ -1,7 +1,7 @@
 // Hello World
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { decryptSecret } from "@/lib/asaas/secrets";
-import { completeAsaasSandboxChecklist, currentSubaccount, ensureAsaasCustomerAndAccount, openSubaccount, subaccountView } from "@/lib/bank/asaas/onboarding";
+import { ACCOUNT_OPEN_RETRY, completeAsaasSandboxChecklist, currentSubaccount, ensureAsaasCustomerAndAccount, openSubaccount, subaccountView } from "@/lib/bank/asaas/onboarding";
 import { reconcileLegacyAccount } from "@/lib/bank/asaas/legacy";
 import { forwardKycDocuments, uploadSubaccountDocument } from "@/lib/bank/asaas/documents";
 import { handleAsaasEvent } from "@/lib/bank/asaas/webhooks";
@@ -70,14 +70,26 @@ describe("abertura da subconta no Asaas", () => {
     expect(calls).toHaveLength(0);
   });
 
-  it("recusa do Asaas libera para tentar de novo, com a descrição para o membro", async () => {
+  it("recusa do Asaas libera para tentar de novo: o membro vê mensagem genérica, o admin vê o motivo", async () => {
     let attempt = 0;
     const { client } = fakeAsaas({
       "POST /accounts": () => (++attempt === 1 ? { status: 400, body: { errors: [{ code: "invalid_email", description: "O e-mail informado já está em uso." }] } } : { body: CREATED }),
     });
-    const { deps } = testDeps(client);
-    await expect(openSubaccount(USER_ID, deps)).rejects.toMatchObject({ status: 422, message: "O e-mail informado já está em uso." });
+    const { deps, store } = testDeps(client);
+    await expect(openSubaccount(USER_ID, deps)).rejects.toMatchObject({ status: 503, message: ACCOUNT_OPEN_RETRY });
     await expect(openSubaccount(USER_ID, deps)).resolves.toMatchObject({ state: "pending_activation" });
+
+    expect(store.provisioningLog()).toMatchObject([
+      { userId: USER_ID, step: "account", outcome: "failed", asaasAccountId: null, detail: "Asaas 400 invalid_email: O e-mail informado já está em uso." },
+      { userId: USER_ID, step: "account", outcome: "sent", asaasAccountId: "acc_123" },
+    ]);
+  });
+
+  it("registra para o admin quando o PRX nem envia (cadastro não aprovado)", async () => {
+    const { client } = fakeAsaas({ "POST /accounts": { body: CREATED } });
+    const { deps, store } = testDeps(client, approvedKyc({ status: "pending" }));
+    await expect(openSubaccount(USER_ID, deps)).rejects.toMatchObject({ status: 403 });
+    expect(store.provisioningLog()).toMatchObject([{ step: "account", outcome: "blocked", asaasAccountId: null }]);
   });
 
   it("resultado incerto mantém a trava: nada de conta dupla", async () => {

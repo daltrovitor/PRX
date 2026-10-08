@@ -2,6 +2,7 @@
 "use client";
 
 import { useId, useRef, useState, type FormEvent } from "react";
+import { Tagline } from "@/components/marketing/tagline";
 import Image from "next/image";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
@@ -88,9 +89,7 @@ export function ComingSoon() {
 
           <div className="mt-12 w-full max-w-[640px] text-center">
             <h1 id="teaser-title" data-headline className="ob-display text-balance text-[clamp(24px,7.4vw,44px)] leading-[1.12] tracking-[0.06em]">
-              O futuro não se assiste.
-              <br />
-              Se constrói.
+              <Tagline />
             </h1>
             <p data-after className="mt-5 text-[17px] text-white/75 sm:text-[19px]">
               Em breve em <strong className="font-semibold text-white">prx.app.br</strong>

@@ -16,6 +16,7 @@ import {
   type OutgoingPatch,
   type OutgoingRequest,
   type OutgoingStatus,
+  type ProvisioningLogEntry,
   type Subaccount,
   type SubaccountPatch,
   type WebhookRecord,
@@ -217,6 +218,19 @@ export class SupabaseAsaasBankStore implements AsaasBankStore {
     const patch = failure ? { error: failure.slice(0, 500) } : { processed_at: new Date().toISOString(), error: null };
     const { error } = await this.db.from("bank_webhooks_log").update(patch).eq("event_id", eventId);
     if (error) throw dbError(error, "Não foi possível concluir o evento");
+  }
+
+  async logProvisioning(entry: ProvisioningLogEntry) {
+    const { error } = await this.db.from("bank_provisioning_log").insert({
+      user_id: entry.userId,
+      environment: entry.environment,
+      step: entry.step,
+      outcome: entry.outcome,
+      asaas_account_id: entry.asaasAccountId,
+      detail: entry.detail?.slice(0, 1000) ?? null,
+    });
+    // Tabela ainda não criada (migração 20261008) ou fora do ar: fica só a linha nos logs da Vercel.
+    if (error) console.warn("[prx-bank:abertura] registro não gravado no Supabase:", error.message);
   }
 
   async insertNotification(input: NewNotification) {

@@ -48,19 +48,19 @@ export async function POST(req: NextRequest) {
     const parsed = bankKycSchema.safeParse(await body(req));
     if (!parsed.success) invalid(parsed.error.issues);
     const app = await submitBankKyc(user, parsed.data, { ip: clientIp(req), userAgent: req.headers.get("user-agent") ?? "" }, new Date(), { allowRedo: await canRedo(user.id) });
-    let providerError: string | null = null;
+    // O resultado do envio ao Asaas fica para o admin (bank_provisioning_log e logs da Vercel), não para o membro.
     if (app.status === "approved" && asaasActiveFor(user.id)) {
       try {
         const { ensureAsaasCustomerAndAccount } = await import("@/lib/bank/asaas/onboarding");
         await ensureAsaasCustomerAndAccount(user.id);
       } catch (err) {
-        providerError = errorMessage(err, "Não conseguimos abrir sua conta agora. Seus dados ficaram salvos: toque em Ativar minha conta para tentar de novo.");
-        console.warn("[kyc] abertura da conta adiada:", providerError);
+        console.warn("[prx-bank:abertura] abertura adiada após o cadastro:", errorMessage(err));
       }
     } else if (app.status === "approved" && !isSandboxMode()) {
-      providerError = "A ativação de contas ainda não está disponível. Seus dados ficaram salvos: tente de novo em instantes.";
+      const { logAsaasUnavailable } = await import("@/lib/bank/asaas/provisioning-log");
+      await logAsaasUnavailable(user.id);
     }
-    return NextResponse.json({ success: true, kyc: await bankKycState(user.id), providerError }, { headers: NO_STORE });
+    return NextResponse.json({ success: true, kyc: await bankKycState(user.id), providerError: null }, { headers: NO_STORE });
   } catch (error) {
     return familyErrorResponse(error, "Não foi possível enviar a abertura de conta.");
   }

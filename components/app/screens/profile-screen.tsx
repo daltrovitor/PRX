@@ -40,7 +40,7 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase }: ProfileScreenP
       <header className="flex flex-col items-center gap-4 pt-2 text-center">
         <Avatar name={member.name || "Membro PRX"} src={member.avatarUrl} size={88} />
         <div className="min-w-0">
-          <h1 className="truncate text-2xl font-semibold tracking-[-0.02em] text-ink sm:text-3xl">{member.name || "Membro PRX"}</h1>
+          <h1 className="truncate font-[family-name:var(--font-light),var(--font-sans)] font-light text-2xl tracking-[-0.02em] text-ink sm:text-3xl">{member.name || "Membro PRX"}</h1>
           <p className="mt-1 truncate text-sm text-muted-foreground">
             {member.email} · {ROLE_LABEL[member.role] ?? "Membro"}
           </p>
@@ -226,7 +226,7 @@ function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-3xl glass p-4 sm:p-5">
       <p className="text-[13px] text-muted-foreground">{label}</p>
-      <p className="mt-1.5 text-2xl font-semibold tracking-[-0.03em] text-ink tabular-nums">{value}</p>
+      <p className="mt-1.5 font-[family-name:var(--font-light),var(--font-sans)] text-2xl font-light tracking-[-0.03em] text-ink tabular-nums">{value}</p>
     </div>
   );
 }
