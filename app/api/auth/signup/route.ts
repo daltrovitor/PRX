@@ -9,6 +9,7 @@ import { clientIp } from "@/lib/partners/http";
 import { sendWelcomeEmail } from "@/lib/notifications/welcome";
 import { signupBirthDateSchema } from "@/lib/family/age";
 import { cpfSchema, onlyDigits } from "@/lib/family/types";
+import { assertCpfMatchesBirth } from "@/lib/cpf/verify";
 import { PASSWORD_MISMATCH, strongPasswordSchema } from "@/lib/password-policy";
 
 const phoneSchema = z
@@ -46,6 +47,8 @@ export async function POST(req: NextRequest) {
     const parsed = SignupSchema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Dados inválidos." }, { status: 400 });
     const data = parsed.data;
+    // Receita (Serpro): CPF e nascimento precisam bater antes de a conta existir.
+    await assertCpfMatchesBirth(data.cpf, data.birthDate, "signup");
 
     const user = await createAccount({
       email: sanitizeInput(data.email),

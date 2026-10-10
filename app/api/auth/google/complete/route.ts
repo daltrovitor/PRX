@@ -10,6 +10,7 @@ import { clientIp } from "@/lib/partners/http";
 import { sendWelcomeEmail } from "@/lib/notifications/welcome";
 import { signupBirthDateSchema } from "@/lib/family/age";
 import { cpfSchema, onlyDigits } from "@/lib/family/types";
+import { assertCpfMatchesBirth } from "@/lib/cpf/verify";
 import { PENDING_GOOGLE_COOKIE, pendingGoogleCookie, verifyPendingGoogleToken } from "@/lib/google-pending";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { getCurrentUser, userStore, type StoredUser } from "@/lib/auth";
@@ -75,6 +76,7 @@ export async function POST(req: NextRequest) {
     const parsed = CompleteSchema.safeParse(await req.json().catch(() => ({})));
     if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Dados inválidos." }, { status: 400 });
     const { cpf, phone } = parsed.data;
+    await assertCpfMatchesBirth(cpf, parsed.data.birthDate, "google");
 
     const person = await whoIsCompleting(req);
     const email = person.email.toLowerCase().trim();
