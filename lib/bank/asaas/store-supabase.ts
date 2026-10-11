@@ -96,6 +96,12 @@ export class SupabaseAsaasBankStore implements AsaasBankStore {
     return mapSubaccount(data as SubaccountRow);
   }
 
+  async listSubaccounts(environment: Subaccount["environment"], limit: number) {
+    const { data, error } = await this.db.from("bank_subaccounts").select("*").eq("environment", environment).order("created_at", { ascending: true }).limit(limit);
+    if (error) throw dbError(error, "Não foi possível listar as subcontas");
+    return (data as SubaccountRow[]).map(mapSubaccount);
+  }
+
   async listSubaccountsToReconcile(environment: Subaccount["environment"], limit: number) {
     const { data, error } = await this.db
       .from("bank_subaccounts")
@@ -152,6 +158,21 @@ export class SupabaseAsaasBankStore implements AsaasBankStore {
     });
     // Tabela ainda não criada (migração 20261008) ou fora do ar: fica só a linha nos logs da Vercel.
     if (error) console.warn("[prx-bank:abertura] registro não gravado no Supabase:", error.message);
+  }
+
+  async listProvisioning(userId: string, limit: number) {
+    if (!isUuid(userId)) return [];
+    const { data, error } = await this.db.from("bank_provisioning_log").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(limit);
+    if (error) throw dbError(error, "Não foi possível ler o registro da abertura");
+    return (data as Array<{ user_id: string; environment: string; step: string; outcome: string; asaas_account_id: string | null; detail: string | null; created_at: string }>).map((r) => ({
+      userId: r.user_id,
+      environment: r.environment === "production" ? ("production" as const) : ("sandbox" as const),
+      step: r.step as ProvisioningLogEntry["step"],
+      outcome: r.outcome as ProvisioningLogEntry["outcome"],
+      asaasAccountId: r.asaas_account_id,
+      detail: r.detail,
+      createdAt: r.created_at,
+    }));
   }
 
   async insertNotification(input: NewNotification) {

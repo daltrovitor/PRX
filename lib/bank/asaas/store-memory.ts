@@ -37,7 +37,7 @@ export class MemoryAsaasBankStore implements AsaasBankStore {
   private webhooks = new Map<string, { processedAt: string | null; error: string | null; payload: unknown; attempts: number; receivedAt: string }>();
   private notifications: Array<BankNotification & { eventId: string | null }> = [];
   private outgoing = new Map<string, OutgoingRequest>();
-  private provisioning: ProvisioningLogEntry[] = [];
+  private provisioning: Array<ProvisioningLogEntry & { createdAt: string }> = [];
 
   static shared(): MemoryAsaasBankStore {
     const g = globalThis as unknown as { __prxAsaasStore?: MemoryAsaasBankStore };
@@ -100,6 +100,13 @@ export class MemoryAsaasBankStore implements AsaasBankStore {
     return { ...next };
   }
 
+  async listSubaccounts(environment: Subaccount["environment"], limit: number) {
+    return [...this.subaccounts.values()]
+      .filter((s) => s.environment === environment)
+      .slice(0, limit)
+      .map((s) => ({ ...s }));
+  }
+
   async listSubaccountsToReconcile(environment: Subaccount["environment"], limit: number) {
     return [...this.subaccounts.values()]
       .filter((s) => s.environment === environment && (s.status === "pending_activation" || s.status === "rejected"))
@@ -108,12 +115,19 @@ export class MemoryAsaasBankStore implements AsaasBankStore {
   }
 
   async logProvisioning(entry: ProvisioningLogEntry) {
-    this.provisioning.push({ ...entry });
+    this.provisioning.push({ ...entry, createdAt: new Date().toISOString() });
+  }
+
+  async listProvisioning(userId: string, limit: number) {
+    return this.provisioning
+      .filter((p) => p.userId === userId)
+      .reverse()
+      .slice(0, limit);
   }
 
   /** Só para testes: envios registrados. */
   provisioningLog(): ProvisioningLogEntry[] {
-    return [...this.provisioning];
+    return this.provisioning.map((p) => ({ userId: p.userId, environment: p.environment, step: p.step, outcome: p.outcome, asaasAccountId: p.asaasAccountId, detail: p.detail }));
   }
 
   async recordWebhook(input: WebhookRecord): Promise<WebhookRecordResult> {

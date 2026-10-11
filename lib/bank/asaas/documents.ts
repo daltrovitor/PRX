@@ -133,7 +133,8 @@ export async function syncOnboardingDocuments(userId: string, deps: AsaasDeps): 
           viaLink += 1;
           continue;
         }
-        const file = await fileForGroup(group.type, app, deps);
+        // Recusado: reenviar o mesmo arquivo do cadastro não adianta; o membro manda outro.
+        const file = group.status.toUpperCase() === "REJECTED" ? null : await fileForGroup(group.type, app, deps);
         if (!file) {
           memberUpload += 1;
           continue;

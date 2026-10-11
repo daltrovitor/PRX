@@ -5,14 +5,16 @@ O PRX BANK opera contas de pagamento individualizadas como subcontas white label
 
 ## Ligar em um ambiente
 
-1. Aplique `supabase/migrations/20261001_prx_asaas_baas.sql`.
+1. Aplique `supabase/migrations/20261001_prx_asaas_baas.sql`, `20261008_prx_bank_provisioning_log.sql` e `20261010_prx_asaas_audit.sql` (registro das chamadas e situação cadastral por dimensão).
 2. Configure as variáveis (Vercel → Environment Variables):
    - `BANK_PROVIDER=asaas`, `ASAAS_ENVIRONMENT` (`sandbox` ou `production`) e `ASAAS_API_KEY`. A chave precisa ser do mesmo ambiente: `$aact_hmlg_` no sandbox e `$aact_prod_` em produção. Se não for, a integração fica desligada. No `.env.local`, escreva `\$aact_...`, porque o Next expande o `$`.
    - `ASAAS_API_URL` (opcional): só aceita hosts oficiais do Asaas e caminho terminando em `/v3`.
    - `ASAAS_WEBHOOK_AUTH_TOKEN`: 32+ caracteres. É conferido em tempo constante no header `asaas-access-token`.
    - `ASAAS_WEBHOOK_URL_EVENTS` e `ASAAS_WEBHOOK_URL_VALIDATE_WITHDRAW` (ou `NEXT_PUBLIC_APP_URL`; pode ser `https://prx.app.br`, porque o `/api/*` responde em todos os domínios da PRX), mais `ASAAS_WEBHOOK_EMAIL` (ou o e-mail de resposta, `suporte@prx.app.br`; nunca o `noreply`).
    - `BANK_ENCRYPTION_KEY`: 32+ caracteres. Cifra as apiKeys das subcontas (AES-256-GCM). Depois de abrir contas, não troque a chave. O texto cifrado guarda qual chave foi usada.
-3. No painel do Asaas, em Integrações → Mecanismos de segurança, ligue a validação de saque apontando para `/api/bank/webhooks/validate-withdraw` com o mesmo token. Em subcontas, confirme com o gerente de contas como a configuração é replicada.
+3. No painel do Asaas, em Integrações → Mecanismos de segurança, ligue a validação de saque apontando para `/api/bank/webhooks/validate-withdraw` com o mesmo token. Pela documentação, a configuração da conta raiz vale automaticamente para as subcontas (BaaS e não BaaS).
+4. Confirme com o gerente de contas que o **BaaS está habilitado** para a conta-pai. Sem isso, o `POST /v3/accounts` cria subcontas fora do BaaS: o titular recebe e-mail de ativação do Asaas e envia os documentos na interface do Asaas, não pelo PRX.
+5. `CRON_SECRET` na Vercel: o cron diário `/api/cron/bank-reconcile` concilia o que um webhook perdido deixou para trás.
 
 Sem essas condições, o app segue no modo de pré-ativação (ou sandbox em memória no desenvolvimento), sem nenhuma chamada ao Asaas.
 
@@ -35,9 +37,9 @@ Com `ASAAS_ENVIRONMENT=production`, o modo sandbox não liga, mesmo que `PRX_BAA
 | Etapa | PRX | Asaas |
 |---|---|---|
 | KYC | `POST /api/bank/kyc`: regras automáticas (CPF único, idade, documentos da própria pasta) e aprovação na hora, **sem análise do PRX**. Menor espera o responsável aceitar o vínculo | — |
-| Abertura | na mesma chamada do KYC (ou na próxima visita ao PRX BANK, se o Asaas falhar). Idempotente, com trava contra conta dupla | `POST /v3/accounts` com webhook + authToken |
-| Documentos | frente e verso do KYC seguem sozinhos logo após a abertura; o que faltar, o membro envia em `/api/bank/accounts/documents` | `GET/POST /v3/myAccount/documents` |
-| Aprovação | webhook `ACCOUNT_STATUS_GENERAL_APPROVAL_*` ativa a conta e cria uma chave EVP | — |
+| Abertura | na mesma chamada do KYC (ou na próxima visita ao PRX BANK, se o Asaas falhar). Antes de criar, procura pelo CPF uma subconta criada numa tentativa cuja resposta se perdeu e religa (nada de conta dupla). O id é guardado mesmo se a chave não vier | `GET /v3/accounts?cpfCnpj=`, `POST /v3/accounts` com webhook + authToken |
+| Documentos | 15 s depois da criação (regra do Asaas), após a resposta ao membro (`after()`), na primeira visita à aba ou pela conciliação. Um arquivo por grupo: frente e verso vão num PDF. Grupo com `onboardingUrl` é enviado pelo membro no link do Asaas (documento e selfie), e ele é avisado no sino | `GET/POST /v3/myAccount/documents` |
+| Aprovação | os 18 eventos `ACCOUNT_STATUS_*` atualizam as quatro dimensões (geral, documentação, comercial, bancária); evento mais antigo que a situação aplicada é ignorado. Aprovação geral é conferida em `GET /v3/myAccount/status` antes de liberar dinheiro e cria uma chave EVP | `GET /v3/myAccount/status` |
 | Pix entrada | chaves e cobrança em `/api/bank` (`add_pix_key`, `create_charge`) | `/v3/pix/addressKeys`, `/v3/payments` + `pixQrCode` |
 | Pix saída e contas | `POST /api/bank/outgoing` (preparar, depois confirmar com biometria ou senha) | `/v3/transfers`, `/v3/pix/qrCodes/decode` e `/pay`, `/v3/bill/simulate` e `/v3/bill` |
 | Validação de saque | `POST /api/bank/webhooks/validate-withdraw`: só aprova pedido confirmado no app, mesmo valor e tipo | chamado ~5 s após cada saída |
@@ -68,14 +70,26 @@ Ao abrir o PRX BANK com `ASAAS_ENVIRONMENT=production`:
 - Chaves Pix locais do sandbox não aparecem: valem só as registradas no Pix pela subconta.
 - Quem nunca enviou a abertura preenche o formulário. Nenhum dado é inventado.
 
+## Diagnóstico (Admin → Asaas)
+
+- **Registro de toda chamada** em `asaas_api_requests`: operação, método, caminho, corpo enviado e resposta (sem chaves, tokens ou senhas; CPF, e-mail, telefone e endereço mascarados), HTTP, duração, tentativas e desfecho (`success`, `http_error`, `rate_limited`, `timeout`, `network_error`, `invalid_response`, `not_sent`). O que o PRX decidiu não enviar também entra (`not_sent`). Segunda trilha: linhas `[prx-asaas]` nos logs da Vercel.
+- **Detalhe** de cada chamada: o que o PRX tentou, o que o Asaas respondeu, o que significa pela documentação, causa (confirmada ou hipótese), próxima ação e o estado de negócio atual (subconta ou pedido de saída), separado do HTTP.
+- **Membro**: situação aplicada e situação no Asaas agora, webhook da subconta (fila interrompida? eventos faltando?), documentos pedidos e histórico da abertura. Ações: consultar situação, enviar documentos, atualizar/reativar webhook, gerar chave (subconta sem chave) e retomar abertura.
+- **Conciliação**: reprocessa eventos que falharam, consulta subcontas em análise, envia documentos, religa aberturas travadas e confere Pix e contas sem desfecho (só GET; nada de dinheiro é repetido). **Atualizar webhooks das subcontas** grava URL, eventos e o token atual em cada subconta.
+
 ## Garantias
 
-- **Idempotência**: cada evento entra em `bank_webhooks_log` (único por `event_id`). Um evento já processado volta 200 sem efeito. Lançamentos usam `provider_ref` único.
-- **Nada sai duas vezes**: o pedido passa de `awaiting_confirmation` para `requested` numa troca atômica. 429 é repetido. 5xx ou timeout num POST nunca é repetido: o pedido fica em aberto até o webhook decidir.
+- **Idempotência**: cada evento entra em `bank_webhooks_log` (único por `event_id`) antes de qualquer efeito. Um evento já processado volta 200 sem efeito. Se o processamento falhar, o evento fica gravado com o erro, o Asaas recebe 200 (a fila sequencial não para) e a conciliação reprocessa. Só uma falha ao gravar responde 500. Lançamentos usam `provider_ref` único.
+- **Nada sai duas vezes**: o pedido passa de `awaiting_confirmation` para `requested` numa troca atômica. 429 é repetido (respeitando `Retry-After`/`RateLimit-Reset`). 5xx ou timeout num POST nunca é repetido: o pedido fica em aberto, marcado como resultado desconhecido, até o webhook ou a conciliação (`GET /v3/transfers/{id}`, lista do dia pelo `externalReference`, `GET /v3/pix/transactions/{id}`, `GET /v3/bill/{id}`) decidir.
 - **Limites**: Pix noturno de R$ 1.000 entre 20h e 6h de Brasília (Res. BCB 142/2021), limites da Conta Família para menores e saldo do Asaas, conferidos no preparo e na confirmação.
 - **Transparência** (Res. Conjunta nº 16/2025): a chancela do Asaas aparece na aba PRX BANK, nos termos da abertura, na confirmação de Pix e contas e no extrato oficial.
 
 ## Pendências fora do código
+
+- **Aplicar a migração `20261010_prx_asaas_audit.sql`** no Supabase (SQL Editor). Sem ela o app funciona, mas o registro de chamadas fica só nos logs da Vercel.
+- **Atualizar os webhooks das subcontas já criadas** (Admin → Asaas → "Atualizar e reativar filas"): as anteriores a 08/10 usam o token antigo e o PRX recusa os avisos delas.
+- **Subcontas sem chave** (resposta perdida ou fora do período de avaliação): liberar em Asaas → Integrações → Chaves de API → "Gerenciamento de Chaves de API de Subcontas" (vale 2 h), com whitelist de IP do servidor, e usar "Gerar chave da subconta" no admin. Na Vercel o IP de saída não é fixo (a whitelist exige IP conhecido): sem IP fixo, esse endpoint fica inacessível e é preciso combinar com o suporte do Asaas como gerar a chave.
+- **Período de avaliação regulatória** (produção): até 10 subcontas, R$ 2.000 em cobranças por subconta e 60 dias a partir da primeira subconta; depois, criação bloqueada até a homologação. Subcontas duplicadas por tentativas antigas contam nesse limite: o admin mostra os ids (registro `recovered`).
 
 - **Rotacionar `ASAAS_WEBHOOK_AUTH_TOKEN`**: o valor antigo foi publicado no repositório público, no commit `249d8f0`. Gere outro com `openssl rand -hex 24` e atualize o `.env.local`, a Vercel e os webhooks já criados no Asaas.
 - **Nome comercial**: a Res. Conjunta nº 16/2025 veda "banco/bank" para instituição não autorizada (ver `docs/PLANO_BAAS.md`, seção 2).

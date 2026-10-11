@@ -2,6 +2,9 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import crypto from "crypto";
 import type { AsaasEnvironment } from "@/lib/asaas/config";
+import type { AuditOutcome } from "@/lib/asaas/audit-outcomes";
+
+export { AUDIT_OUTCOMES, type AuditOutcome } from "@/lib/asaas/audit-outcomes";
 
 /**
  * Registro central de cada chamada do PRX ao Asaas (tabela asaas_api_requests).
@@ -11,18 +14,6 @@ import type { AsaasEnvironment } from "@/lib/asaas/config";
  * nunca derruba nem repete a operação: o registro é melhor esforço e tem os
  * logs da Vercel ("[prx-asaas]") como segunda trilha.
  */
-
-/**
- * pending: enviado, sem resposta ainda (ou o processo morreu no meio)
- * success: 2xx no formato esperado
- * http_error: o Asaas respondeu 4xx/5xx
- * rate_limited: 429 depois das novas tentativas
- * timeout / network_error: sem resposta (num POST, resultado desconhecido)
- * invalid_response: 2xx num formato que o PRX não reconheceu (num POST, a operação pode ter acontecido)
- * not_sent: o PRX nem chamou o Asaas (regra, configuração ou caminho inválido)
- */
-export const AUDIT_OUTCOMES = ["pending", "success", "http_error", "rate_limited", "timeout", "network_error", "invalid_response", "not_sent"] as const;
-export type AuditOutcome = (typeof AUDIT_OUTCOMES)[number];
 
 export interface AuditContext {
   userId?: string | null;

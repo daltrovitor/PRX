@@ -129,9 +129,13 @@ export interface AsaasBankStore {
   listPendingWebhooks(before: string, maxAttempts: number, limit: number): Promise<PendingWebhook[]>;
   /** Subcontas deste ambiente ainda não aprovadas (ou com abertura travada), para conciliar com o Asaas. */
   listSubaccountsToReconcile(environment: AsaasEnvironment, limit: number): Promise<Subaccount[]>;
+  /** Todas as subcontas deste ambiente (mais antigas primeiro), para manutenção em lote. */
+  listSubaccounts(environment: AsaasEnvironment, limit: number): Promise<Subaccount[]>;
 
   /** Registra o envio do cadastro. Nunca lança: falha aqui não derruba a abertura. */
   logProvisioning(entry: ProvisioningLogEntry): Promise<void>;
+  /** Últimos registros da abertura de um membro (painel admin). */
+  listProvisioning(userId: string, limit: number): Promise<Array<ProvisioningLogEntry & { createdAt: string }>>;
 
   /** false quando o aviso daquele evento já existia. */
   insertNotification(input: NewNotification): Promise<boolean>;

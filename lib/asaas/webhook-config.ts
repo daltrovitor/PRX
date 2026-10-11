@@ -40,7 +40,7 @@ const listSchema = z.object({
     .transform((v) => v ?? []),
 });
 
-const SAFE_ID = /^[A-Za-z0-9-]{1,64}$/;
+const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
 export async function listWebhooks(client: AsaasClient, apiKey: string): Promise<WebhookConfig[]> {
   return (await client.get("/webhooks", { apiKey, query: { limit: 20 } }, listSchema)).data;
