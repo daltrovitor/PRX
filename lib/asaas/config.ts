@@ -136,7 +136,11 @@ export function asaasChecklist(env: Env = process.env): AsaasCheck[] {
     check("ASAAS_API_KEY da conta mãe", Boolean(apiKey) && apiKey.startsWith("$aact_") && (!keyEnv || keyEnv === environment) && !apiKey.includes("coloque_sua_chave") && !apiKey.includes("your_"), keyHint),
     check("ASAAS_API_URL", urlOk, "Apague ASAAS_API_URL ou use https://api.asaas.com/v3."),
     check("ASAAS_WEBHOOK_AUTH_TOKEN (32+ caracteres)", webhookAuthToken(env) !== null, "Defina o mesmo token usado nos webhooks do Asaas, com 32 caracteres ou mais."),
-    check("URLs dos webhooks (https)", webhookUrls(env) !== null, "Defina NEXT_PUBLIC_APP_URL=https://prx.app.br (ou ASAAS_WEBHOOK_URL_EVENTS e ASAAS_WEBHOOK_URL_VALIDATE_WITHDRAW)."),
+    check(
+      "URLs dos webhooks (https)",
+      webhookUrls(env) !== null,
+      "Defina ASAAS_WEBHOOK_URL_EVENTS=https://www.prx.app.br/api/bank/webhooks/asaas e ASAAS_WEBHOOK_URL_VALIDATE_WITHDRAW=https://www.prx.app.br/api/bank/webhooks/validate-withdraw. Não use https://prx.app.br: ele redireciona (308) para o www e o Asaas só aceita resposta 200."
+    ),
     check("BANK_ENCRYPTION_KEY (32+ caracteres)", encryption.length >= 32, "Gere com openssl rand -base64 48 e não troque depois de abrir contas."),
     check("PRX_BAAS_MODE apagado", !baasMode || environment === "production", "Apague PRX_BAAS_MODE: ele liga o sandbox com saldo fictício."),
   ];

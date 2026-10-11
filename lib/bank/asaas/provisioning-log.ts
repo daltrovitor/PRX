@@ -32,7 +32,10 @@ export function logProvisioning(deps: AsaasDeps, entry: Omit<ProvisioningLogEntr
 /** Asaas desligado no servidor: o cadastro foi aprovado, mas nada foi enviado. */
 export function logAsaasUnavailable(userId: string): Promise<void> {
   const environment: AsaasEnvironment = (process.env.ASAAS_ENVIRONMENT ?? "").trim().toLowerCase() === "production" ? "production" : "sandbox";
-  const pending = asaasChecklist().filter((c) => !c.ok).map((c) => c.label);
-  const detail = `Asaas desligado no servidor; nada foi enviado.${pending.length ? ` Ajustar na Vercel: ${pending.join("; ")}.` : ""}`;
+  // O texto de cada item diz o que fazer (o rótulo mostra o valor atual, que confundia: "ASAAS_ENVIRONMENT = sandbox").
+  const pending = asaasChecklist()
+    .filter((c) => !c.ok)
+    .map((c) => c.hint ?? c.label);
+  const detail = `Asaas desligado no servidor; nada foi enviado.${pending.length ? ` Ajustar na Vercel: ${pending.join(" ")}` : ""}`.slice(0, 1000);
   return record(getAsaasBankStore(), { userId, environment, step: "account", outcome: "blocked", asaasAccountId: null, detail });
 }
