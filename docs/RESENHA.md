@@ -26,7 +26,9 @@ Festa com **Host**, **Insiders** e **lista de acesso**. Cada edição é um even
 2. **Domínio:** na Vercel, adicione `insider.prx.app.br` ao projeto e crie o CNAME no DNS do `prx.app.br`. O `proxy.ts` leva o subdomínio `insider.` para o portal. O mapa completo dos domínios está em [DOMINIOS.md](DOMINIOS.md).
 3. **Variável (opcional):** `RESENHA_PUBLIC_URL`. Sem ela, o link sai em `https://prx.app.br` para qualquer host da PRX (o admin, o app e os Insiders veem o mesmo link; em desenvolvimento, o próprio localhost). Só defina para apontar a Resenha para outro domínio.
 4. **E-mail:** o aviso "Você tá na lista" usa o Resend (ver [NOTIFICACOES.md](NOTIFICACOES.md)). Sem `RESEND_API_KEY`, o desenvolvimento simula e a produção só registra `skipped`. A página do convidado funciona de qualquer forma.
-5. **Operação:** no admin, **Nova edição** → **Adicionar Insider** (um por pessoa) → mude a situação para **Lista aberta** → copie os links.
+5. **Operação:** no admin, **Nova edição** (com organizador e política de cancelamento) → **Adicionar Insider** (um por pessoa) → **teste de portaria** em PRX LIVE → Simulação e portaria (ingresso de TESTE lido duas vezes) → mude a situação para **Lista aberta** → copie os links.
+
+Desde 11/10/2026 ([LANCAMENTO.md](LANCAMENTO.md)): a edição e o evento nascem em **rascunho**; abrir a lista publica o evento e só funciona com organizador, política de cancelamento, cidade e local preenchidos. Toda Resenha é **18+ com documento com foto** (regra gravada no evento e mostrada na portaria). Ingressos de teste não contam como acesso liberado nem ocupam lotação.
 
 ## Acesso dos Insiders
 

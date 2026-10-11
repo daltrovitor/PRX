@@ -6,6 +6,7 @@ import { verifyAdminRequest } from "@/lib/auth";
 export const metadata: Metadata = {
   title: "Painel administrativo",
   description: "Gestão de membros, benefícios, missões e vouchers do PRX.",
+  robots: { index: false, follow: false },
 };
 
 /** A sessão é verificada no servidor: o HTML já chega com o login ou com o painel. */
