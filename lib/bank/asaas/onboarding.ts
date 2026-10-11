@@ -1,31 +1,36 @@
 // Hello World
 import { PartnerError } from "@/lib/partners/errors";
 import { AsaasError, toPartnerError } from "@/lib/asaas/errors";
+import { recordNotSent, withAsaasAudit } from "@/lib/asaas/audit";
 import { webhookAuthToken, webhookUrls } from "@/lib/asaas/config";
 import { emailConfig } from "@/lib/notifications/config";
-import { encryptSecret, decryptSecret } from "@/lib/asaas/secrets";
-import { SUBACCOUNT_WEBHOOK_EVENTS, createSubaccount, getAccountStatus, type CreatedSubaccount, type NewSubaccount, type SubaccountWebhook } from "@/lib/asaas/accounts";
+import { encryptSecret } from "@/lib/asaas/secrets";
+import { SUBACCOUNT_WEBHOOK_EVENTS, approveSandboxAccount, createSubaccount, type CreatedSubaccount, type NewSubaccount, type SubaccountWebhook } from "@/lib/asaas/accounts";
 import { assertCanHoldMoney } from "@/lib/family/guards";
 import type { IncomeRange } from "@/lib/family/types";
 import { KYC_PENDING_MESSAGE, KYC_REQUIRED_MESSAGE, type BankKycApplication } from "@/lib/kyc/types";
-import type { AsaasDeps } from "@/lib/bank/asaas/deps";
-import { bankMessage } from "@/lib/bank/asaas/messages";
-import { ACTIVATION_REQUIRED } from "@/lib/prx/bank";
-import type { Subaccount, SubaccountKycStatus, SubaccountStatus } from "@/lib/bank/asaas/types";
-import { createCustomer } from "@/lib/asaas/pix";
 import { ageOn } from "@/lib/family/age";
-import { getFamilyRepository } from "@/lib/family/repository";
-import { ensureDefaultPixKey } from "@/lib/bank/asaas/cash-in";
-import type { AsaasClient } from "@/lib/asaas/client";
+import type { AsaasDeps } from "@/lib/bank/asaas/deps";
 import { asaasDeps } from "@/lib/bank/asaas/deps";
+import { ensureDefaultPixKey } from "@/lib/bank/asaas/cash-in";
+import { applyStatusUpdate, fetchStatusSnapshot, parseSnapshot } from "@/lib/bank/asaas/account-status";
+import { syncOnboardingDocuments } from "@/lib/bank/asaas/documents";
 import { describeError, logProvisioning } from "@/lib/bank/asaas/provisioning-log";
+import { adoptExistingSubaccount, formatAccount } from "@/lib/bank/asaas/recovery";
+import { currentSubaccount, requireSubaccount, subaccountView, type SubaccountView } from "@/lib/bank/asaas/subaccount";
 import type { ProvisioningOutcome } from "@/lib/bank/asaas/types";
 
+export { currentSubaccount, requireActiveSubaccount, requireSubaccount, sinceSubaccount, subaccountView, type SubaccountView } from "@/lib/bank/asaas/subaccount";
+export { applyGeneralApproval } from "@/lib/bank/asaas/account-status";
+export { completeAsaasSandboxChecklist, type SandboxChecklistResult } from "@/lib/bank/asaas/sandbox-checklist";
+
 /**
- * Abertura da conta no Asaas (subconta white label) com os dados da abertura
- * enviada pelo membro. O PRX não analisa documentos: quem aprova é o Asaas
- * (ACCOUNT_STATUS_GENERAL_APPROVAL_APPROVED), e só então a conta movimenta
- * dinheiro. A apiKey devolvida uma única vez é cifrada antes de ir ao banco.
+ * Abertura da conta no Asaas (subconta BaaS) com os dados da abertura enviada
+ * pelo membro (docs: criação-de-subcontas-baas). Criar a subconta NÃO é
+ * aprová-la: depois vêm os documentos (15 s depois, pelo link do Asaas ou pela
+ * API) e a análise do Asaas, que chega pelos eventos ACCOUNT_STATUS_*. Só com
+ * general = APPROVED a conta movimenta dinheiro. A apiKey devolvida uma única
+ * vez é cifrada antes de ir ao banco.
  */
 
 /** Renda mensal declarada no KYC (faixa) convertida no valor que o Asaas pede. */
@@ -37,20 +42,11 @@ export const INCOME_VALUE: Record<IncomeRange, number> = {
   acima_20k: 25000,
 };
 
-/** Trava de abertura esquecida (queda no meio da criação) pode ser retomada depois disto. */
-const PROVISIONING_STALE_MS = 10 * 60_000;
-
-export interface SubaccountView {
-  state: "none" | "provisioning" | SubaccountStatus;
-  kycStatus: SubaccountKycStatus | null;
-  rejectReason: string | null;
-}
-
-export function subaccountView(sub: Subaccount | null): SubaccountView {
-  if (!sub) return { state: "none", kycStatus: null, rejectReason: null };
-  if (!sub.asaasAccountId) return { state: sub.provisioningStartedAt ? "provisioning" : "none", kycStatus: null, rejectReason: null };
-  return { state: sub.status, kycStatus: sub.kycStatus, rejectReason: sub.rejectReason };
-}
+/**
+ * Trava de abertura esquecida (queda no meio da criação) pode ser retomada depois
+ * disto. A retomada procura a conta pelo CPF antes de criar: nada de conta dupla.
+ */
+const PROVISIONING_STALE_MS = 2 * 60_000;
 
 /** E-mail que recebe os alertas do Asaas sobre falhas na fila de webhooks. */
 function opsEmail(): string | null {
@@ -85,25 +81,6 @@ export function subaccountInput(app: BankKycApplication, webhook: SubaccountWebh
   };
 }
 
-function formatAccount(number: CreatedSubaccount["accountNumber"]): { agency: string | null; accountNumber: string | null } {
-  if (!number?.account) return { agency: number?.agency ?? null, accountNumber: null };
-  return { agency: number.agency, accountNumber: number.accountDigit ? `${number.account}-${number.accountDigit}` : number.account };
-}
-
-/**
- * Subconta deste ambiente do Asaas. Uma aberta em outro ambiente (o sandbox,
- * antes da produção) não vale aqui: o membro abre outra, e ela é substituída.
- */
-export async function currentSubaccount(userId: string, deps: AsaasDeps): Promise<Subaccount | null> {
-  const sub = await deps.store.getSubaccount(userId);
-  return sub && sub.environment !== deps.client.environment ? null : sub;
-}
-
-/** Só vale o que aconteceu depois da subconta deste ambiente existir (antes, era dinheiro de teste). */
-export function sinceSubaccount(sub: Subaccount, iso: string): boolean {
-  return Date.parse(iso) >= Date.parse(sub.createdAt);
-}
-
 /** Dados reais da abertura enviada pelo membro. Sem ela não existe subconta. */
 async function approvedKyc(userId: string, deps: AsaasDeps): Promise<BankKycApplication> {
   const app = await deps.latestKyc(userId);
@@ -113,31 +90,39 @@ async function approvedKyc(userId: string, deps: AsaasDeps): Promise<BankKycAppl
   throw new PartnerError("Sua abertura de conta não foi aprovada. Revise os dados na aba PRX BANK e envie de novo.", 403);
 }
 
-/** O membro não vê o erro do Asaas: o detalhe fica em bank_provisioning_log. */
+/** O membro não vê o erro do Asaas: o detalhe fica em bank_provisioning_log e asaas_api_requests. */
 export const ACCOUNT_OPEN_RETRY = "Não foi possível abrir sua conta agora. Seus dados estão salvos: tente de novo em alguns minutos.";
 
 export const MINOR_NEEDS_EMANCIPATION =
   "Contas de menores de 18 anos só podem ser abertas com emancipação (a partir dos 16 anos). Enquanto isso, sua conta fica em ativação.";
 
 /** Cria a subconta no Asaas (idempotente: quem já tem conta recebe a situação atual). */
-export async function openSubaccount(userId: string, deps: AsaasDeps): Promise<SubaccountView> {
+export function openSubaccount(userId: string, deps: AsaasDeps): Promise<SubaccountView> {
+  return withAsaasAudit({ userId }, () => open(userId, deps));
+}
+
+async function open(userId: string, deps: AsaasDeps): Promise<SubaccountView> {
   // Cada tentativa fica para o admin (Supabase + Vercel); o membro só vê mensagens genéricas.
   const log = (outcome: ProvisioningOutcome, detail: string | null, asaasAccountId: string | null = null) =>
     logProvisioning(deps, { userId, step: "account", outcome, detail, asaasAccountId });
+  const notSent = async (reason: string) => {
+    await log("blocked", reason);
+    await recordNotSent(deps.client.audit, { environment: deps.client.environment, operation: "account.create", method: "POST", path: "/accounts", reason });
+  };
 
   let app: BankKycApplication;
   try {
     await assertCanHoldMoney(userId);
     app = await approvedKyc(userId, deps);
   } catch (err) {
-    await log("blocked", describeError(err));
+    await notSent(describeError(err));
     throw err;
   }
   const existing = await currentSubaccount(userId, deps);
   if (existing?.asaasAccountId) return subaccountView(existing);
   // O banco parceiro só abre conta de menor emancipado (e pede a certidão de emancipação).
   if (ageOn(app.birthDate, deps.now()) < 18 && app.minorPath !== "emancipated") {
-    await log("blocked", MINOR_NEEDS_EMANCIPATION);
+    await notSent(MINOR_NEEDS_EMANCIPATION);
     throw new PartnerError(MINOR_NEEDS_EMANCIPATION, 409);
   }
 
@@ -147,24 +132,34 @@ export async function openSubaccount(userId: string, deps: AsaasDeps): Promise<S
     // Sem como cifrar a chave, nem chama o Asaas: a apiKey só vem uma vez.
     encryptSecret("probe");
   } catch (err) {
-    await log("failed", `Configuração do servidor incompleta: ${describeError(err)}`);
+    await notSent(`Configuração do servidor incompleta: ${describeError(err)}`);
     throw new PartnerError(ACCOUNT_OPEN_RETRY, 503);
   }
 
   const staleBefore = new Date(deps.now().getTime() - PROVISIONING_STALE_MS).toISOString();
   if (!(await deps.store.reserveSubaccount(userId, deps.client.environment, staleBefore))) {
-    await log("blocked", "Outra abertura deste membro já está em andamento (trava de provisionamento ativa).");
+    await notSent("Outra abertura deste membro já está em andamento (trava de provisionamento ativa).");
     throw new PartnerError("A abertura da sua conta já está em andamento. Aguarde alguns instantes.", 409);
+  }
+
+  // Uma tentativa anterior pode ter criado a conta sem o PRX saber: procura pelo CPF antes de criar.
+  try {
+    const adopted = await adoptExistingSubaccount(userId, app.cpf, deps);
+    if (adopted) return subaccountView(adopted.sub);
+  } catch (err) {
+    await deps.store.releaseSubaccount(userId);
+    await log("failed", `Não deu para conferir se a subconta já existia (nada foi criado): ${describeError(err)}`);
+    throw new PartnerError(ACCOUNT_OPEN_RETRY, 503);
   }
 
   let created: CreatedSubaccount;
   try {
     created = await createSubaccount(deps.client, subaccountInput(app, webhook));
   } catch (err) {
-    // Recusa clara libera para tentar de novo; resultado incerto mantém a trava (nada de conta dupla).
+    // Recusa clara libera para tentar de novo; resultado incerto mantém a trava e a próxima tentativa procura pelo CPF.
     const uncertain = err instanceof AsaasError && err.ambiguous;
     if (!uncertain) await deps.store.releaseSubaccount(userId);
-    await log(uncertain ? "uncertain" : "failed", describeError(err));
+    await log(uncertain ? "uncertain" : "failed", `${describeError(err)}${uncertain ? " · A subconta pode ter sido criada: a próxima tentativa procura pelo CPF antes de criar outra." : ""}`);
     throw new PartnerError(ACCOUNT_OPEN_RETRY, 503);
   }
 
@@ -173,172 +168,74 @@ export async function openSubaccount(userId: string, deps: AsaasDeps): Promise<S
     const saved = await deps.store.saveSubaccount(userId, {
       asaasAccountId: created.id,
       walletId: created.walletId,
-      apiKeySealed: encryptSecret(created.apiKey),
+      apiKeySealed: created.apiKey ? encryptSecret(created.apiKey) : null,
       agency,
       accountNumber,
       status: "pending_activation",
       kycStatus: "PENDING",
       rejectReason: null,
       provisioningStartedAt: null,
+      accountCreatedAt: deps.now().toISOString(),
     });
-    await log("sent", "Subconta criada no Asaas; aguardando a análise dele.", created.id);
+    await log(
+      created.apiKey ? "sent" : "failed",
+      created.apiKey
+        ? "Subconta criada no Asaas (ainda não aprovada). Próximos passos: documentos (15 s depois) e análise do Asaas."
+        : "Subconta criada, mas o Asaas não devolveu a apiKey. Gere uma nova chave em Admin → Asaas para enviar os documentos.",
+      created.id
+    );
     await deps.mirror.linkAccount(userId, { providerAccountId: created.id, agency, accountNumber });
     return subaccountView(saved);
   } catch (err) {
-    // A chave não volta mais: o id da conta fica no registro para o suporte gerar uma nova no Asaas.
-    await log("failed", `Subconta criada no Asaas, mas falhou ao gravar no PRX (gerar nova apiKey no painel do Asaas): ${describeError(err)}`, created.id);
+    // A chave não volta mais: o id fica no log para o suporte religar a conta (procura pelo CPF) e gerar uma nova chave.
+    await log("failed", `Subconta ${created.id} criada no Asaas, mas falhou ao gravar no PRX: ${describeError(err)}`, created.id);
     throw err;
   }
 }
 
-/** Subconta já criada no Asaas, com a apiKey aberta só para a chamada. */
-export async function requireSubaccount(userId: string, deps: AsaasDeps): Promise<{ sub: Subaccount; apiKey: string }> {
-  const sub = await currentSubaccount(userId, deps);
-  if (!sub?.asaasAccountId || !sub.apiKeySealed) throw new PartnerError("Abra sua conta no PRX BANK primeiro.", 409);
-  return { sub, apiKey: decryptSecret(sub.apiKeySealed) };
-}
-
-/** Subconta aprovada pelo Asaas: só ela movimenta dinheiro. */
-export async function requireActiveSubaccount(userId: string, deps: AsaasDeps): Promise<{ sub: Subaccount; apiKey: string }> {
-  const found = await requireSubaccount(userId, deps);
-  if (found.sub.status === "blocked") throw new PartnerError("Conta bloqueada. Fale com o suporte PRX.", 403);
-  if (found.sub.status !== "active") throw new PartnerError(ACTIVATION_REQUIRED, 409);
-  return found;
-}
-
-type GeneralStatus = "APPROVED" | "REJECTED" | "PENDING" | "AWAITING_APPROVAL";
-
-/**
- * Menor emancipado cuja conta o banco parceiro aprovou (ele conferiu a certidão
- * de emancipação): vira conta comum no PRX, sem os limites de menor.
- */
-async function liftEmancipatedMinor(userId: string, deps: AsaasDeps): Promise<void> {
-  const app = await deps.latestKyc(userId);
-  if (app?.minorPath !== "emancipated") return;
-  const family = getFamilyRepository();
-  const request = await family.latestEmancipation(userId).catch(() => null);
-  if (request?.status === "pending") await family.decideEmancipation(request.id, "approved", "Certidão aprovada pelo PRX BANK.", "PRX BANK");
-  await family.updateIdentity(userId, { accountType: "member", status: "active" });
-}
-
-/**
- * Aplica a aprovação geral do Asaas: aprovada ativa a conta (e o extrato,
- * Pix e boletos); reprovada pede novo envio de documentos. Avisa o membro uma
- * vez por mudança.
- */
-export async function applyGeneralApproval(sub: Subaccount, status: GeneralStatus, reason: string | null, deps: AsaasDeps): Promise<Subaccount> {
-  if (!sub.asaasAccountId) return sub;
-  if (status === "APPROVED") {
-    if (sub.status === "active" || sub.status === "blocked") return sub;
-    const now = deps.now().toISOString();
-    const saved = await deps.store.saveSubaccount(sub.userId, { status: "active", kycStatus: "APPROVED", rejectReason: null });
-    await deps.mirror.setAccountStatus(sub.userId, "active", now);
-    await liftEmancipatedMinor(sub.userId, deps).catch((err: unknown) => console.warn("[bank] emancipação não atualizada:", err instanceof Error ? err.message : err));
-    const msg = bankMessage("account_approved");
-    await deps.store.insertNotification({ userId: sub.userId, eventType: "ACCOUNT_STATUS_GENERAL_APPROVAL_APPROVED", ...msg, amount: null, eventId: `account:${sub.asaasAccountId}:approved` });
-    return saved;
-  }
-  if (status === "REJECTED") {
-    if (sub.status === "rejected" && sub.rejectReason === reason) return sub;
-    const saved = await deps.store.saveSubaccount(sub.userId, { status: "rejected", kycStatus: "REJECTED", rejectReason: reason?.slice(0, 500) ?? null });
-    await deps.mirror.setAccountStatus(sub.userId, "pending_activation");
-    const msg = bankMessage("account_rejected", { reason });
-    await deps.store.insertNotification({ userId: sub.userId, eventType: "ACCOUNT_STATUS_GENERAL_APPROVAL_REJECTED", ...msg, amount: null, eventId: `account:${sub.asaasAccountId}:rejected:${(reason ?? "").slice(0, 40)}` });
-    return saved;
-  }
-  if (sub.status === "rejected") return deps.store.saveSubaccount(sub.userId, { status: "pending_activation", kycStatus: "PENDING" });
-  return sub;
-}
-
 /** Consulta a situação no Asaas (reforço caso um webhook tenha se perdido). */
 export async function refreshSubaccountStatus(userId: string, deps: AsaasDeps): Promise<SubaccountView> {
+  return withAsaasAudit({ userId }, async () => {
+    const { sub, apiKey } = await requireSubaccount(userId, deps);
+    try {
+      const snapshot = await fetchStatusSnapshot(apiKey, deps);
+      const { sub: saved } = await applyStatusUpdate(sub, { snapshot, at: deps.now() }, deps);
+      if (saved.status === "active") await ensureDefaultPixKey(userId, deps);
+      return subaccountView(saved);
+    } catch (err) {
+      throw toPartnerError(err, "Não foi possível consultar sua conta no PRX BANK.");
+    }
+  });
+}
+
+/** No sandbox, a aprovação simulada oficial do Asaas; a situação aplicada é a que ele devolve. */
+async function approveInSandbox(userId: string, deps: AsaasDeps): Promise<void> {
   const { sub, apiKey } = await requireSubaccount(userId, deps);
-  try {
-    const status = await getAccountStatus(deps.client, apiKey);
-    const general = (status.general ?? "PENDING").toUpperCase();
-    const known: GeneralStatus = general === "APPROVED" || general === "REJECTED" || general === "AWAITING_APPROVAL" ? general : "PENDING";
-    return subaccountView(await applyGeneralApproval(sub, known, known === "REJECTED" ? sub.rejectReason : null, deps));
-  } catch (err) {
-    throw toPartnerError(err, "Não foi possível consultar sua conta no PRX BANK.");
-  }
+  if (sub.status === "active") return;
+  const status = await approveSandboxAccount(deps.client, apiKey);
+  await applyStatusUpdate(sub, { snapshot: parseSnapshot(status), at: deps.now() }, deps);
 }
 
 /**
- * Leva ao Asaas quem já tem a abertura aprovada: cria a subconta (uma vez) e
- * envia a frente e o verso do documento, que o Asaas analisa. No sandbox do
- * Asaas a subconta é ativada na hora para os testes de Pix.
+ * Leva ao Asaas quem já tem a abertura aprovada: cria a subconta (uma vez) e,
+ * passados 15 s da criação, envia os documentos (antes disso, quem chamou agenda
+ * o envio com `after`; a aba PRX BANK e a conciliação também enviam).
  */
 export async function ensureAsaasCustomerAndAccount(userId: string, deps: AsaasDeps = asaasDeps()): Promise<SubaccountView> {
-  let sub = await currentSubaccount(userId, deps);
-  let view: SubaccountView;
+  return withAsaasAudit({ userId }, async () => {
+    let sub = await currentSubaccount(userId, deps);
+    if (!sub?.asaasAccountId) {
+      await openSubaccount(userId, deps);
+      sub = await currentSubaccount(userId, deps);
+    }
+    if (!sub?.apiKeySealed) return subaccountView(sub);
 
-  if (sub?.asaasAccountId) {
-    view = subaccountView(sub);
-  } else {
-    view = await openSubaccount(userId, deps);
+    await syncOnboardingDocuments(userId, deps).catch((err: unknown) => console.warn("[prx-bank:abertura] documentos adiados:", describeError(err)));
+    if (deps.client.environment === "sandbox") {
+      await approveInSandbox(userId, deps).catch((err: unknown) => logProvisioning(deps, { userId, step: "status", outcome: "failed", asaasAccountId: sub?.asaasAccountId ?? null, detail: `Aprovação simulada do sandbox: ${describeError(err)}` }));
+    }
     sub = await currentSubaccount(userId, deps);
-    const { forwardKycDocuments } = await import("@/lib/bank/asaas/documents");
-    // Falha aqui não desfaz a conta: o membro reenvia pela tela de documentos.
-    const docs = { userId, step: "documents" as const, asaasAccountId: sub?.asaasAccountId ?? null };
-    await forwardKycDocuments(userId, deps)
-      .then((sent) =>
-        logProvisioning(deps, sent > 0 ? { ...docs, outcome: "sent", detail: `${sent} documento(s) enviados ao Asaas.` } : { ...docs, outcome: "blocked", detail: "Nenhum documento enviado (sem arquivos ou nada pendente no Asaas)." })
-      )
-      .catch((err: unknown) => logProvisioning(deps, { ...docs, outcome: "failed", detail: describeError(err) }));
-  }
-
-  if (sub && deps.client.environment === "sandbox" && sub.status !== "active") {
-    sub = await applyGeneralApproval(sub, "APPROVED", null, deps);
-    view = subaccountView(sub);
-  }
-  if (sub?.status === "active") await ensureDefaultPixKey(userId, deps).catch(() => {});
-  return view;
-}
-
-export interface SandboxChecklistResult {
-  customer: { id: string };
-  payment: { id: string; value: number };
-  confirmed: boolean;
-}
-
-/**
- * Executa as 3 ações exigidas pelo checklist do painel Asaas Sandbox:
- * 1. Criar um cliente via API (/v3/customers)
- * 2. Criar uma cobrança via API (/v3/payments)
- * 3. Confirmar um pagamento via API (/v3/payments/{id}/receiveInCash)
- */
-export async function completeAsaasSandboxChecklist(
-  client: AsaasClient
-): Promise<SandboxChecklistResult> {
-  // Em produção isso criaria cliente e cobrança reais e daria baixa em dinheiro.
-  if (client.environment !== "sandbox") throw new PartnerError("O checklist de homologação só roda no sandbox do Asaas.", 409);
-  const customer = await createCustomer(client, undefined, {
-    name: "PRX Homologação Sandbox",
-    cpfCnpj: "52998224725",
-    email: "sandbox@prx.app.br",
-    mobilePhone: "11987654321",
+    if (sub?.status === "active") await ensureDefaultPixKey(userId, deps).catch(() => {});
+    return subaccountView(sub);
   });
-
-  const today = new Date().toISOString().slice(0, 10);
-  const payment = await client.post<{ id: string; value: number }>("/payments", {
-    customer: customer.id,
-    billingType: "PIX",
-    value: 5.0,
-    dueDate: today,
-    description: "Homologação API Asaas PRX",
-  });
-
-  let confirmed = false;
-  try {
-    await client.post(`/payments/${payment.id}/receiveInCash`, {
-      paymentDate: today,
-      value: 5.0,
-    });
-    confirmed = true;
-  } catch (err) {
-    console.warn("[asaas] Aviso ao confirmar pagamento de teste no sandbox:", err instanceof Error ? err.message : err);
-  }
-
-  return { customer: { id: customer.id }, payment: { id: payment.id, value: 5.0 }, confirmed };
 }
-

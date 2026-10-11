@@ -3,7 +3,7 @@ import { z } from "zod";
 import { hideProviderName, toPartnerError } from "@/lib/asaas/errors";
 import { getBalance, listFinancialTransactions, type FinancialTransaction } from "@/lib/asaas/finance";
 import type { AsaasDeps } from "@/lib/bank/asaas/deps";
-import { requireActiveSubaccount } from "@/lib/bank/asaas/onboarding";
+import { requireActiveSubaccount } from "@/lib/bank/asaas/subaccount";
 
 /**
  * Saldo e extrato oficiais, direto do Asaas. O saldo consultado fica em cache

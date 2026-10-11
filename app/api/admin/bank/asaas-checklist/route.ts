@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminRequest } from "@/lib/auth";
 import { asaasEnabled, getAsaasClient } from "@/lib/asaas/client";
-import { completeAsaasSandboxChecklist } from "@/lib/bank/asaas/onboarding";
+import { completeAsaasSandboxChecklist } from "@/lib/bank/asaas/sandbox-checklist";
 import { errorMessage } from "@/lib/errors";
 import { PartnerError } from "@/lib/partners/errors";
 

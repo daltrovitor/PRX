@@ -8,7 +8,7 @@ import { MAX_PIX_KEYS, type PixCharge, type PixKey } from "@/lib/prx/bank";
 import type { PixKeyType } from "@/lib/prx/pix";
 import type { AsaasDeps } from "@/lib/bank/asaas/deps";
 import { bankMessage } from "@/lib/bank/asaas/messages";
-import { requireActiveSubaccount } from "@/lib/bank/asaas/onboarding";
+import { requireActiveSubaccount } from "@/lib/bank/asaas/subaccount";
 import type { Subaccount } from "@/lib/bank/asaas/types";
 import type { AsaasEvent, WebhookOutcome } from "@/lib/bank/asaas/webhooks";
 

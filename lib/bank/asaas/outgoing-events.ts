@@ -27,8 +27,9 @@ async function findRequest(object: Record<string, unknown>, sub: Subaccount, dep
 
 const OPEN: readonly OutgoingStatus[] = ["requested", "approved"];
 
-async function notify(sub: Subaccount, event: AsaasEvent, kind: BankNoticeKind, amount: number, counterparty: string | null, deps: AsaasDeps) {
-  await deps.store.insertNotification({ userId: sub.userId, eventType: event.event, ...bankMessage(kind, { amount, counterparty }), amount, eventId: event.id });
+/** Um aviso por desfecho de cada operação (o mesmo desfecho pode chegar pelo webhook e pela conciliação). */
+async function notify(sub: Subaccount, event: AsaasEvent, objectId: string, kind: BankNoticeKind, amount: number, counterparty: string | null, deps: AsaasDeps) {
+  await deps.store.insertNotification({ userId: sub.userId, eventType: event.event, ...bankMessage(kind, { amount, counterparty }), amount, eventId: `${event.event}:${objectId}` });
 }
 
 /** Pix concluído para um parceiro PRX rende coins e XP e entra no nicho certo do PRX Map. */
@@ -53,7 +54,7 @@ async function handleTransfer(event: AsaasEvent, sub: Subaccount, deps: AsaasDep
   const counterparty = request?.counterparty ?? "Transferência";
 
   if (event.event === "TRANSFER_DONE") {
-    if (request) await deps.store.transitionOutgoing(request.id, OPEN, "done", { providerRef: request.providerRef ?? id });
+    if (request) await deps.store.transitionOutgoing(request.id, OPEN, "done", { providerRef: request.providerRef ?? id, outcomeUnknown: false });
     await deps.mirror.upsertTransaction(sub.userId, {
       kind: "pix_out",
       direction: "out",
@@ -63,15 +64,15 @@ async function handleTransfer(event: AsaasEvent, sub: Subaccount, deps: AsaasDep
       providerRef: id,
       createdAt: deps.now().toISOString(),
     });
-    await notify(sub, event, "pix_sent", value, counterparty, deps);
+    await notify(sub, event, id, "pix_sent", value, counterparty, deps);
     if (request) await rewardPartnerPix(sub, request, id, str(transfer.endToEndIdentifier), deps);
     return "processed";
   }
   if (event.event === "TRANSFER_FAILED" || event.event === "TRANSFER_CANCELLED") {
     const reason = str(transfer.failReason) ?? (event.event === "TRANSFER_CANCELLED" ? "Cancelada pelo PRX BANK." : "Falha na transferência.");
-    if (request) await deps.store.transitionOutgoing(request.id, ["awaiting_confirmation", ...OPEN], event.event === "TRANSFER_FAILED" ? "failed" : "cancelled", { failReason: reason });
+    if (request) await deps.store.transitionOutgoing(request.id, ["awaiting_confirmation", ...OPEN], event.event === "TRANSFER_FAILED" ? "failed" : "cancelled", { failReason: reason, outcomeUnknown: false });
     await deps.mirror.reverseTransaction(id);
-    await notify(sub, event, "transfer_failed", value, counterparty, deps);
+    await notify(sub, event, id, "transfer_failed", value, counterparty, deps);
     return "processed";
   }
   return "ignored";
@@ -85,7 +86,7 @@ async function handleBill(event: AsaasEvent, sub: Subaccount, deps: AsaasDeps): 
   const request = await findRequest(bill, sub, deps);
 
   if (event.event === "BILL_PAID") {
-    if (request) await deps.store.transitionOutgoing(request.id, OPEN, "done", { providerRef: request.providerRef ?? id });
+    if (request) await deps.store.transitionOutgoing(request.id, OPEN, "done", { providerRef: request.providerRef ?? id, outcomeUnknown: false });
     await deps.mirror.upsertTransaction(sub.userId, {
       kind: "bill",
       direction: "out",
@@ -95,14 +96,15 @@ async function handleBill(event: AsaasEvent, sub: Subaccount, deps: AsaasDeps): 
       providerRef: id,
       createdAt: deps.now().toISOString(),
     });
-    await notify(sub, event, "bill_paid", value, null, deps);
+    await notify(sub, event, id, "bill_paid", value, null, deps);
     return "processed";
   }
   if (event.event === "BILL_FAILED" || event.event === "BILL_CANCELLED" || event.event === "BILL_REFUNDED") {
-    const reason = str(bill.failReasons) ?? "Pagamento não concluído.";
-    if (request) await deps.store.transitionOutgoing(request.id, ["awaiting_confirmation", ...OPEN, "done"], event.event === "BILL_CANCELLED" ? "cancelled" : "failed", { failReason: reason });
+    const reasons = Array.isArray(bill.failReasons) ? bill.failReasons.filter((r): r is string => typeof r === "string").join(" ") : bill.failReasons;
+    const reason = str(reasons) ?? "Pagamento não concluído.";
+    if (request) await deps.store.transitionOutgoing(request.id, ["awaiting_confirmation", ...OPEN, "done"], event.event === "BILL_CANCELLED" ? "cancelled" : "failed", { failReason: reason, outcomeUnknown: false });
     await deps.mirror.reverseTransaction(id);
-    await notify(sub, event, "bill_failed", value, null, deps);
+    await notify(sub, event, id, "bill_failed", value, null, deps);
     return "processed";
   }
   return "ignored";

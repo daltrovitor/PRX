@@ -56,7 +56,13 @@ describe("chaves Pix da subconta", () => {
   });
 
   it("aprovação pelo webhook já cria a primeira chave aleatória", async () => {
-    const fake = fakeAsaas({ "POST /accounts": { body: CREATED }, "GET /pix/addressKeys": { body: { data: [] } }, "POST /pix/addressKeys": { body: { id: "k1", key: "evp", type: "EVP", status: "ACTIVE" } } });
+    const fake = fakeAsaas({
+      "POST /accounts": { body: CREATED },
+      // A aprovação do aviso é conferida no Asaas antes de liberar a conta.
+      "GET /myAccount/status": { body: { general: "APPROVED", documentation: "APPROVED", commercialInfo: "APPROVED", bankAccountInfo: "APPROVED" } },
+      "GET /pix/addressKeys": { body: { data: [] } },
+      "POST /pix/addressKeys": { body: { id: "k1", key: "evp", type: "EVP", status: "ACTIVE" } },
+    });
     const { deps } = testDeps(fake.client);
     await openSubaccount(USER_ID, deps);
     await handleAsaasEvent({ id: "evt_ok", event: "ACCOUNT_STATUS_GENERAL_APPROVAL_APPROVED", account: { id: "acc_9" } }, deps);

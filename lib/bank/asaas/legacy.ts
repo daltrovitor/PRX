@@ -1,7 +1,7 @@
 // Hello World
 import type { BankAccountRecord } from "@/lib/bank/repository";
 import type { AsaasDeps } from "@/lib/bank/asaas/deps";
-import { currentSubaccount } from "@/lib/bank/asaas/onboarding";
+import { currentSubaccount } from "@/lib/bank/asaas/subaccount";
 
 /**
  * Contas criadas antes do Asaas deste ambiente (sandbox: saldo, cartão e

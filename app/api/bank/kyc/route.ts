@@ -14,6 +14,9 @@ import { isSandboxMode } from "@/lib/bank/repository";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
+/** O envio dos documentos roda depois da resposta (15 s após a criação da subconta). */
+export const maxDuration = 60;
+
 /** GET /api/bank/kyc — situação da abertura do PRX BANK (sem dados pessoais). */
 export async function GET(req: NextRequest) {
   try {
@@ -37,8 +40,9 @@ async function canRedo(userId: string): Promise<boolean> {
 /**
  * POST /api/bank/kyc — abertura da conta PRX BANK (KYC bancário). Tudo é
  * validado aqui no servidor (zod + regras antifraude), nunca só na tela.
- * Aprovada a abertura, a subconta é criada no Asaas na mesma hora e recebe os
- * documentos; se o Asaas falhar, a aba PRX BANK tenta de novo.
+ * Aprovada a abertura, a subconta é criada no Asaas na mesma hora e os
+ * documentos seguem 15 s depois (regra do Asaas), após a resposta; se o Asaas
+ * falhar, a aba PRX BANK e a conciliação tentam de novo.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -53,6 +57,8 @@ export async function POST(req: NextRequest) {
       try {
         const { ensureAsaasCustomerAndAccount } = await import("@/lib/bank/asaas/onboarding");
         await ensureAsaasCustomerAndAccount(user.id);
+        const { scheduleDocumentSync } = await import("@/lib/bank/asaas/schedule");
+        scheduleDocumentSync(user.id);
       } catch (err) {
         console.warn("[prx-bank:abertura] abertura adiada após o cadastro:", errorMessage(err));
       }

@@ -6,9 +6,13 @@ import { PartnerError } from "@/lib/partners/errors";
 import { body, familyErrorResponse, invalid, requireUser } from "@/lib/family/http";
 import { asaasActiveFor, asaasDeps } from "@/lib/bank/asaas/deps";
 import { currentSubaccount, openSubaccount, refreshSubaccountStatus, subaccountView } from "@/lib/bank/asaas/onboarding";
+import { scheduleDocumentSync } from "@/lib/bank/asaas/schedule";
 import { logAsaasUnavailable } from "@/lib/bank/asaas/provisioning-log";
 
 const NO_STORE = { "Cache-Control": "no-store" };
+
+/** O envio dos documentos roda depois da resposta (15 s após a criação da subconta). */
+export const maxDuration = 60;
 
 /** GET /api/bank/accounts — situação da subconta no banco parceiro (sem dados sensíveis). */
 export async function GET(req: NextRequest) {
@@ -42,6 +46,7 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) invalid(parsed.error.issues);
     const deps = asaasDeps();
     const subaccount = parsed.data.action === "refresh" ? await refreshSubaccountStatus(user.id, deps) : await openSubaccount(user.id, deps);
+    if (parsed.data.action === "open" && subaccount.state === "pending_activation") scheduleDocumentSync(user.id);
     return NextResponse.json({ success: true, subaccount }, { headers: NO_STORE });
   } catch (error) {
     return familyErrorResponse(error, "Não foi possível abrir a conta no PRX BANK.");

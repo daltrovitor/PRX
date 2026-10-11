@@ -12,7 +12,8 @@ export type BankNoticeKind =
   | "bill_paid"
   | "bill_failed"
   | "account_approved"
-  | "account_rejected";
+  | "account_rejected"
+  | "onboarding_pending";
 
 export interface BankMessage {
   title: string;
@@ -43,5 +44,7 @@ export function bankMessage(kind: BankNoticeKind, data: { amount?: number; count
         title: "Atenção aos seus documentos",
         body: data.reason ? `Refaça o envio para ativar sua conta. Motivo: ${data.reason.slice(0, 180)}` : "Refaça o envio para ativar sua conta.",
       };
+    case "onboarding_pending":
+      return { title: "Falta um passo para liberar sua conta", body: "Abra a aba PRX BANK e envie o documento e a selfie pelo link seguro." };
   }
 }

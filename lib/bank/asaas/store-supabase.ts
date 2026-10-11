@@ -4,143 +4,42 @@ import { dbError } from "@/lib/partners/errors";
 import { isUuid } from "@/lib/partners/catalog";
 import {
   COMMITTED_OUTGOING,
-  OUTGOING_KINDS,
-  OUTGOING_STATUSES,
-  SUBACCOUNT_KYC_STATUSES,
-  SUBACCOUNT_STATUSES,
-  roundMoney,
   type AsaasBankStore,
-  type BankNotification,
   type NewNotification,
   type NewOutgoing,
   type OutgoingPatch,
-  type OutgoingRequest,
   type OutgoingStatus,
+  type PendingWebhook,
   type ProvisioningLogEntry,
   type Subaccount,
   type SubaccountPatch,
   type WebhookRecord,
   type WebhookRecordResult,
+  roundMoney,
 } from "@/lib/bank/asaas/types";
+import {
+  EMPTY_SUBACCOUNT,
+  SUBACCOUNT_COLUMNS,
+  mapNotification,
+  mapOutgoing,
+  mapSubaccount,
+  missingColumn,
+  warnMissingMigration,
+  withoutNewColumns,
+  type NotificationRow,
+  type OutgoingRow,
+  type SubaccountRow,
+} from "@/lib/bank/asaas/store-supabase-rows";
 
 type SupabaseClient = NonNullable<typeof supabaseAdmin>;
+type DbError = { code?: string; message: string } | null;
 
-const oneOf = <T extends string>(list: readonly T[], value: unknown, fallback: T): T => (list.includes(value as T) ? (value as T) : fallback);
-
-interface SubaccountRow {
-  id: string;
-  asaas_account_id: string | null;
-  wallet_id: string | null;
-  api_key: string | null;
-  asaas_customer_id: string | null;
-  account_number: string | null;
-  agency: string | null;
-  status: string;
-  kyc_status: string;
-  reject_reason: string | null;
-  environment: string;
-  provisioning_started_at: string | null;
-  created_at: string;
-}
-
-function mapSubaccount(r: SubaccountRow): Subaccount {
-  return {
-    userId: r.id,
-    asaasAccountId: r.asaas_account_id,
-    walletId: r.wallet_id,
-    apiKeySealed: r.api_key,
-    customerId: r.asaas_customer_id,
-    accountNumber: r.account_number,
-    agency: r.agency,
-    status: oneOf(SUBACCOUNT_STATUSES, r.status, "pending_activation"),
-    kycStatus: oneOf(SUBACCOUNT_KYC_STATUSES, r.kyc_status, "PENDING"),
-    rejectReason: r.reject_reason,
-    environment: r.environment === "production" ? "production" : "sandbox",
-    provisioningStartedAt: r.provisioning_started_at,
-    createdAt: r.created_at,
-  };
-}
-
-/** Subconta ainda não criada no Asaas. */
-const EMPTY_SUBACCOUNT = {
-  asaas_account_id: null,
-  wallet_id: null,
-  api_key: null,
-  asaas_customer_id: null,
-  account_number: null,
-  agency: null,
-  status: "pending_activation",
-  kyc_status: "PENDING",
-  reject_reason: null,
-} as const;
-
-const SUBACCOUNT_COLUMNS: Record<keyof SubaccountPatch, keyof SubaccountRow> = {
-  asaasAccountId: "asaas_account_id",
-  walletId: "wallet_id",
-  apiKeySealed: "api_key",
-  customerId: "asaas_customer_id",
-  accountNumber: "account_number",
-  agency: "agency",
-  status: "status",
-  kycStatus: "kyc_status",
-  rejectReason: "reject_reason",
-  provisioningStartedAt: "provisioning_started_at",
-};
-
-interface OutgoingRow {
-  id: string;
-  user_id: string;
-  kind: string;
-  amount: number | string;
-  counterparty: string;
-  target: string;
-  description: string;
-  status: string;
-  provider_ref: string | null;
-  fail_reason: string | null;
-  confirmed_at: string | null;
-  created_at: string;
-}
-
-function mapOutgoing(r: OutgoingRow): OutgoingRequest {
-  return {
-    id: r.id,
-    userId: r.user_id,
-    kind: oneOf(OUTGOING_KINDS, r.kind, "pix_key"),
-    amount: roundMoney(r.amount),
-    counterparty: r.counterparty,
-    target: r.target,
-    description: r.description,
-    status: oneOf(OUTGOING_STATUSES, r.status, "failed"),
-    providerRef: r.provider_ref,
-    failReason: r.fail_reason,
-    confirmedAt: r.confirmed_at,
-    createdAt: r.created_at,
-  };
-}
-
-interface NotificationRow {
-  id: string;
-  user_id: string;
-  event_type: string;
-  title: string;
-  body: string;
-  amount: number | string | null;
-  read_at: string | null;
-  created_at: string;
-}
-
-function mapNotification(r: NotificationRow): BankNotification {
-  return {
-    id: r.id,
-    userId: r.user_id,
-    eventType: r.event_type,
-    title: r.title,
-    body: r.body,
-    amount: r.amount === null ? null : roundMoney(r.amount),
-    readAt: r.read_at,
-    createdAt: r.created_at,
-  };
+/** Grava; se uma coluna da migração 20261010 ainda não existe, grava de novo sem as colunas novas. */
+async function tolerant<R extends { error: DbError }>(row: Record<string, unknown>, run: (row: Record<string, unknown>) => PromiseLike<R>): Promise<R> {
+  const first = await run(row);
+  if (!missingColumn(first.error)) return first;
+  warnMissingMigration();
+  return run(withoutNewColumns(row));
 }
 
 export class SupabaseAsaasBankStore implements AsaasBankStore {
@@ -165,12 +64,9 @@ export class SupabaseAsaasBankStore implements AsaasBankStore {
     if (!inserted.error) return true;
     if (inserted.error.code !== "23505") throw dbError(inserted.error, "Não foi possível reservar a abertura da conta");
     // Subconta de outro ambiente (sandbox antes da produção): recomeça do zero neste.
-    const replaced = await this.db
-      .from("bank_subaccounts")
-      .update({ ...EMPTY_SUBACCOUNT, environment, provisioning_started_at: now, created_at: now, updated_at: now })
-      .eq("id", userId)
-      .neq("environment", environment)
-      .select("id");
+    const replaced = await tolerant({ ...EMPTY_SUBACCOUNT, environment, provisioning_started_at: now, created_at: now, updated_at: now }, (row) =>
+      this.db.from("bank_subaccounts").update(row).eq("id", userId).neq("environment", environment).select("id")
+    );
     if (replaced.error) throw dbError(replaced.error, "Não foi possível reservar a abertura da conta");
     if ((replaced.data as unknown[]).length > 0) return true;
     // Já existe: só pega a vez se ainda não foi criada no Asaas e a trava está livre ou esquecida.
@@ -195,9 +91,21 @@ export class SupabaseAsaasBankStore implements AsaasBankStore {
     for (const [key, value] of Object.entries(patch) as Array<[keyof SubaccountPatch, unknown]>) {
       if (value !== undefined) row[SUBACCOUNT_COLUMNS[key]] = value;
     }
-    const { data, error } = await this.db.from("bank_subaccounts").update(row).eq("id", userId).select("*").single();
+    const { data, error } = await tolerant(row, (r) => this.db.from("bank_subaccounts").update(r).eq("id", userId).select("*").single());
     if (error) throw dbError(error, "Não foi possível salvar a subconta");
     return mapSubaccount(data as SubaccountRow);
+  }
+
+  async listSubaccountsToReconcile(environment: Subaccount["environment"], limit: number) {
+    const { data, error } = await this.db
+      .from("bank_subaccounts")
+      .select("*")
+      .eq("environment", environment)
+      .in("status", ["pending_activation", "rejected"])
+      .order("updated_at", { ascending: true })
+      .limit(limit);
+    if (error) throw dbError(error, "Não foi possível listar as subcontas");
+    return (data as SubaccountRow[]).map(mapSubaccount);
   }
 
   async recordWebhook(input: WebhookRecord): Promise<WebhookRecordResult> {
@@ -215,9 +123,22 @@ export class SupabaseAsaasBankStore implements AsaasBankStore {
   }
 
   async finishWebhook(eventId: string, failure: string | null) {
-    const patch = failure ? { error: failure.slice(0, 500) } : { processed_at: new Date().toISOString(), error: null };
-    const { error } = await this.db.from("bank_webhooks_log").update(patch).eq("event_id", eventId);
+    let patch: Record<string, unknown> = { processed_at: new Date().toISOString(), error: null };
+    if (failure) {
+      const current = await this.db.from("bank_webhooks_log").select("*").eq("event_id", eventId).maybeSingle();
+      const attempts = Number((current.data as { attempts?: number } | null)?.attempts ?? 0);
+      patch = { error: failure.slice(0, 500), attempts: attempts + 1 };
+    }
+    const { error } = await tolerant(patch, (row) => this.db.from("bank_webhooks_log").update(row).eq("event_id", eventId));
     if (error) throw dbError(error, "Não foi possível concluir o evento");
+  }
+
+  async listPendingWebhooks(before: string, maxAttempts: number, limit: number): Promise<PendingWebhook[]> {
+    const base = () => this.db.from("bank_webhooks_log").select("*").is("processed_at", null).lt("received_at", before).order("received_at", { ascending: true }).limit(limit);
+    let result = await base().lt("attempts", maxAttempts);
+    if (missingColumn(result.error)) result = await base();
+    if (result.error) throw dbError(result.error, "Não foi possível listar os eventos pendentes");
+    return (result.data as Array<{ event_id: string; payload: unknown; attempts?: number }>).map((r) => ({ eventId: r.event_id, payload: r.payload, attempts: Number(r.attempts ?? 0) }));
   }
 
   async logProvisioning(entry: ProvisioningLogEntry) {
@@ -290,7 +211,8 @@ export class SupabaseAsaasBankStore implements AsaasBankStore {
     if (patch.providerRef !== undefined) row.provider_ref = patch.providerRef;
     if (patch.failReason !== undefined) row.fail_reason = patch.failReason?.slice(0, 300) ?? null;
     if (patch.confirmedAt !== undefined) row.confirmed_at = patch.confirmedAt;
-    const { data, error } = await this.db.from("bank_outgoing_requests").update(row).eq("id", id).in("status", [...from]).select("*");
+    if (patch.outcomeUnknown !== undefined) row.outcome_unknown = patch.outcomeUnknown;
+    const { data, error } = await tolerant(row, (r) => this.db.from("bank_outgoing_requests").update(r).eq("id", id).in("status", [...from]).select("*"));
     if (error) throw dbError(error, "Não foi possível atualizar a operação");
     const rows = data as OutgoingRow[];
     return rows.length > 0 ? mapOutgoing(rows[0]) : null;
@@ -311,5 +233,24 @@ export class SupabaseAsaasBankStore implements AsaasBankStore {
       .gte("created_at", sinceIso);
     if (error) throw dbError(error, "Não foi possível consultar os limites");
     return roundMoney((data as Array<{ amount: number | string }>).reduce((sum, r) => sum + Number(r.amount), 0));
+  }
+
+  async listOpenOutgoing(before: string, limit: number) {
+    const { data, error } = await this.db
+      .from("bank_outgoing_requests")
+      .select("*")
+      .in("status", ["requested", "approved"])
+      .lt("created_at", before)
+      .order("created_at", { ascending: true })
+      .limit(limit);
+    if (error) throw dbError(error, "Não foi possível listar as operações em aberto");
+    return (data as OutgoingRow[]).map(mapOutgoing);
+  }
+
+  async setOutgoingUnknown(id: string, unknown: boolean) {
+    if (!isUuid(id)) return;
+    const { error } = await this.db.from("bank_outgoing_requests").update({ outcome_unknown: unknown, updated_at: new Date().toISOString() }).eq("id", id);
+    if (missingColumn(error)) return warnMissingMigration();
+    if (error) throw dbError(error, "Não foi possível marcar a operação");
   }
 }

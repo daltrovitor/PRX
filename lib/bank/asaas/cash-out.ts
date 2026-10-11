@@ -2,6 +2,7 @@
 import { z } from "zod";
 import { PartnerError } from "@/lib/partners/errors";
 import { AsaasError, toPartnerError } from "@/lib/asaas/errors";
+import { withAsaasAudit } from "@/lib/asaas/audit";
 import { getBalance } from "@/lib/asaas/finance";
 import { createPixTransfer, decodePixQrCode, payBill, payPixQrCode, simulateBill } from "@/lib/asaas/transfers";
 import { assertMinorSpend } from "@/lib/family/guards";
@@ -11,7 +12,7 @@ import { PIX_KEY_LABEL, detectPixKeyType, parsePixPayload } from "@/lib/prx/pix"
 import type { AsaasDeps } from "@/lib/bank/asaas/deps";
 import { assertNightLimit } from "@/lib/bank/asaas/limits";
 import { brl } from "@/lib/bank/asaas/messages";
-import { requireActiveSubaccount, sinceSubaccount } from "@/lib/bank/asaas/onboarding";
+import { requireActiveSubaccount, sinceSubaccount } from "@/lib/bank/asaas/subaccount";
 import type { OutgoingKind, OutgoingRequest } from "@/lib/bank/asaas/types";
 
 /**
@@ -155,7 +156,11 @@ export async function pendingRequest(userId: string, requestId: string, deps: As
  * Executa no Asaas um pedido já confirmado pelo membro (a prova de biometria
  * ou senha é conferida pela rota antes). Devolve o pedido atualizado.
  */
-export async function executeOutgoing(userId: string, requestId: string, deps: AsaasDeps, transactions: ReadonlyArray<BankTransaction>): Promise<OutgoingRequest> {
+export function executeOutgoing(userId: string, requestId: string, deps: AsaasDeps, transactions: ReadonlyArray<BankTransaction>): Promise<OutgoingRequest> {
+  return withAsaasAudit({ userId, businessRef: requestId }, () => execute(userId, requestId, deps, transactions));
+}
+
+async function execute(userId: string, requestId: string, deps: AsaasDeps, transactions: ReadonlyArray<BankTransaction>): Promise<OutgoingRequest> {
   const request = await pendingRequest(userId, requestId, deps);
   const apiKey = await assertCanSend(userId, request.amount, 0, deps, transactions);
   const claimed = await deps.store.transitionOutgoing(request.id, ["awaiting_confirmation"], "requested", { confirmedAt: deps.now().toISOString() });
@@ -177,8 +182,11 @@ export async function executeOutgoing(userId: string, requestId: string, deps: A
     await deps.store.attachProviderRef(claimed.id, providerRef);
     return { ...claimed, providerRef };
   } catch (err) {
-    // Recusa clara: o pedido falha e nada saiu. Resultado incerto: fica "pedido" até o webhook decidir.
-    if (!(err instanceof AsaasError && err.ambiguous)) {
+    // Recusa clara: o pedido falha e nada saiu. Resultado incerto: fica "pedido" (marcado como desconhecido)
+    // até o webhook ou a conciliação decidir. Nunca é repetido automaticamente.
+    if (err instanceof AsaasError && err.ambiguous) {
+      await deps.store.setOutgoingUnknown(claimed.id, true).catch(() => undefined);
+    } else {
       const reason = err instanceof Error ? err.message : "Recusado pelo PRX BANK.";
       await deps.store.transitionOutgoing(claimed.id, ["requested", "approved"], "failed", { failReason: reason });
     }

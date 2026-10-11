@@ -2,7 +2,7 @@
 import { errorMessage } from "@/lib/errors";
 import type { BankProviderView, PixKey } from "@/lib/prx/bank";
 import { asaasActiveFor, asaasDeps } from "@/lib/bank/asaas/deps";
-import { currentSubaccount, subaccountView } from "@/lib/bank/asaas/onboarding";
+import { currentSubaccount, subaccountView } from "@/lib/bank/asaas/subaccount";
 import { providerPixKeys } from "@/lib/bank/asaas/cash-in";
 import { providerBalance } from "@/lib/bank/asaas/statement";
 

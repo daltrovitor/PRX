@@ -3,12 +3,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { decryptSecret } from "@/lib/asaas/secrets";
 import { ACCOUNT_OPEN_RETRY, completeAsaasSandboxChecklist, currentSubaccount, ensureAsaasCustomerAndAccount, openSubaccount, subaccountView } from "@/lib/bank/asaas/onboarding";
 import { reconcileLegacyAccount } from "@/lib/bank/asaas/legacy";
-import { forwardKycDocuments, uploadSubaccountDocument } from "@/lib/bank/asaas/documents";
+import { syncOnboardingDocuments, uploadSubaccountDocument } from "@/lib/bank/asaas/documents";
 import { handleAsaasEvent } from "@/lib/bank/asaas/webhooks";
 import { AsaasClient } from "@/lib/asaas/client";
 import { ASAAS_TEST_ENV, USER_ID, approvedKyc, fakeAsaas, testDeps } from "./asaas-fakes";
 
 const CREATED = { id: "acc_123", walletId: "wal_123", apiKey: "$aact_hmlg_subconta_secreta", accountNumber: { agency: "0001", account: "123456", accountDigit: "7" } };
+/** Nenhuma subconta com o CPF no Asaas (consulta feita antes de criar). */
+const NONE = { "GET /accounts": { body: { data: [] } } };
+/** Depois dos 15 s que o Asaas pede antes de consultar os documentos. */
+const later = (deps: { now: () => Date }) => {
+  deps.now = () => new Date(Date.now() + 20_000);
+};
 
 beforeEach(() => {
   for (const [key, value] of Object.entries(ASAAS_TEST_ENV)) vi.stubEnv(key, value);
@@ -19,14 +25,17 @@ afterEach(() => {
 
 describe("abertura da subconta no Asaas", () => {
   it("envia os dados do KYC, registra o webhook PRX e guarda a apiKey só cifrada", async () => {
-    const { client, calls } = fakeAsaas({ "POST /accounts": { body: CREATED } });
+    const { client, calls } = fakeAsaas({ ...NONE, "POST /accounts": { body: CREATED } });
     const { deps, store, mirror } = testDeps(client);
 
     const view = await openSubaccount(USER_ID, deps);
     expect(view).toEqual({ state: "pending_activation", kycStatus: "PENDING", rejectReason: null });
 
-    const body = calls[0].body as Record<string, unknown> & { webhooks: Array<Record<string, unknown>> };
-    expect(calls[0].apiKey).toBe("$aact_hmlg_master");
+    // Antes de criar, procura pelo CPF uma subconta criada numa tentativa anterior.
+    expect(calls[0]).toMatchObject({ method: "GET", path: "/accounts", query: "?cpfCnpj=52998224725&limit=10" });
+    const create = calls.find((c) => c.method === "POST")!;
+    const body = create.body as Record<string, unknown> & { webhooks: Array<Record<string, unknown>> };
+    expect(create.apiKey).toBe("$aact_hmlg_master");
     expect(body).toMatchObject({
       name: "Ana Souza",
       email: "ana@prx.dev",
@@ -41,21 +50,21 @@ describe("abertura da subconta no Asaas", () => {
       postalCode: "01310100",
     });
     expect(body.webhooks[0]).toMatchObject({ url: ASAAS_TEST_ENV.ASAAS_WEBHOOK_URL_EVENTS, authToken: ASAAS_TEST_ENV.ASAAS_WEBHOOK_AUTH_TOKEN, email: "suporte@prx.app.br", enabled: true, apiVersion: 3 });
-    expect(body.webhooks[0].events).toContain("ACCOUNT_STATUS_GENERAL_APPROVAL_APPROVED");
+    expect(body.webhooks[0].events).toEqual(expect.arrayContaining(["ACCOUNT_STATUS_GENERAL_APPROVAL_APPROVED", "ACCOUNT_STATUS_GENERAL_APPROVAL_PENDING", "ACCOUNT_STATUS_DOCUMENT_PENDING", "ACCOUNT_STATUS_COMMERCIAL_INFO_EXPIRED"]));
 
     const sub = await store.getSubaccount(USER_ID);
     expect(sub?.apiKeySealed).not.toContain("aact");
     expect(decryptSecret(sub!.apiKeySealed!)).toBe(CREATED.apiKey);
-    expect(sub).toMatchObject({ asaasAccountId: "acc_123", walletId: "wal_123", agency: "0001", accountNumber: "123456-7", provisioningStartedAt: null });
+    expect(sub).toMatchObject({ asaasAccountId: "acc_123", walletId: "wal_123", agency: "0001", accountNumber: "123456-7", provisioningStartedAt: null, accountCreatedAt: expect.any(String) });
     expect(mirror.accounts.get(USER_ID)).toMatchObject({ providerAccountId: "acc_123", status: "pending_activation" });
 
     // Idempotente: não abre uma segunda conta.
     await openSubaccount(USER_ID, deps);
-    expect(calls).toHaveLength(1);
+    expect(calls.filter((c) => c.method === "POST")).toHaveLength(1);
   });
 
   it("sem KYC aprovado não chama o Asaas", async () => {
-    const { client, calls } = fakeAsaas({ "POST /accounts": { body: CREATED } });
+    const { client, calls } = fakeAsaas({ ...NONE, "POST /accounts": { body: CREATED } });
     const { deps } = testDeps(client, approvedKyc({ status: "pending" }));
     await expect(openSubaccount(USER_ID, deps)).rejects.toMatchObject({ status: 403 });
     const none = testDeps(client, null);
@@ -65,7 +74,7 @@ describe("abertura da subconta no Asaas", () => {
 
   it("sem token ou URL do webhook configurados não abre conta", async () => {
     vi.stubEnv("ASAAS_WEBHOOK_AUTH_TOKEN", "");
-    const { client, calls } = fakeAsaas({ "POST /accounts": { body: CREATED } });
+    const { client, calls } = fakeAsaas({ ...NONE, "POST /accounts": { body: CREATED } });
     await expect(openSubaccount(USER_ID, testDeps(client).deps)).rejects.toMatchObject({ status: 503 });
     expect(calls).toHaveLength(0);
   });
@@ -73,6 +82,7 @@ describe("abertura da subconta no Asaas", () => {
   it("recusa do Asaas libera para tentar de novo: o membro vê mensagem genérica, o admin vê o motivo", async () => {
     let attempt = 0;
     const { client } = fakeAsaas({
+      ...NONE,
       "POST /accounts": () => (++attempt === 1 ? { status: 400, body: { errors: [{ code: "invalid_email", description: "O e-mail informado já está em uso." }] } } : { body: CREATED }),
     });
     const { deps, store } = testDeps(client);
@@ -86,25 +96,26 @@ describe("abertura da subconta no Asaas", () => {
   });
 
   it("registra para o admin quando o PRX nem envia (cadastro não aprovado)", async () => {
-    const { client } = fakeAsaas({ "POST /accounts": { body: CREATED } });
+    const { client } = fakeAsaas({ ...NONE, "POST /accounts": { body: CREATED } });
     const { deps, store } = testDeps(client, approvedKyc({ status: "pending" }));
     await expect(openSubaccount(USER_ID, deps)).rejects.toMatchObject({ status: 403 });
     expect(store.provisioningLog()).toMatchObject([{ step: "account", outcome: "blocked", asaasAccountId: null }]);
   });
 
   it("resultado incerto mantém a trava: nada de conta dupla", async () => {
-    const { client, calls } = fakeAsaas({ "POST /accounts": { status: 502 } });
+    const { client, calls } = fakeAsaas({ ...NONE, "POST /accounts": { status: 502 } });
     const { deps, store } = testDeps(client);
     await expect(openSubaccount(USER_ID, deps)).rejects.toMatchObject({ status: 503 });
     await expect(openSubaccount(USER_ID, deps)).rejects.toMatchObject({ status: 409 });
-    expect(calls).toHaveLength(1);
+    expect(calls.filter((c) => c.method === "POST")).toHaveLength(1);
     expect(subaccountView(await store.getSubaccount(USER_ID)).state).toBe("provisioning");
   });
 });
 
 describe("webhook de aprovação da conta", () => {
   async function opened() {
-    const fake = fakeAsaas({ "POST /accounts": { body: CREATED } });
+    const approved = { general: "APPROVED", documentation: "APPROVED", commercialInfo: "APPROVED", bankAccountInfo: "APPROVED" };
+    const fake = fakeAsaas({ ...NONE, "POST /accounts": { body: CREATED }, "GET /myAccount/status": { body: approved }, "GET /myAccount/documents": { body: { rejectReasons: null, data: [] } } });
     const ctx = testDeps(fake.client);
     await openSubaccount(USER_ID, ctx.deps);
     return ctx;
@@ -154,7 +165,7 @@ describe("menores de idade e emancipação", () => {
     });
 
   it("menor sem emancipação não abre conta e nada é enviado ao banco parceiro", async () => {
-    const { client, calls } = fakeAsaas({ "POST /accounts": { body: CREATED } });
+    const { client, calls } = fakeAsaas({ ...NONE, "POST /accounts": { body: CREATED } });
     const { deps } = testDeps(client, minorKyc("linked"));
     await expect(openSubaccount(USER_ID, deps)).rejects.toMatchObject({ status: 409, message: expect.stringContaining("emancipação") });
     expect(calls).toHaveLength(0);
@@ -168,13 +179,16 @@ describe("menores de idade e emancipação", () => {
         { id: "grp-emancipation", status: "NOT_SENT", type: "EMANCIPATION_OF_MINORS", title: "Emancipação", documents: [] },
       ],
     };
-    const { client, calls } = fakeAsaas({ "POST /accounts": { body: CREATED }, "GET /myAccount/documents": { body: groups }, "POST /myAccount/documents/*": { body: {} } });
+    const { client, calls } = fakeAsaas({ ...NONE, "POST /accounts": { body: CREATED }, "GET /myAccount/documents": { body: groups }, "POST /myAccount/documents/*": { body: {} } });
     const { deps } = testDeps(client, minorKyc("emancipated"));
     await openSubaccount(USER_ID, deps);
-    await expect(forwardKycDocuments(USER_ID, deps)).resolves.toBe(3);
+    later(deps);
+    await expect(syncOnboardingDocuments(USER_ID, deps)).resolves.toEqual({ state: "done", sent: 2, viaLink: 0, memberUpload: 0 });
     const uploads = calls.filter((c) => c.method === "POST" && c.path.startsWith("/myAccount/documents/"));
-    expect(uploads.map((c) => c.path)).toEqual(["/myAccount/documents/grp-id", "/myAccount/documents/grp-id", "/myAccount/documents/grp-emancipation"]);
-    expect((uploads[2].body as FormData).get("type")).toBe("EMANCIPATION_OF_MINORS");
+    // Um arquivo por grupo: frente e verso num PDF só; a certidão no grupo de emancipação.
+    expect(uploads.map((c) => c.path)).toEqual(["/myAccount/documents/grp-id", "/myAccount/documents/grp-emancipation"]);
+    expect(((uploads[0].body as FormData).get("documentFile") as File).type).toBe("application/pdf");
+    expect((uploads[1].body as FormData).get("type")).toBe("EMANCIPATION_OF_MINORS");
   });
 });
 
@@ -187,19 +201,33 @@ describe("documentos da subconta", () => {
     ],
   };
 
-  it("reaproveita frente e verso do KYC no grupo IDENTIFICATION, com a chave da subconta", async () => {
-    const { client, calls } = fakeAsaas({ "POST /accounts": { body: CREATED }, "GET /myAccount/documents": { body: groups }, "POST /myAccount/documents/*": { body: {} } });
-    const { deps } = testDeps(client);
+  it("espera 15 s, junta frente e verso num PDF, deixa a selfie para o link do Asaas e avisa o membro uma vez", async () => {
+    const { client, calls } = fakeAsaas({ ...NONE, "POST /accounts": { body: CREATED }, "GET /myAccount/documents": { body: groups }, "POST /myAccount/documents/*": { body: {} } });
+    const { deps, store } = testDeps(client);
     await openSubaccount(USER_ID, deps);
-    await expect(forwardKycDocuments(USER_ID, deps)).resolves.toBe(2);
+    // Logo depois da criação, nada é consultado (a documentação pede 15 s).
+    await expect(syncOnboardingDocuments(USER_ID, deps)).resolves.toMatchObject({ state: "wait" });
+    expect(calls.some((c) => c.path === "/myAccount/documents")).toBe(false);
+
+    later(deps);
+    await expect(syncOnboardingDocuments(USER_ID, deps)).resolves.toEqual({ state: "done", sent: 1, viaLink: 1, memberUpload: 0 });
     const uploads = calls.filter((c) => c.method === "POST" && c.path.startsWith("/myAccount/documents/"));
-    expect(uploads.map((c) => c.path)).toEqual(["/myAccount/documents/grp-id", "/myAccount/documents/grp-id"]);
-    expect(uploads.every((c) => c.apiKey === CREATED.apiKey)).toBe(true);
-    expect((uploads[0].body as FormData).get("type")).toBe("IDENTIFICATION");
+    expect(uploads.map((c) => c.path)).toEqual(["/myAccount/documents/grp-id"]);
+    expect(uploads[0].apiKey).toBe(CREATED.apiKey);
+    const form = uploads[0].body as FormData;
+    expect(form.get("type")).toBe("IDENTIFICATION");
+    const pdf = new TextDecoder().decode(await (form.get("documentFile") as File).arrayBuffer());
+    expect(pdf.startsWith("%PDF-1.4")).toBe(true);
+    expect(pdf.match(/\/Type \/Page /g)).toHaveLength(2);
+
+    await syncOnboardingDocuments(USER_ID, deps);
+    const notices = await store.listNotifications(USER_ID, 10);
+    expect(notices.filter((n) => n.eventType === "ACCOUNT_STATUS_DOCUMENT_PENDING")).toHaveLength(1);
+    expect((await store.getSubaccount(USER_ID))?.documentsSyncedAt).toEqual(expect.any(String));
   });
 
   it("envio manual usa o tipo do próprio Asaas e recusa formatos ou grupos do link seguro", async () => {
-    const { client, calls } = fakeAsaas({ "POST /accounts": { body: CREATED }, "GET /myAccount/documents": { body: groups }, "POST /myAccount/documents/*": { body: {} } });
+    const { client, calls } = fakeAsaas({ ...NONE, "POST /accounts": { body: CREATED }, "GET /myAccount/documents": { body: groups }, "POST /myAccount/documents/*": { body: {} } });
     const { deps } = testDeps(client);
     await openSubaccount(USER_ID, deps);
     const png = new File(["x"], "rg.png", { type: "image/png" });
@@ -211,10 +239,12 @@ describe("documentos da subconta", () => {
 });
 
 describe("sincronização de cliente e subconta e checklist do sandbox", () => {
-  it("ensureAsaasCustomerAndAccount abre a subconta uma vez e manda os documentos ao Asaas, sem cliente na conta mãe", async () => {
+  it("ensureAsaasCustomerAndAccount abre a subconta uma vez e, no sandbox, usa a aprovação simulada oficial do Asaas", async () => {
     const groups = { data: [{ id: "grp-id", type: "IDENTIFICATION", status: "NOT_SENT", onboardingUrl: null }] };
     const { client, calls } = fakeAsaas({
+      ...NONE,
       "POST /accounts": { body: CREATED },
+      "POST /sandbox/myAccount/approve": { body: { general: "APPROVED", documentation: "APPROVED", commercialInfo: "APPROVED", bankAccountInfo: "APPROVED" } },
       "GET /myAccount/documents": { body: groups },
       "POST /myAccount/documents/*": { body: {} },
       "GET /pix/addressKeys": { body: { data: [] } },
@@ -225,11 +255,13 @@ describe("sincronização de cliente e subconta e checklist do sandbox", () => {
     const view = await ensureAsaasCustomerAndAccount(USER_ID, deps);
     expect(view.state).toBe("active");
     expect(view.kycStatus).toBe("APPROVED");
-    expect(calls.filter((c) => c.method === "POST" && c.path.startsWith("/myAccount/documents/")).length).toBe(2);
+    expect(calls.filter((c) => c.path === "/sandbox/myAccount/approve")).toHaveLength(1);
+    // Documentos esperam os 15 s da criação (seguem depois da resposta, pela rota).
+    expect(calls.filter((c) => c.method === "POST" && c.path.startsWith("/myAccount/documents/")).length).toBe(0);
 
     // Visitas seguintes não abrem outra conta nem criam clientes na conta mãe.
     await ensureAsaasCustomerAndAccount(USER_ID, deps);
-    expect(calls.filter((c) => c.path === "/accounts").length).toBe(1);
+    expect(calls.filter((c) => c.method === "POST" && c.path === "/accounts").length).toBe(1);
     expect(calls.some((c) => c.path === "/customers")).toBe(false);
 
     const sub = await store.getSubaccount(USER_ID);
@@ -238,7 +270,7 @@ describe("sincronização de cliente e subconta e checklist do sandbox", () => {
   });
 
   it("sem abertura enviada pelo membro não existe subconta (nada de dados inventados)", async () => {
-    const { client, calls } = fakeAsaas({ "POST /accounts": { body: CREATED } });
+    const { client, calls } = fakeAsaas({ ...NONE, "POST /accounts": { body: CREATED } });
     const { deps } = testDeps(client);
     deps.latestKyc = async () => null;
     await expect(ensureAsaasCustomerAndAccount(USER_ID, deps)).rejects.toMatchObject({ status: 403 });
@@ -246,12 +278,12 @@ describe("sincronização de cliente e subconta e checklist do sandbox", () => {
   });
 
   it("subconta do sandbox não vale na produção: o membro abre outra e o espelho antigo é zerado", async () => {
-    const { client } = fakeAsaas({ "POST /accounts": { body: CREATED } });
+    const { client } = fakeAsaas({ ...NONE, "POST /accounts": { body: CREATED } });
     const { deps, store, mirror } = testDeps(client);
     await openSubaccount(USER_ID, deps);
     await deps.store.saveSubaccount(USER_ID, { status: "active", kycStatus: "APPROVED" });
 
-    const { client: prodClient } = fakeAsaas({ "POST /accounts": { body: { ...CREATED, id: "acc_prod", walletId: "wal_prod", apiKey: "$aact_prod_subconta" } } }, "production");
+    const { client: prodClient } = fakeAsaas({ ...NONE, "POST /accounts": { body: { ...CREATED, id: "acc_prod", walletId: "wal_prod", apiKey: "$aact_prod_subconta" } } }, "production");
     const prod = { ...deps, client: prodClient };
     expect(await currentSubaccount(USER_ID, prod)).toBeNull();
 

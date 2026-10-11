@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { familyErrorResponse, invalid, requireUser } from "@/lib/family/http";
 import { asaasActiveFor, asaasDeps } from "@/lib/bank/asaas/deps";
-import { currentSubaccount, sinceSubaccount } from "@/lib/bank/asaas/onboarding";
+import { currentSubaccount, sinceSubaccount } from "@/lib/bank/asaas/subaccount";
 import { getAsaasBankStore } from "@/lib/bank/asaas/store";
 
 const NO_STORE = { "Cache-Control": "no-store" };

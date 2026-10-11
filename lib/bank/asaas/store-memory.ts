@@ -10,6 +10,7 @@ import {
   type OutgoingPatch,
   type OutgoingRequest,
   type OutgoingStatus,
+  type PendingWebhook,
   type ProvisioningLogEntry,
   type Subaccount,
   type SubaccountPatch,
@@ -17,10 +18,23 @@ import {
   type WebhookRecordResult,
 } from "@/lib/bank/asaas/types";
 
+/** Situação cadastral ainda desconhecida (subconta recém-reservada). */
+const EMPTY_STATUS = {
+  generalStatus: null,
+  documentationStatus: null,
+  commercialInfoStatus: null,
+  bankAccountInfoStatus: null,
+  commercialInfoAlert: null,
+  statusUpdatedAt: null,
+  accountCreatedAt: null,
+  documentsSyncedAt: null,
+  onboardingNotifiedAt: null,
+} as const;
+
 /** Espelho em memória (desenvolvimento sem Supabase e testes). Mesmas regras do Supabase. */
 export class MemoryAsaasBankStore implements AsaasBankStore {
   private subaccounts = new Map<string, Subaccount>();
-  private webhooks = new Map<string, { processedAt: string | null; error: string | null }>();
+  private webhooks = new Map<string, { processedAt: string | null; error: string | null; payload: unknown; attempts: number; receivedAt: string }>();
   private notifications: Array<BankNotification & { eventId: string | null }> = [];
   private outgoing = new Map<string, OutgoingRequest>();
   private provisioning: ProvisioningLogEntry[] = [];
@@ -58,11 +72,12 @@ export class MemoryAsaasBankStore implements AsaasBankStore {
         environment,
         provisioningStartedAt: now,
         createdAt: now,
+        ...EMPTY_STATUS,
       });
       return true;
     }
     if (current.environment !== environment) {
-      Object.assign(current, { asaasAccountId: null, walletId: null, apiKeySealed: null, customerId: null, accountNumber: null, agency: null, status: "pending_activation", kycStatus: "PENDING", rejectReason: null, environment, provisioningStartedAt: now, createdAt: now });
+      Object.assign(current, { asaasAccountId: null, walletId: null, apiKeySealed: null, customerId: null, accountNumber: null, agency: null, status: "pending_activation", kycStatus: "PENDING", rejectReason: null, environment, provisioningStartedAt: now, createdAt: now, ...EMPTY_STATUS });
       return true;
     }
     if (current.asaasAccountId) return false;
@@ -85,6 +100,13 @@ export class MemoryAsaasBankStore implements AsaasBankStore {
     return { ...next };
   }
 
+  async listSubaccountsToReconcile(environment: Subaccount["environment"], limit: number) {
+    return [...this.subaccounts.values()]
+      .filter((s) => s.environment === environment && (s.status === "pending_activation" || s.status === "rejected"))
+      .slice(0, limit)
+      .map((s) => ({ ...s }));
+  }
+
   async logProvisioning(entry: ProvisioningLogEntry) {
     this.provisioning.push({ ...entry });
   }
@@ -97,7 +119,7 @@ export class MemoryAsaasBankStore implements AsaasBankStore {
   async recordWebhook(input: WebhookRecord): Promise<WebhookRecordResult> {
     const found = this.webhooks.get(input.eventId);
     if (!found) {
-      this.webhooks.set(input.eventId, { processedAt: null, error: null });
+      this.webhooks.set(input.eventId, { processedAt: null, error: null, payload: input.payload, attempts: 0, receivedAt: new Date().toISOString() });
       return "new";
     }
     return found.processedAt ? "duplicate" : "retry";
@@ -106,11 +128,26 @@ export class MemoryAsaasBankStore implements AsaasBankStore {
   async finishWebhook(eventId: string, error: string | null) {
     const found = this.webhooks.get(eventId);
     if (!found) return;
-    if (error) found.error = error;
-    else {
+    if (error) {
+      found.error = error;
+      found.attempts += 1;
+    } else {
       found.processedAt = new Date().toISOString();
       found.error = null;
     }
+  }
+
+  async listPendingWebhooks(before: string, maxAttempts: number, limit: number): Promise<PendingWebhook[]> {
+    return [...this.webhooks.entries()]
+      .filter(([, w]) => !w.processedAt && w.receivedAt < before && w.attempts < maxAttempts)
+      .slice(0, limit)
+      .map(([eventId, w]) => ({ eventId, payload: w.payload, attempts: w.attempts }));
+  }
+
+  /** Só para testes: situação de um evento. */
+  webhookState(eventId: string) {
+    const found = this.webhooks.get(eventId);
+    return found ? { processedAt: found.processedAt, error: found.error, attempts: found.attempts } : null;
   }
 
   async insertNotification(input: NewNotification) {
@@ -153,6 +190,7 @@ export class MemoryAsaasBankStore implements AsaasBankStore {
       failReason: null,
       confirmedAt: null,
       createdAt: new Date().toISOString(),
+      outcomeUnknown: false,
     };
     this.outgoing.set(created.id, created);
     return { ...created };
@@ -178,6 +216,7 @@ export class MemoryAsaasBankStore implements AsaasBankStore {
     if (patch.providerRef !== undefined) found.providerRef = patch.providerRef;
     if (patch.failReason !== undefined) found.failReason = patch.failReason;
     if (patch.confirmedAt !== undefined) found.confirmedAt = patch.confirmedAt;
+    if (patch.outcomeUnknown !== undefined) found.outcomeUnknown = patch.outcomeUnknown;
     return { ...found };
   }
 
@@ -191,5 +230,17 @@ export class MemoryAsaasBankStore implements AsaasBankStore {
       .filter((o) => o.userId === userId && COMMITTED_OUTGOING.includes(o.status) && o.createdAt >= sinceIso)
       .reduce((sum, o) => sum + o.amount, 0);
     return roundMoney(total);
+  }
+
+  async listOpenOutgoing(before: string, limit: number) {
+    return [...this.outgoing.values()]
+      .filter((o) => (o.status === "requested" || o.status === "approved") && o.createdAt < before)
+      .slice(0, limit)
+      .map((o) => ({ ...o }));
+  }
+
+  async setOutgoingUnknown(id: string, unknown: boolean) {
+    const found = this.outgoing.get(id);
+    if (found) found.outcomeUnknown = unknown;
   }
 }

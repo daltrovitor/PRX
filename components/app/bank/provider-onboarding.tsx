@@ -21,12 +21,14 @@ interface DocumentGroup {
   canUpload: boolean;
 }
 
+/** Status dos grupos de documentos do banco parceiro (PENDING = enviado e em análise). */
 const STATUS_LABEL: Record<string, string> = {
   NOT_SENT: "Não enviado",
-  PENDING: "Pendente",
+  PENDING: "Em análise",
   AWAITING_APPROVAL: "Em análise",
   APPROVED: "Aprovado",
   REJECTED: "Recusado",
+  IGNORED: "Dispensado",
 };
 
 async function call(url: string, init?: RequestInit): Promise<{ ok: boolean; json: Record<string, unknown> }> {
@@ -135,7 +137,13 @@ export function ProviderOnboarding({ provider, onChanged }: { provider: BankProv
           onClick={() =>
             void run("forward", "/api/bank/accounts/documents", post({ action: "forward_kyc" }), (json) => {
               setGroups(Array.isArray(json.groups) ? (json.groups as DocumentGroup[]) : groups);
-              setInfo(Number(json.sent) > 0 ? "Documentos do seu cadastro enviados ao PRX BANK." : "Nenhum documento do cadastro precisou ser reenviado.");
+              setInfo(
+                typeof json.wait === "number"
+                  ? "Sua conta acabou de ser aberta. Aguarde alguns segundos e tente de novo."
+                  : Number(json.sent) > 0
+                    ? "Documentos do seu cadastro enviados ao PRX BANK."
+                    : "Nenhum documento do cadastro pôde ser enviado por aqui. Use o link seguro ou escolha o arquivo abaixo."
+              );
             })
           }
         >
