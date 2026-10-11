@@ -79,21 +79,21 @@ export interface VerifyDeps {
  * está irregular (422) ou a Receita está fora do ar (503). Sem credenciais do
  * Serpro não consulta nada e só registra "skipped".
  */
-export async function assertCpfMatchesBirth(cpf: string, isoBirthDate: string, source: string, deps: VerifyDeps = {}): Promise<void> {
+export async function assertCpfMatchesBirth(cpf: string, isoBirthDate: string, source: string, deps: VerifyDeps = {}): Promise<"verified" | "skipped"> {
   const config = deps.config === undefined ? readSerproConfig() : deps.config;
   if (!config) {
     await record(cpf, { outcome: "skipped", detail: "Serpro não configurado (SERPRO_CPF_CONSUMER_KEY/SECRET); cadastro autodeclarado", httpStatus: null, situationCode: null }, source);
-    return;
+    return "skipped";
   }
   const key = fingerprint(cpf, isoBirthDate);
   const cachedAt = recentlyVerified.get(key);
-  if (cachedAt && Date.now() - cachedAt < CACHE_MS) return;
+  if (cachedAt && Date.now() - cachedAt < CACHE_MS) return "verified";
 
   const decision = decide(await queryCpf(cpf, isoBirthDate, config, deps.fetcher), isoBirthDate, deps.now);
   await record(cpf, decision, source);
   if (decision.outcome === "verified") {
     recentlyVerified.set(key, Date.now());
-    return;
+    return "verified";
   }
   if (decision.outcome === "unavailable") throw new PartnerError(CPF_UNAVAILABLE_MESSAGE, 503);
   throw new PartnerError(CPF_MISMATCH_MESSAGE, 422);

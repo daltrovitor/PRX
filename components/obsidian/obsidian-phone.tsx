@@ -329,12 +329,16 @@ export function ObsidianPhoneApp({ className, height = APP_HEIGHT }: { className
             <div className="relative isolate mt-3 flex h-[120px] flex-col justify-between overflow-hidden rounded-[20px] border border-white/[0.12] p-4 text-[#fff]">
               <Image src={OBSIDIAN_IMAGES.cardMetal} alt="" fill sizes="360px" placeholder="blur" className="-z-10 object-cover object-[50%_62%]" />
               <span aria-hidden className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(5,5,8,0.85),rgba(5,5,8,0.2))]" />
-              <span className="flex items-center gap-2 text-[12px]">
-                <IconCard size={15} /> Cartão de metal · sem anuidade
+              <span className="flex items-center justify-between gap-2 text-[12px]">
+                <span className="flex items-center gap-2">
+                  <IconCard size={15} /> Cartão de metal · sem anuidade
+                </span>
+                {/* O cartão ainda não é emitido: nada de número ou limite que pareça cartão ativo. */}
+                <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ring-1 ring-white/25">Em breve</span>
               </span>
               <span className="flex items-end justify-between">
-                <span className="font-mono text-[14px] tracking-[0.2em]">•••• 4821</span>
-                <span className="text-[11px] text-[#cbd5e1]">Limite {show(3500)}</span>
+                <span className="font-mono text-[14px] tracking-[0.2em]">•••• ••••</span>
+                <span className="text-[11px] text-[#cbd5e1]">Disponível em breve</span>
               </span>
             </div>
             <ObsidianSectionHeader title="Suas chaves Pix" className="mt-5" />

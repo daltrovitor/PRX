@@ -2,10 +2,11 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { captureLiveLink, peekLiveLink } from "@/components/app/live/live-link";
 
-export type AppTab = "home" | "pass" | "reels" | "bank" | "live" | "profile";
+export type AppTab = "home" | "pass" | "reels" | "bank" | "live" | "founders" | "profile";
 
-const TABS: ReadonlyArray<AppTab> = ["home", "pass", "reels", "bank", "live", "profile"];
+const TABS: ReadonlyArray<AppTab> = ["home", "pass", "reels", "bank", "live", "founders", "profile"];
 
 interface AppNavState {
   tab: AppTab;
@@ -19,6 +20,8 @@ const AppNavContext = createContext<AppNavState | null>(null);
 function parseHash(hash: string): { tab: AppTab; sub: string | null } {
   const [rawTab, rawSub] = hash.replace(/^#/, "").split("/");
   const tab = (TABS as ReadonlyArray<string>).includes(rawTab) ? (rawTab as AppTab) : "home";
+  // O Founders saiu do PRX LIVE e virou aba própria: links antigos (#live/founders) continuam valendo.
+  if (tab === "live" && rawSub === "founders") return { tab: "founders", sub: null };
   return { tab, sub: rawSub ? decodeURIComponent(rawSub) : null };
 }
 
@@ -31,7 +34,13 @@ export function AppNavProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<{ tab: AppTab; sub: string | null }>({ tab: "home", sub: null });
 
   useEffect(() => {
-    const sync = () => {
+    const sync = (opening: boolean) => {
+      // Link de divulgação de evento (?evento=…&cupom=…): só ao abrir o app (ou ao chegar pela URL) leva ao PRX LIVE.
+      const captured = captureLiveLink();
+      if ((opening || captured) && peekLiveLink()) {
+        setState({ tab: "live", sub: null });
+        return;
+      }
       if (window.location.hash) {
         setState(parseHash(window.location.hash));
         try {
@@ -39,13 +48,14 @@ export function AppNavProvider({ children }: { children: ReactNode }) {
         } catch {}
       }
     };
-    sync();
-    window.addEventListener("hashchange", sync);
-    return () => window.removeEventListener("hashchange", sync);
+    sync(true);
+    const onHash = () => sync(false);
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
   const go = useCallback((tab: AppTab, sub: string | null = null) => {
-    setState({ tab, sub });
+    setState(tab === "live" && sub === "founders" ? { tab: "founders", sub: null } : { tab, sub });
     if (window.location.hash) {
       try {
         window.history.replaceState(null, "", window.location.pathname + window.location.search);

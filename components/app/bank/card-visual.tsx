@@ -26,7 +26,7 @@ function resetHolo(event: PointerEvent<HTMLElement>) {
 
 /** Selo dos cartões PRX enquanto não são emitidos. */
 function SoonBadge() {
-  return <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-white/20 backdrop-blur-sm">Em breve</span>;
+  return <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] ring-1 ring-white/25 backdrop-blur-sm">Em breve</span>;
 }
 
 /**

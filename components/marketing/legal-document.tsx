@@ -12,13 +12,17 @@ export interface LegalSection {
 const updated = new Date(`${TERMS_VERSION}T12:00:00-03:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric", timeZone: "America/Sao_Paulo" });
 
 /** Documento legal com sumário navegável e tipografia de leitura longa. */
-export function LegalDocument({ title, intro, sections }: { title: string; intro: ReactNode; sections: ReadonlyArray<LegalSection> }) {
+export function LegalDocument({ title, intro, sections, meta }: { title: string; intro: ReactNode; sections: ReadonlyArray<LegalSection>; meta?: ReactNode }) {
   return (
     <SitePage>
       <article className="mx-auto grid max-w-[1200px] gap-10 px-4 pb-24 pt-12 sm:px-6 lg:grid-cols-[260px_1fr] lg:gap-16 lg:px-10 lg:pt-16">
         <header className="lg:col-span-2">
           <p className="text-[13px] font-medium text-muted-foreground">
-            Versão {TERMS_VERSION} · atualizada em {updated}
+            {meta ?? (
+              <>
+                Versão {TERMS_VERSION} · atualizada em {updated}
+              </>
+            )}
           </p>
           <h1 className="mt-3 max-w-3xl text-[40px] font-semibold leading-[1.05] tracking-[-0.04em] text-ink sm:text-6xl">{title}</h1>
           <div className="mt-5 max-w-2xl text-[17px] leading-relaxed text-muted-foreground">{intro}</div>

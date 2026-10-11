@@ -2,8 +2,9 @@
 import crypto from "crypto";
 import { PartnerError } from "@/lib/partners/errors";
 import { getLiveRepository } from "@/lib/live/repository";
-import { isActiveTicket } from "@/lib/live/rules";
-import { createEvent, updateEvent } from "@/lib/live/service";
+import { isRealActiveTicket } from "@/lib/live/rules";
+import { eventReadiness, type EventReadiness } from "@/lib/live/readiness";
+import { createEvent, setEventStatus, updateEvent } from "@/lib/live/service";
 import type { EventInput, LiveEvent } from "@/lib/live/types";
 import { provisionInsiderAccount } from "@/lib/resenha/access";
 import { insiderLink } from "@/lib/resenha/config";
@@ -50,7 +51,22 @@ export interface AdminEditionView {
   hostName: string;
   hostArticle: ResenhaEdition["hostArticle"];
   status: EditionStatus;
-  event: { id: string; status: LiveEvent["status"]; startsAt: string; endsAt: string | null; venue: string; city: string; address: string; capacity: number | null; issued: number; checkedIn: number };
+  event: {
+    id: string;
+    status: LiveEvent["status"];
+    startsAt: string;
+    endsAt: string | null;
+    venue: string;
+    city: string;
+    address: string;
+    capacity: number | null;
+    organizerName: string;
+    cancellationPolicy: string;
+    issued: number;
+    checkedIn: number;
+    /** O que falta para abrir a lista (publicar) e para operar (teste de portaria). */
+    readiness: EventReadiness;
+  };
   participations: AdminParticipationView[];
 }
 
@@ -86,8 +102,12 @@ export async function adminOverview(baseUrl: string): Promise<AdminOverview> {
         city: event.city,
         address: event.address,
         capacity: event.capacity,
-        issued: tickets.filter(isActiveTicket).length,
-        checkedIn: tickets.filter((t) => t.status === "used").length,
+        organizerName: event.organizerName,
+        cancellationPolicy: event.cancellationPolicy,
+        // Ingressos de teste (teste de portaria) não contam como acesso liberado.
+        issued: tickets.filter(isRealActiveTicket).length,
+        checkedIn: tickets.filter((t) => t.status === "used" && !t.isTest).length,
+        readiness: eventReadiness(event),
       },
       participations: participations
         .filter((p) => p.editionId === edition.id)
@@ -158,7 +178,18 @@ function assertDates(startsAt: string, endsAt: string | null) {
   if (endsAt && endsAt < startsAt) throw new PartnerError("O fim não pode ser antes do início.", 422);
 }
 
-/** Cria a edição (rascunho) e o evento da série "resenha" por baixo, já com a portaria da equipe ligada. */
+/** Regras de entrada de toda Resenha: 18+, nome na lista e documento com foto na portaria. */
+const RESENHA_ENTRY = {
+  minAge: 18,
+  idCheckRequired: true,
+  entryRequirements: "Entrada só com o nome na lista e documento oficial com foto. Proibida para menores de 18 anos.",
+} as const;
+
+/**
+ * Cria a edição (rascunho) e o evento da série "resenha" por baixo, também em
+ * rascunho e já com a portaria da equipe ligada. O evento é publicado quando a
+ * lista abre, e só se estiver completo (organizador, cancelamento, idade).
+ */
 export async function createEdition(input: EditionInput, actor: string): Promise<ResenhaEdition> {
   const startsAt = new Date(input.startsAt).toISOString();
   const endsAt = isoOrNull(input.endsAt);
@@ -181,7 +212,10 @@ export async function createEdition(input: EditionInput, actor: string): Promise
       minPrxLevel: 1,
       partnerId: null,
       staffCheckin: true,
-      status: "published",
+      ...RESENHA_ENTRY,
+      organizerName: input.organizerName,
+      cancellationPolicy: input.cancellationPolicy,
+      status: "draft",
       batches: [{ id: "lista", name: "Lista", price: 0, quantity: null, closed: false }],
       run: null,
     } satisfies EventInput,
@@ -202,7 +236,7 @@ export async function updateEdition(id: string, input: EditionInput): Promise<Re
   const startsAt = new Date(input.startsAt).toISOString();
   const endsAt = isoOrNull(input.endsAt);
   assertDates(startsAt, endsAt);
-  const issued = (await live().listTickets({ eventId: event.id })).filter(isActiveTicket).length;
+  const issued = (await live().listTickets({ eventId: event.id })).filter(isRealActiveTicket).length;
   if (input.capacity !== null && input.capacity < issued) throw new PartnerError(`Já há ${issued} acessos liberados: a lotação não pode ser menor.`, 409);
 
   await updateEvent(event.id, {
@@ -220,6 +254,9 @@ export async function updateEdition(id: string, input: EditionInput): Promise<Re
     minPrxLevel: event.minPrxLevel,
     partnerId: event.partnerId,
     staffCheckin: event.staffCheckin,
+    ...RESENHA_ENTRY,
+    organizerName: input.organizerName || event.organizerName,
+    cancellationPolicy: input.cancellationPolicy || event.cancellationPolicy,
     status: event.status,
     batches: event.batches,
     run: null,
@@ -233,6 +270,11 @@ export async function setEditionStatus(id: string, status: EditionStatus): Promi
   if (status === "draft" && edition.status !== "draft") {
     const requests = await repo().listRequests({ editionId: id });
     if (requests.length > 0) throw new PartnerError("Esta edição já recebeu pedidos: feche a lista em vez de voltar para rascunho.", 409);
+  }
+  if (status !== "draft") {
+    // Abrir a lista publica o evento (portaria e ingressos), conferindo se está completo.
+    const event = await live().getEvent(edition.eventId);
+    if (event?.status === "draft") await setEventStatus(event.id, "published");
   }
   return repo().updateEdition(id, { status });
 }

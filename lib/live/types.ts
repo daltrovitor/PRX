@@ -84,6 +84,17 @@ export interface LiveEvent {
   partnerName: string | null;
   /** A equipe PRX pode validar ingressos deste evento. */
   staffCheckin: boolean;
+  /** Idade mínima para comprar e entrar. null = ainda não definida (não publica); 0 = livre. */
+  minAge: number | null;
+  /** Documento oficial com foto conferido na portaria. */
+  idCheckRequired: boolean;
+  /** Condições de entrada além da idade (texto mostrado antes da compra). */
+  entryRequirements: string;
+  cancellationPolicy: string;
+  organizerName: string;
+  /** Quando o fluxo de portaria foi testado com um ingresso de teste (entrada + bloqueio da 2ª leitura). */
+  doorTestVerifiedAt: string | null;
+  doorTestVerifiedBy: string | null;
   status: EventStatus;
   batches: TicketBatch[];
   run: RunConfig | null;
@@ -134,6 +145,12 @@ export interface LiveTicket {
   checkedInBy: string | null;
   checkedInByRole: ValidatorRole | null;
   checkedInByName: string | null;
+  /** Ingresso de teste (simulação/portaria): não é venda, não ocupa lugar e não libera entrada real. */
+  isTest: boolean;
+  /** Preço do lote antes do desconto; null em ingressos antigos (sem desconto). */
+  originalPrice: number | null;
+  discount: number;
+  promoCodeId: string | null;
 }
 
 export const FOUNDERS_STATUSES = ["sent", "review", "selected", "not_selected"] as const;
@@ -231,6 +248,12 @@ export const eventInputSchema = z
     minPrxLevel: z.coerce.number().int().min(1).max(MAX_GATE_LEVEL).default(1),
     partnerId: z.union([z.string().trim().min(1), z.null()]).default(null),
     staffCheckin: z.boolean().default(true),
+    // null primeiro: z.coerce.number() transformaria null em 0 ("Livre") e liberaria a publicação.
+    minAge: z.union([z.null(), z.coerce.number().int().min(0).max(21)]).default(null),
+    idCheckRequired: z.boolean().default(false),
+    entryRequirements: z.string().trim().max(600).default(""),
+    cancellationPolicy: z.string().trim().max(1500).default(""),
+    organizerName: z.string().trim().max(120).default(""),
     status: z.enum(EVENT_STATUSES).default("draft"),
     batches: z.array(batchSchema).min(1, "Crie ao menos um lote (pode ser gratuito).").max(20),
     run: z.union([runConfigSchema, z.null()]).default(null),

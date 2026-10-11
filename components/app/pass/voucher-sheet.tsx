@@ -2,9 +2,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import QRCode from "qrcode";
-import type { UserVoucher } from "@/lib/pass-data";
+import type { Benefit, UserVoucher } from "@/lib/pass-data";
+import { PassVoucherCard } from "@/components/tickets/pass-voucher-card";
+import { useDynamicPassQr } from "@/components/tickets/use-dynamic-pass-qr";
 import { Button, Sheet, Tag } from "@/components/app/ui";
 import { IconCheck, IconCopy } from "@/components/icons/prx-icons";
 
@@ -51,53 +52,46 @@ export function CopyButton({ value, label = "Copiar" }: { value: string; label?:
   );
 }
 
-export function VoucherSheet({ voucher, onClose }: { voucher: UserVoucher | null; onClose: () => void }) {
-  const qr = useQrDataUrl(voucher?.qrPayload);
+export function VoucherSheet({ voucher, onClose, holderName, benefit }: { voucher: UserVoucher | null; onClose: () => void; holderName: string; benefit?: Benefit | null }) {
+  const qr = useDynamicPassQr(voucher?.status === "valid" ? voucher.code : null, Boolean(voucher && voucher.status === "valid"));
   return (
     <Sheet open={Boolean(voucher)} onClose={onClose} title={voucher?.partnerName ?? "Voucher"} description={voucher?.benefitTitle}>
       {voucher && (
-        <div className="space-y-6">
+        <div className="space-y-5">
           <div className="flex items-center justify-between">
             <span className="text-3xl font-semibold tracking-[-0.035em] text-primary">{voucher.discountLabel}</span>
             {voucher.status === "valid" ? <Tag tone="success">Pronto para usar</Tag> : <Tag>Já utilizado</Tag>}
           </div>
 
-          <div className="mx-auto w-full max-w-[280px] rounded-3xl bg-white p-4 ring-1 ring-line">
-            {qr ? (
-              <Image src={qr} alt={`QR Code do voucher ${voucher.code}`} width={280} height={280} unoptimized className="h-auto w-full" />
-            ) : (
-              <div className="aspect-square w-full rounded-2xl bg-surface" />
-            )}
-          </div>
-
-          <div className="flex items-center justify-between gap-4 rounded-3xl bg-surface p-4">
-            <div>
-              <p className="text-[13px] text-muted-foreground">Código para digitar no caixa</p>
-              <p className="mt-1 font-mono text-lg tracking-[0.12em] text-ink">{voucher.code}</p>
-            </div>
-            <CopyButton value={voucher.code} />
-          </div>
-
-          <p className="text-sm text-muted-foreground">
-            {voucher.status === "valid"
-              ? "Mostre este QR Code ao atendente. Depois da validação o voucher sai da sua lista de ativos."
-              : `Validado no estabelecimento. Resgatado em ${voucher.redeemedAt}.`}
-          </p>
-          {voucher.status === "valid" && voucher.expiresAt && (
-            <p className="text-sm font-medium text-ink">
-              Use até{" "}
-              {new Date(voucher.expiresAt).toLocaleString("pt-BR", {
-                timeZone: "America/Sao_Paulo",
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-              .
-            </p>
+          {voucher.status === "valid" ? (
+            <PassVoucherCard
+              qr={qr}
+              data={{
+                partnerName: voucher.partnerName,
+                partnerLocation: benefit?.partnerLocation,
+                product: voucher.benefitTitle,
+                benefit: voucher.discountLabel,
+                holderName,
+                voucherCode: voucher.code,
+                originalPrice: benefit?.originalPrice ?? null,
+                promotionalPrice: benefit?.promotionalPrice ?? null,
+                expiresAt: voucher.expiresAt ?? null,
+                terms: voucher.terms,
+              }}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">Validado no estabelecimento. Resgatado em {voucher.redeemedAt}.</p>
           )}
-          {voucher.terms && <p className="text-[13px] text-muted-foreground">Regras: {voucher.terms}</p>}
+
+          {voucher.status === "valid" && (
+            <div className="flex items-center justify-between gap-4 rounded-3xl bg-surface p-4">
+              <div>
+                <p className="text-[13px] text-muted-foreground">Código do voucher</p>
+                <p className="mt-1 font-mono text-lg tracking-[0.12em] text-ink">{voucher.code}</p>
+              </div>
+              <CopyButton value={voucher.code} />
+            </div>
+          )}
         </div>
       )}
     </Sheet>

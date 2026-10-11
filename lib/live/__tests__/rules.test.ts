@@ -34,6 +34,13 @@ function event(overrides: Partial<LiveEvent> = {}): LiveEvent {
     partnerId: null,
     partnerName: null,
     staffCheckin: true,
+    minAge: 0,
+    idCheckRequired: false,
+    entryRequirements: "",
+    cancellationPolicy: "",
+    organizerName: "",
+    doorTestVerifiedAt: null,
+    doorTestVerifiedBy: null,
     status: "published",
     batches: [
       { id: "b1", name: "1º lote", price: 49.9, quantity: 2, closed: false },

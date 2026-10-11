@@ -13,6 +13,8 @@ import { IconCard, IconChevronRight, IconExternal, IconPix, IconTicket, IconUser
 import { ThemeToggle } from "@/components/theme-toggle";
 import { levelProgress } from "@/lib/pass-data";
 import { usePointsWallet } from "@/components/app/use-prx-stores";
+import { PwaInstallGuide } from "@/components/app/pwa-install-guide";
+import { promptInstall, usePwaInstall } from "@/lib/pwa-install";
 
 interface ProfileScreenProps {
   pass: PassData;
@@ -88,6 +90,8 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase }: ProfileScreenP
       </section>
 
       <BiometricsCard />
+
+      <InstallAppCard />
 
       <section aria-labelledby="profile-appearance" className="flex items-center justify-between gap-4 rounded-3xl glass p-4 pl-5">
         <h2 id="profile-appearance" className="text-[15px] font-medium text-ink">
@@ -246,5 +250,33 @@ function Row({ children, icon, onClick }: { children: ReactNode; icon: ReactNode
         <IconChevronRight size={18} className="text-muted-foreground" />
       </button>
     </li>
+  );
+}
+
+/** Instalar o PRX na tela inicial: botão nativo quando existe; senão, o passo a passo do aparelho. */
+function InstallAppCard() {
+  const { installed, canPrompt, platform, browser } = usePwaInstall();
+  const [guide, setGuide] = useState(false);
+  if (installed) return null;
+  return (
+    <section aria-labelledby="profile-install" className="flex items-center justify-between gap-4 rounded-3xl glass p-4 pl-5">
+      <div>
+        <h2 id="profile-install" className="text-[15px] font-medium text-ink">
+          App na tela inicial
+        </h2>
+        <p className="text-[13px] text-muted-foreground">Abra o PRX como um app, sem a barra do navegador.</p>
+      </div>
+      <Button
+        size="sm"
+        variant="secondary"
+        className="min-h-12 shrink-0"
+        onClick={async () => {
+          if (!canPrompt || (await promptInstall()) === "unavailable") setGuide(true);
+        }}
+      >
+        Instalar
+      </Button>
+      <PwaInstallGuide open={guide} onClose={() => setGuide(false)} platform={platform} browser={browser} />
+    </section>
   );
 }

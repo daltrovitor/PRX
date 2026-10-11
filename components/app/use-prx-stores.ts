@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import type { BankAccountView } from "@/lib/prx/bank";
-import type { MemberWallet, PublicEvent } from "@/lib/live/service";
+import type { MemberWallet, PublicEvent, TicketQuote } from "@/lib/live/service";
 import type { PointsWallet } from "@/lib/points/types";
 
 /**
@@ -207,7 +207,7 @@ export function useLiveData(userId: string) {
 
   /** Reserva/garante o ingresso; depois recarrega a vitrine (lugares restantes mudaram). */
   const reserve = useCallback(
-    async (input: { eventId: string; batchId: string; run?: unknown }): Promise<ActionResult> => {
+    async (input: { eventId: string; batchId: string; run?: unknown; promoCode?: string; birthDate?: string }): Promise<ActionResult> => {
       const { ok, json } = await postJson("/api/live", { action: "reserve", ...input });
       if (!ok) return failure(json, "Não foi possível garantir o ingresso.");
       if (json.wallet) applyWallet(json.wallet as MemberWallet);
@@ -243,8 +243,17 @@ export function useLiveData(userId: string) {
     [applyWallet]
   );
 
-  return { data, loading, error, reload, reserve, cancel, submitFounders };
+  /** Resumo do pedido calculado no servidor (preço, cupom e regra de idade). */
+  const quote = useCallback(async (input: { eventId: string; batchId: string; promoCode?: string }): Promise<QuoteResult> => {
+    const { ok, json } = await postJson("/api/live", { action: "quote", ...input });
+    if (!ok || !json.quote) return { ok: false, error: typeof json.error === "string" ? json.error : "Não foi possível calcular o valor." };
+    return { ok: true, quote: json.quote as TicketQuote };
+  }, []);
+
+  return { data, loading, error, reload, reserve, cancel, submitFounders, quote };
 }
+
+export type QuoteResult = { ok: true; quote: TicketQuote } | { ok: false; error: string };
 
 /* Preferência de "ocultar saldo" — conveniência por aparelho. */
 const HIDE_KEY = "prx:hide-balance";

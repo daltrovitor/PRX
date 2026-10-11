@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Button, Field, Input, Notice, Segmented, Select, Sheet } from "@/components/app/ui";
+import { Button, Field, Input, Notice, Segmented, Select, Sheet, Textarea } from "@/components/app/ui";
 import type { AdminEditionView, AdminOverview } from "@/lib/resenha/admin";
 import { fromLocalInput, toLocalInput } from "@/lib/live/format";
 import { HOST_ARTICLES, INSIDER_KIND_LABEL, INSIDER_KINDS, type HostArticle, type InsiderKind } from "@/lib/resenha/types";
@@ -16,6 +16,8 @@ export interface EditionPayload {
   city: string;
   address: string;
   capacity: number | null;
+  organizerName: string;
+  cancellationPolicy: string;
 }
 
 export interface InsiderPayload {
@@ -45,6 +47,8 @@ export function EditionSheet({ edition, busy, error, onClose, onSave }: SheetPro
     city: edition?.event.city ?? "",
     address: edition?.event.address ?? "",
     capacity: edition?.event.capacity ? String(edition.event.capacity) : "",
+    organizerName: edition?.event.organizerName ?? "",
+    cancellationPolicy: edition?.event.cancellationPolicy ?? "",
   });
   const [localError, setLocalError] = useState<string | null>(null);
   const set = <K extends keyof typeof draft>(key: K, value: (typeof draft)[K]) => setDraft((prev) => ({ ...prev, [key]: value }));
@@ -56,7 +60,18 @@ export function EditionSheet({ edition, busy, error, onClose, onSave }: SheetPro
     if (!startsAt) return setLocalError("Informe a data e a hora da festa.");
     if (draft.endsAt && !endsAt) return setLocalError("O horário de fim é inválido.");
     setLocalError(null);
-    onSave({ hostName: draft.hostName, hostArticle: draft.hostArticle, startsAt, endsAt, venue: draft.venue, city: draft.city, address: draft.address, capacity: draft.capacity ? Number(draft.capacity) : null });
+    onSave({
+      hostName: draft.hostName,
+      hostArticle: draft.hostArticle,
+      startsAt,
+      endsAt,
+      venue: draft.venue,
+      city: draft.city,
+      address: draft.address,
+      capacity: draft.capacity ? Number(draft.capacity) : null,
+      organizerName: draft.organizerName,
+      cancellationPolicy: draft.cancellationPolicy,
+    });
   }
 
   return (
@@ -99,6 +114,12 @@ export function EditionSheet({ edition, busy, error, onClose, onSave }: SheetPro
         </Field>
         <Field label="Lotação (opcional)" hint="Passou disso, ninguém mais é liberado, mesmo com PASS sobrando." className="sm:col-span-2">
           {(id, describedBy) => <Input id={id} aria-describedby={describedBy} type="number" min={1} inputMode="numeric" value={draft.capacity} onChange={(e) => set("capacity", e.target.value)} />}
+        </Field>
+        <Field label="Organizador" hint="Quem responde pela festa. Obrigatório para abrir a lista." className="sm:col-span-2">
+          {(id, describedBy) => <Input id={id} aria-describedby={describedBy} value={draft.organizerName} maxLength={120} onChange={(e) => set("organizerName", e.target.value)} />}
+        </Field>
+        <Field label="Política de cancelamento" hint="Obrigatória para abrir a lista (mínimo 20 caracteres). Toda Resenha é 18+ com documento com foto." className="sm:col-span-2">
+          {(id, describedBy) => <Textarea id={id} aria-describedby={describedBy} value={draft.cancellationPolicy} maxLength={1500} onChange={(e) => set("cancellationPolicy", e.target.value)} />}
         </Field>
         {(localError || error) && (
           <Notice tone="error" className="sm:col-span-2">

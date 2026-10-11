@@ -123,21 +123,25 @@ export interface InstallSnapshot {
   visible: boolean;
   /** O navegador oferece o prompt nativo de instalação agora. */
   canPrompt: boolean;
+  /** Já instalado ou aberto como app (o Perfil esconde o "Instalar o app"). */
+  installed: boolean;
   platform: InstallPlatform;
   browser: InstallBrowser;
 }
 
-const SERVER_SNAPSHOT: InstallSnapshot = { visible: false, canPrompt: false, platform: "other", browser: "other" };
+const SERVER_SNAPSHOT: InstallSnapshot = { visible: false, canPrompt: false, installed: false, platform: "other", browser: "other" };
 let cached: { version: number; snapshot: InstallSnapshot } | null = null;
 
 function getSnapshot(): InstallSnapshot {
   if (cached && cached.version === version) return cached.snapshot;
   const ua = navigator.userAgent;
   const remembered = readRemembered();
-  const hidden = installedNow || isStandalone() || remembered?.state === "installed" || (remembered?.state === "dismissed" && Date.now() - remembered.at < SNOOZE_MS);
+  const installed = installedNow || isStandalone() || remembered?.state === "installed";
+  const hidden = installed || (remembered?.state === "dismissed" && Date.now() - remembered.at < SNOOZE_MS);
   const snapshot: InstallSnapshot = {
     visible: !hidden,
     canPrompt: deferred !== null,
+    installed,
     platform: detectPlatform(ua, navigator.maxTouchPoints || 0),
     browser: detectBrowser(ua),
   };

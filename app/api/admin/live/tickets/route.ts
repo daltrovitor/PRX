@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { PartnerError } from "@/lib/partners/errors";
 import { errorResponse, readJson, requireAdmin } from "@/lib/partners/http";
+import { recordAdminAction } from "@/lib/admin/audit";
 import { firstIssue } from "@/lib/partners/types";
 import { adminCancelTicket, confirmPayment, eventAttendees, issueInvite } from "@/lib/live/service";
 import { checkinTicket } from "@/lib/validation/tickets";
@@ -43,12 +44,21 @@ export async function POST(req: NextRequest) {
     const body = parsed.data;
 
     switch (body.action) {
-      case "confirm_payment":
-        return NextResponse.json({ success: true, ticket: await confirmPayment(body.ticketId, body.note) }, { headers: NO_STORE });
-      case "cancel":
-        return NextResponse.json({ success: true, ticket: await adminCancelTicket(body.ticketId, body.note) }, { headers: NO_STORE });
-      case "invite":
-        return NextResponse.json({ success: true, ticket: await issueInvite(body.eventId, body, admin.email || admin.sub) }, { status: 201, headers: NO_STORE });
+      case "confirm_payment": {
+        const ticket = await confirmPayment(body.ticketId, body.note);
+        await recordAdminAction(admin, { action: "live.payment_confirmed", targetType: "ticket", targetId: ticket.id, summary: `Pagamento confirmado: ${ticket.code} (R$ ${ticket.price.toFixed(2)})`, meta: { eventId: ticket.eventId } }, req);
+        return NextResponse.json({ success: true, ticket }, { headers: NO_STORE });
+      }
+      case "cancel": {
+        const ticket = await adminCancelTicket(body.ticketId, body.note);
+        await recordAdminAction(admin, { action: "live.ticket_cancelled", targetType: "ticket", targetId: ticket.id, summary: `Ingresso cancelado: ${ticket.code}`, meta: { eventId: ticket.eventId, note: body.note } }, req);
+        return NextResponse.json({ success: true, ticket }, { headers: NO_STORE });
+      }
+      case "invite": {
+        const ticket = await issueInvite(body.eventId, body, admin.email || admin.sub);
+        await recordAdminAction(admin, { action: "live.invite_issued", targetType: "ticket", targetId: ticket.id, summary: `Convite emitido: ${ticket.code}`, meta: { eventId: ticket.eventId } }, req);
+        return NextResponse.json({ success: true, ticket }, { status: 201, headers: NO_STORE });
+      }
       case "checkin": {
         const outcome = await checkinTicket({ role: "admin", userId: admin.sub, name: admin.name || "Admin PRX" }, body.code);
         if (!outcome.ok) return NextResponse.json({ success: false, error: outcome.error, ticket: outcome.ticket }, { status: outcome.status });

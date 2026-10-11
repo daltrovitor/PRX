@@ -6,7 +6,7 @@ import { checkRateLimit } from "@/lib/security";
 import { PartnerError } from "@/lib/partners/errors";
 import { errorResponse, readJson } from "@/lib/partners/http";
 import { firstIssue } from "@/lib/partners/types";
-import { cancelOwnTicket, listPublicEvents, memberWallet, reserveTicket } from "@/lib/live/service";
+import { cancelOwnTicket, listPublicEvents, memberWallet, quoteTicket, reserveTicket } from "@/lib/live/service";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
@@ -22,15 +22,25 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// Só o código do cupom vem do navegador: preço e desconto são sempre calculados no servidor.
+const purchase = {
+  eventId: z.string().min(1).max(100),
+  batchId: z.string().min(1).max(40),
+  promoCode: z.string().max(40).optional(),
+  birthDate: z.string().max(10).optional(),
+};
+
 const schema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("reserve"), eventId: z.string().min(1).max(100), batchId: z.string().min(1).max(40), run: z.unknown().optional() }),
+  z.object({ action: z.literal("quote"), ...purchase }),
+  z.object({ action: z.literal("reserve"), ...purchase, run: z.unknown().optional() }),
   z.object({ action: z.literal("cancel"), ticketId: z.string().min(1).max(100) }),
 ]);
 
 /**
  * POST /api/live
- *   { action: "reserve", eventId, batchId, run? }  gratuito sai válido; pago vira reserva aguardando pagamento
- *   { action: "cancel", ticketId }                 desiste da reserva (ou do ingresso gratuito)
+ *   { action: "quote", eventId, batchId, promoCode? }                resumo: original, desconto, total e a regra de idade
+ *   { action: "reserve", eventId, batchId, promoCode?, birthDate?, run? }  gratuito sai válido; pago vira reserva aguardando pagamento
+ *   { action: "cancel", ticketId }                                  desiste da reserva (ou do ingresso gratuito)
  */
 export async function POST(req: NextRequest) {
   try {
@@ -43,10 +53,14 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) throw new PartnerError(firstIssue(parsed.error), 400);
     const body = parsed.data;
 
+    if (body.action === "quote") {
+      const quote = await quoteTicket(user, { eventId: body.eventId, batchId: body.batchId, promoCode: body.promoCode });
+      return NextResponse.json({ success: true, quote }, { headers: NO_STORE });
+    }
     if (body.action === "cancel") {
       await cancelOwnTicket(user, body.ticketId);
     } else {
-      const ticket = await reserveTicket(user, { eventId: body.eventId, batchId: body.batchId, run: body.run });
+      const ticket = await reserveTicket(user, { eventId: body.eventId, batchId: body.batchId, run: body.run, promoCode: body.promoCode, birthDate: body.birthDate });
       const wallet = await memberWallet(user);
       return NextResponse.json({ success: true, ticket, wallet }, { status: 201, headers: NO_STORE });
     }

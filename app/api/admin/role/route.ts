@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { userStore, verifyAdminRequest } from "@/lib/auth";
+import { recordAdminAction } from "@/lib/admin/audit";
 import { z } from "zod";
 import { errorMessage } from "@/lib/errors";
 
@@ -86,6 +87,10 @@ export async function POST(req: NextRequest) {
         { error: "Usuário não encontrado." },
         { status: 404 }
       );
+    }
+
+    if (auth.adminUser) {
+      await recordAdminAction(auth.adminUser, { action: "member.role_changed", targetType: "user", targetId: String(targetUser?.id ?? emailOrId), summary: `Papel alterado para ${newRole}` }, req);
     }
 
     return NextResponse.json({

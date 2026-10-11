@@ -500,7 +500,10 @@ export function ObsidianDock<T extends string>({
   const phone = density === "phone";
   return (
     <nav aria-label={label} className={className}>
-      <ul className={cn("glass-bar grid grid-cols-5 px-0.5", phone ? "h-[64px] rounded-[24px]" : "h-[70px] rounded-[28px]")}>
+      <ul
+        className={cn("glass-bar grid px-0.5", phone ? "h-[64px] rounded-[24px]" : "h-[70px] rounded-[28px]")}
+        style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
+      >
         {items.map(({ id, label: itemLabel, Icon }) => {
           const isActive = active === id;
           return (

@@ -80,7 +80,7 @@ describe("assertCpfMatchesBirth", () => {
   const check = (fetcher: typeof fetch) => assertCpfMatchesBirth("40442820135", "1970-11-14", "teste", { config: CONFIG, fetcher, now: NOW });
 
   it("passa quando a Receita confere", async () => {
-    await expect(check(fakeSerpro(REGULAR).fetcher)).resolves.toBeUndefined();
+    await expect(check(fakeSerpro(REGULAR).fetcher)).resolves.toBe("verified");
   });
 
   it("nascimento divergente e CPF irregular dão a mesma mensagem genérica (422)", async () => {
@@ -102,7 +102,7 @@ describe("assertCpfMatchesBirth", () => {
 
   it("sem credenciais do Serpro não consulta nem bloqueia", async () => {
     const { fetcher, calls } = fakeSerpro(REGULAR);
-    await expect(assertCpfMatchesBirth("40442820135", "1970-11-14", "teste", { config: null, fetcher })).resolves.toBeUndefined();
+    await expect(assertCpfMatchesBirth("40442820135", "1970-11-14", "teste", { config: null, fetcher })).resolves.toBe("skipped");
     expect(calls).toHaveLength(0);
   });
 });

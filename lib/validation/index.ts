@@ -1,7 +1,9 @@
 // Hello World
 import { parseTicketCode } from "@/lib/live/rules";
 import type { Validator } from "@/lib/validation/actor";
-import { checkinTicket, lookupTicket, ticketHistory, type DoorTicket, type TicketOutcome } from "@/lib/validation/tickets";
+import { PartnerError } from "@/lib/partners/errors";
+import { recordValidation } from "@/lib/validation/log";
+import { checkinTicket, lookupTicket, ticketHistory, type DoorOptions, type DoorTicket, type TicketOutcome } from "@/lib/validation/tickets";
 import { lookupVoucher, redeemVoucher, voucherHistory, type CounterVoucher, type VoucherOutcome } from "@/lib/validation/vouchers";
 
 /**
@@ -17,13 +19,33 @@ export function detectKind(raw: string): ValidationKind {
 
 export type ValidationResult = ({ kind: "ticket" } & TicketOutcome) | ({ kind: "voucher" } & VoucherOutcome);
 
-export async function validateCode(validator: Validator, raw: string, action: "lookup" | "confirm"): Promise<ValidationResult> {
-  if (detectKind(raw) === "ticket") {
-    const outcome = action === "confirm" ? await checkinTicket(validator, raw) : await lookupTicket(validator, raw);
-    return { kind: "ticket", ...outcome };
+export async function validateCode(validator: Validator, raw: string, action: "lookup" | "confirm", options: DoorOptions = {}): Promise<ValidationResult> {
+  const kind = detectKind(raw);
+  try {
+    if (kind === "ticket") {
+      const outcome = action === "confirm" ? await checkinTicket(validator, raw, options) : await lookupTicket(validator, raw, options);
+      return { kind: "ticket", ...outcome };
+    }
+    const outcome = action === "confirm" ? await redeemVoucher(validator, raw) : await lookupVoucher(validator, raw);
+    return { kind: "voucher", ...outcome };
+  } catch (error) {
+    // Código inexistente, de outro evento/estabelecimento ou sem permissão: fica registrado como recusa.
+    if (error instanceof PartnerError && error.status !== 401) {
+      const code = (raw.includes("::") ? (raw.split("::")[1] ?? "") : raw).trim().slice(0, 40);
+      await recordValidation(validator, {
+        kind,
+        action,
+        outcome: "refused",
+        reason: error.message,
+        code: code.toUpperCase(),
+        refId: "",
+        eventId: options.eventId ?? null,
+        partnerId: validator.role === "partner" ? validator.partner.id : null,
+        isTest: false,
+      });
+    }
+    throw error;
   }
-  const outcome = action === "confirm" ? await redeemVoucher(validator, raw) : await lookupVoucher(validator, raw);
-  return { kind: "voucher", ...outcome };
 }
 
 export type HistoryEntry =

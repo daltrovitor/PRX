@@ -21,13 +21,15 @@ beforeEach(() => {
 
 async function setup(options: { quota?: number; capacity?: number | null; status?: "draft" | "open" | "closed" } = {}) {
   const edition = await createEdition(
-    { hostName: "Bia", hostArticle: "da", startsAt: PARTY, endsAt: null, venue: "Casa da Bia", city: "São Paulo, SP", address: "Rua A, 1", capacity: options.capacity ?? null },
+    { hostName: "Bia", hostArticle: "da", startsAt: PARTY, endsAt: null, venue: "Casa da Bia", city: "São Paulo, SP", address: "Rua A, 1", capacity: options.capacity ?? null, ...TEST_POLICY },
     "admin@prx.dev"
   );
   if (options.status !== "draft") await setEditionStatus(edition.id, options.status ?? "open");
   const manu = await addInsider(edition.id, { mode: "create", name: "Manu Silva", email: `manu${uniq()}@exemplo.com`, handle: "manu", kind: "insider", quota: options.quota ?? 2 });
   return { edition, manu, actor: { kind: "insider", insider: manu.insider } satisfies Actor };
 }
+
+const TEST_POLICY = { organizerName: "Organizador de teste", cancellationPolicy: "Política de teste: entrada gratuita, sem reembolso a fazer." };
 
 const guest = (code: string, n: number | string, birthDate = "2000-01-01"): RequestInput => ({
   code,
@@ -58,9 +60,20 @@ describe("edição e evento do PRX LIVE", () => {
     await expect(reserveTicket(member, { eventId: edition.eventId, batchId: "lista" })).rejects.toMatchObject({ status: 409, message: expect.stringContaining("só por lista") });
   });
 
+  it("nasce em rascunho, 18+ com documento, e só publica ao abrir a lista se estiver completa", async () => {
+    const draft = await createEdition(
+      { hostName: "Lu", hostArticle: "da", startsAt: PARTY, endsAt: null, venue: "Casa", city: "SP", address: "", capacity: null, organizerName: "", cancellationPolicy: "" },
+      "admin@prx.dev"
+    );
+    const event = await getLiveRepository().getEvent(draft.eventId);
+    expect(event).toMatchObject({ status: "draft", minAge: 18, idCheckRequired: true });
+    await expect(setEditionStatus(draft.id, "open")).rejects.toMatchObject({ status: 422, message: expect.stringContaining("Organizador") });
+    expect((await getLiveRepository().getEvent(draft.eventId))?.status).toBe("draft");
+  });
+
   it("numera as edições em sequência", async () => {
     await setup();
-    const second = await createEdition({ hostName: "Gabs", hostArticle: "do", startsAt: PARTY, endsAt: null, venue: "Casa", city: "SP", address: "", capacity: null }, "admin@prx.dev");
+    const second = await createEdition({ hostName: "Gabs", hostArticle: "do", startsAt: PARTY, endsAt: null, venue: "Casa", city: "SP", address: "", capacity: null, ...TEST_POLICY }, "admin@prx.dev");
     expect(second).toMatchObject({ number: 2, slug: "002", hostArticle: "do" });
   });
 

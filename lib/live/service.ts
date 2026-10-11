@@ -12,9 +12,16 @@ import {
   eventHasEnded,
   eventHasStarted,
   isActiveTicket,
+  isRealActiveTicket,
   parseRunResults,
+  purchaseCode,
   ticketQrPayload,
 } from "@/lib/live/rules";
+import { ageRatingLabel, checkAgeEligibility } from "@/lib/live/age";
+import { buyerBirthDate, confirmBuyerBirthDate } from "@/lib/live/buyer";
+import { eventReadiness, type EventReadiness } from "@/lib/live/readiness";
+import { promoOverflow, quoteFor, resolvePromo } from "@/lib/live/promo-service";
+import { promoLabel, type PriceQuote, type PromoCode } from "@/lib/live/promo";
 import {
   FOUNDERS_STATUSES,
   LIST_ONLY_SERIES,
@@ -28,6 +35,7 @@ import {
   type LiveEvent,
   type LiveTicket,
   type RunResult,
+  type TicketBatch,
   type StartupStage,
   type TicketStatus,
   type ValidatorRole,
@@ -52,7 +60,7 @@ function ticketCode(series: EventSeries): string {
 }
 
 /** Insere com código único (colisão é rara; tenta de novo). */
-async function insertWithFreshCode(series: EventSeries, ticket: Omit<NewTicket, "code">): Promise<LiveTicket> {
+export async function insertWithFreshCode(series: EventSeries, ticket: Omit<NewTicket, "code">): Promise<LiveTicket> {
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
       return await repo().insertTicket({ ...ticket, code: ticketCode(series) });
@@ -68,7 +76,7 @@ async function insertWithFreshCode(series: EventSeries, ticket: Omit<NewTicket, 
  * RESERVATION_HOLD_HOURS ou quando o evento começa. Expiração preguiçosa,
  * feita sempre que a lista de ingressos do evento é lida.
  */
-async function ticketsWithExpiry(event: LiveEvent): Promise<LiveTicket[]> {
+export async function ticketsWithExpiry(event: LiveEvent): Promise<LiveTicket[]> {
   const tickets = await repo().listTickets({ eventId: event.id });
   const now = Date.now();
   const started = eventHasStarted(event);
@@ -113,6 +121,13 @@ export interface PublicEvent {
   perUserLimit: number;
   minPrxLevel: number;
   partnerName: string | null;
+  /** Idade mínima (null = a definir; 0 = livre) e as condições mostradas antes da compra. */
+  minAge: number | null;
+  ageRating: string;
+  idCheckRequired: boolean;
+  entryRequirements: string;
+  cancellationPolicy: string;
+  organizerName: string;
   status: EventStatus;
   ended: boolean;
   salesOpen: boolean;
@@ -140,6 +155,12 @@ export function toPublicEvent(event: LiveEvent, tickets: ReadonlyArray<Pick<Live
     perUserLimit: event.perUserLimit,
     minPrxLevel: event.minPrxLevel,
     partnerName: event.partnerName,
+    minAge: event.minAge,
+    ageRating: ageRatingLabel(event.minAge),
+    idCheckRequired: event.idCheckRequired,
+    entryRequirements: event.entryRequirements,
+    cancellationPolicy: event.cancellationPolicy,
+    organizerName: event.organizerName,
     status: event.status,
     ended,
     salesOpen,
@@ -160,6 +181,9 @@ export interface MemberTicket {
   batchName: string;
   holderName: string;
   price: number;
+  originalPrice: number | null;
+  discount: number;
+  purchaseCode: string;
   status: TicketStatus;
   source: LiveTicket["source"];
   runDetails: LiveTicket["runDetails"];
@@ -186,6 +210,9 @@ function toMemberTicket(ticket: LiveTicket, event: PublicEvent | null): MemberTi
     batchName: ticket.batchName,
     holderName: ticket.holderName,
     price: ticket.price,
+    originalPrice: ticket.originalPrice,
+    discount: ticket.discount,
+    purchaseCode: purchaseCode(ticket.id),
     status: ticket.status,
     source: ticket.source,
     runDetails: ticket.runDetails,
@@ -235,7 +262,9 @@ export interface MemberWallet {
 }
 
 export async function memberWallet(user: Pick<StoredUser, "id">): Promise<MemberWallet> {
-  const [tickets, submissions] = await Promise.all([repo().listTickets({ userId: user.id }), repo().listSubmissions({ userId: user.id })]);
+  const [allTickets, submissions] = await Promise.all([repo().listTickets({ userId: user.id }), repo().listSubmissions({ userId: user.id })]);
+  // Ingressos de teste (simulação do admin) nunca aparecem na carteira.
+  const tickets = allTickets.filter((t) => !t.isTest);
   const eventIds = [...new Set(tickets.map((t) => t.eventId))];
   const events = new Map<string, PublicEvent>();
   for (const id of eventIds) {
@@ -245,7 +274,7 @@ export async function memberWallet(user: Pick<StoredUser, "id">): Promise<Member
     events.set(id, toPublicEvent(event, eventTickets));
   }
   // Rebusca: a expiração acima pode ter cancelado reservas do próprio membro.
-  const fresh = eventIds.length > 0 ? await repo().listTickets({ userId: user.id }) : tickets;
+  const fresh = eventIds.length > 0 ? (await repo().listTickets({ userId: user.id })).filter((t) => !t.isTest) : tickets;
   return {
     tickets: fresh.map((t) => toMemberTicket(t, events.get(t.eventId) ?? null)),
     submissions: submissions.map(toMemberSubmission),
@@ -256,6 +285,50 @@ export interface ReserveInput {
   eventId: string;
   batchId: string;
   run?: unknown;
+  /** Código do cupom ou do link de divulgação. O valor do desconto nunca vem do navegador. */
+  promoCode?: unknown;
+  /** Data de nascimento confirmada na hora, quando o evento tem idade mínima e a conta ainda não tem a data. */
+  birthDate?: unknown;
+}
+
+export interface TicketQuote extends PriceQuote {
+  promo: { code: string; label: string } | null;
+  age?: { minAge: number | null; needsBirthDate: boolean; eligible: boolean; reason: string | null };
+}
+
+/** A pessoa pode comprar este evento pela idade? Confirma a data de nascimento se ela veio no pedido. */
+async function assertBuyerAge(event: LiveEvent, userId: string, rawBirthDate: unknown): Promise<void> {
+  if (event.minAge === null || event.minAge === 0) return;
+  let birth = await buyerBirthDate(userId);
+  if (!birth.birthDate && rawBirthDate !== undefined && rawBirthDate !== null && rawBirthDate !== "") birth = await confirmBuyerBirthDate(userId, rawBirthDate);
+  const check = checkAgeEligibility(event.minAge, birth.birthDate, event.startsAt);
+  if (!check.ok) throw new PartnerError(check.reason, check.code === "BIRTH_DATE_REQUIRED" ? 422 : 403);
+}
+
+/** O que a tela precisa saber da idade antes de reservar (sem expor a data guardada). */
+async function ageStatus(event: LiveEvent, userId: string): Promise<TicketQuote["age"]> {
+  if (event.minAge === null || event.minAge === 0) return { minAge: event.minAge, needsBirthDate: false, eligible: true, reason: null };
+  const birth = await buyerBirthDate(userId);
+  const check = checkAgeEligibility(event.minAge, birth.birthDate, event.startsAt);
+  return { minAge: event.minAge, needsBirthDate: !birth.birthDate, eligible: check.ok, reason: check.ok ? null : check.reason };
+}
+
+/** Cupom (se houver) e preço final calculados no servidor. */
+export async function priceTicket(event: LiveEvent, batch: TicketBatch, userId: string, rawCode: unknown, test = false): Promise<{ quote: TicketQuote; promo: PromoCode | null }> {
+  const hasCode = typeof rawCode === "string" && rawCode.trim() !== "";
+  const promo = hasCode ? await resolvePromo({ code: rawCode, event, batch, userId, test }) : null;
+  const quote = quoteFor(batch, promo);
+  return { quote: { ...quote, promo: promo ? { code: promo.code, label: promo.label || promoLabel(promo) } : null }, promo };
+}
+
+/** Resumo do pedido antes de reservar: valor original, desconto e total (servidor). */
+export async function quoteTicket(user: StoredUser, input: ReserveInput): Promise<TicketQuote> {
+  const event = await repo().getEvent(input.eventId);
+  if (!event || event.status === "draft") throw new PartnerError("Evento não encontrado.", 404);
+  const batch = event.batches.find((b) => b.id === input.batchId);
+  if (!batch) throw new PartnerError("Lote não encontrado.", 404);
+  const { quote } = await priceTicket(event, batch, user.id, input.promoCode);
+  return { ...quote, age: await ageStatus(event, user.id) };
 }
 
 /**
@@ -272,6 +345,8 @@ export async function reserveTicket(user: StoredUser, input: ReserveInput): Prom
   const memberTickets = eventTickets.filter((t) => t.userId === user.id);
   const check = checkReservation({ event, batchId: input.batchId, eventTickets, memberTickets, memberLevel: user.prxLevel || 1 });
   if (!check.ok) throw new PartnerError(check.reason, 409);
+  await assertBuyerAge(event, user.id, input.birthDate);
+  const { quote, promo } = await priceTicket(event, check.batch, user.id, input.promoCode);
 
   let runDetails: LiveTicket["runDetails"] = null;
   if (event.series === "run") {
@@ -283,7 +358,7 @@ export async function reserveTicket(user: StoredUser, input: ReserveInput): Prom
     runDetails = { modality: parsed.data.modality, category: parsed.data.category, shirtSize: parsed.data.shirtSize, termsAcceptedAt: new Date().toISOString() };
   }
 
-  const free = check.batch.price === 0;
+  const free = quote.total === 0 && check.batch.price === 0;
   const now = new Date().toISOString();
   const ticket = await insertWithFreshCode(event.series, {
     eventId: event.id,
@@ -292,7 +367,12 @@ export async function reserveTicket(user: StoredUser, input: ReserveInput): Prom
     userId: user.id,
     userEmail: user.email.toLowerCase(),
     holderName: user.fullName || "Membro PRX",
-    price: check.batch.price,
+    // Preço final calculado aqui; com desconto de 100% ainda é uma compra (confirmada pela PRX).
+    price: quote.total,
+    originalPrice: promo ? quote.original : null,
+    discount: quote.discount,
+    promoCodeId: promo?.id ?? null,
+    isTest: false,
     status: free ? "valid" : "pending_payment",
     source: free ? "free" : "purchase",
     runDetails,
@@ -307,7 +387,7 @@ export async function reserveTicket(user: StoredUser, input: ReserveInput): Prom
     checkedInByName: null,
   });
 
-  const overflow = await exceedsLimits(event, ticket);
+  const overflow = (await exceedsLimits(event, ticket)) ?? (promo ? await promoOverflow(promo, ticket) : null);
   if (overflow) {
     await repo().deleteTicket(ticket.id);
     throw new PartnerError(overflow, 409);
@@ -329,7 +409,7 @@ async function exceedsLimits(event: LiveEvent, ticket: LiveTicket): Promise<stri
   }
   if (ticket.source !== "invite") {
     const mine = (await repo().listTickets({ eventId: event.id, userId: ticket.userId }))
-      .filter((t) => isActiveTicket(t) && t.source !== "invite")
+      .filter((t) => isRealActiveTicket(t) && t.source !== "invite")
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
     if (mine.findIndex((t) => t.id === ticket.id) >= event.perUserLimit) return "Você já atingiu o limite de ingressos deste evento.";
   }
@@ -402,6 +482,8 @@ export async function liveMissionCounts(userId: string): Promise<{ checkins: num
 
 export interface EventStats {
   total: number;
+  /** Ingressos de teste (simulação/portaria): fora de todas as outras contas. */
+  test: number;
   pending: number;
   valid: number;
   used: number;
@@ -411,12 +493,14 @@ export interface EventStats {
   capacityLeft: number | null;
 }
 
-export function eventStats(event: Pick<LiveEvent, "capacity">, tickets: ReadonlyArray<LiveTicket>): EventStats {
+export function eventStats(event: Pick<LiveEvent, "capacity">, allTickets: ReadonlyArray<LiveTicket>): EventStats {
+  const tickets = allTickets.filter((t) => !t.isTest);
   const by = (status: TicketStatus) => tickets.filter((t) => t.status === status);
   const active = tickets.filter(isActiveTicket).length;
   const sum = (list: LiveTicket[]) => Math.round(list.reduce((acc, t) => acc + t.price, 0) * 100) / 100;
   return {
     total: tickets.length,
+    test: allTickets.length - tickets.length,
     pending: by("pending_payment").length,
     valid: by("valid").length,
     used: by("used").length,
@@ -427,14 +511,14 @@ export function eventStats(event: Pick<LiveEvent, "capacity">, tickets: Readonly
   };
 }
 
-export type AdminEvent = LiveEvent & { stats: EventStats; ended: boolean };
+export type AdminEvent = LiveEvent & { stats: EventStats; ended: boolean; readiness: EventReadiness };
 
 export async function listAdminEvents(): Promise<AdminEvent[]> {
   const events = await repo().listEvents();
   const result: AdminEvent[] = [];
   for (const event of events) {
     const tickets = await ticketsWithExpiry(event);
-    result.push({ ...event, stats: eventStats(event, tickets), ended: eventHasEnded(event) });
+    result.push({ ...event, stats: eventStats(event, tickets), ended: eventHasEnded(event), readiness: eventReadiness(event) });
   }
   return result.sort((a, b) => Number(a.ended) - Number(b.ended) || a.startsAt.localeCompare(b.startsAt));
 }
@@ -447,9 +531,16 @@ async function partnerNameFor(partnerId: string | null): Promise<string | null> 
   return partner.tradeName;
 }
 
+/** Publicar exige os dados que o comprador precisa ver (idade, organizador, cancelamento…). */
+function assertPublishable(event: Parameters<typeof eventReadiness>[0]) {
+  const readiness = eventReadiness(event);
+  if (!readiness.publishable) throw new PartnerError(`Antes de publicar, preencha: ${readiness.missing.join(", ")}.`, 422);
+}
+
 export async function createEvent(input: EventInput, actor: string): Promise<LiveEvent> {
+  if (input.status === "published") assertPublishable({ ...input, doorTestVerifiedAt: null });
   const partnerName = await partnerNameFor(input.partnerId);
-  return repo().insertEvent({ ...input, run: input.series === "run" ? input.run : null, partnerName, createdBy: actor });
+  return repo().insertEvent({ ...input, run: input.series === "run" ? input.run : null, partnerName, createdBy: actor, doorTestVerifiedAt: null, doorTestVerifiedBy: null });
 }
 
 export async function updateEvent(id: string, input: EventInput): Promise<LiveEvent> {
@@ -465,6 +556,7 @@ export async function updateEvent(id: string, input: EventInput): Promise<LiveEv
   }
   const partnerName = input.partnerId === current.partnerId ? current.partnerName : await partnerNameFor(input.partnerId);
   const run = input.series === "run" && input.run ? { ...input.run, results: input.run.results.length > 0 ? input.run.results : (current.run?.results ?? []) } : null;
+  if (current.status === "published") assertPublishable({ ...input, status: current.status, doorTestVerifiedAt: current.doorTestVerifiedAt });
   // O status muda só por setEventStatus, que confere ingressos e cancelamentos.
   return repo().updateEvent(id, { ...input, status: current.status, run, partnerName });
 }
@@ -473,6 +565,7 @@ export async function setEventStatus(id: string, status: EventStatus): Promise<L
   const current = await repo().getEvent(id);
   if (!current) throw new PartnerError("Evento não encontrado.", 404);
   if (current.status === "cancelled" && status !== "cancelled") throw new PartnerError("Evento cancelado não pode ser reaberto. Crie um novo.", 409);
+  if (status === "published" && current.status !== "published") assertPublishable(current);
   if (status === "draft" && current.status === "published") {
     const tickets = await repo().listTickets({ eventId: id });
     if (tickets.some(isActiveTicket)) throw new PartnerError("Já há ingressos para este evento: cancele em vez de despublicar.", 409);
@@ -560,6 +653,10 @@ export async function issueTicketTo(
     userEmail: holder.email,
     holderName: holder.name,
     price: 0,
+    originalPrice: null,
+    discount: 0,
+    promoCodeId: null,
+    isTest: false,
     status: "valid",
     source: "invite",
     runDetails: null,
@@ -588,6 +685,12 @@ export async function issueInvite(eventId: string, input: { email: string; note:
   assertEventTakesTickets(event);
   const member = await findMemberByEmail(input.email);
   if (!member) throw new PartnerError("Nenhum membro PRX com este e-mail. O convidado precisa ter conta no app.", 404);
+  // Convite também respeita a idade do evento. Sem data na conta, a portaria confere o documento.
+  if (event.minAge) {
+    const birth = await buyerBirthDate(member.id);
+    const check = checkAgeEligibility(event.minAge, birth.birthDate, event.startsAt);
+    if (!check.ok && check.code === "UNDER_AGE") throw new PartnerError(`Este membro não tem a idade mínima do evento (${event.minAge} anos).`, 409);
+  }
   return issueTicketTo(event, { userId: member.id, email: member.email, name: member.name }, { batchId: "cortesia", batchName: "Convite PRX", issuedBy: actor, note: input.note });
 }
 
@@ -628,10 +731,13 @@ export function doorName(fullName: string): string {
   return parts.length === 1 ? parts[0] : `${parts[0]} ${parts[parts.length - 1][0]}.`;
 }
 
+/** Na portaria: só contagens de entrada, sem nenhum valor financeiro. */
+export type DoorStats = Pick<EventStats, "total" | "pending" | "valid" | "used" | "capacityLeft">;
+
 export interface DoorEventView {
   event: PublicEvent;
-  stats: EventStats;
-  attendees: Array<{ code: string; name: string; batchName: string; status: TicketStatus; checkedInAt: string | null }>;
+  stats: DoorStats;
+  attendees: Array<{ code: string; name: string; batchName: string; status: TicketStatus; checkedInAt: string | null; isTest: boolean }>;
 }
 
 /**
@@ -651,13 +757,14 @@ export async function listDoorEvents(scope: { partnerId?: string; staffOnly?: bo
     const endsAt = event.endsAt ? new Date(event.endsAt).getTime() : new Date(event.startsAt).getTime() + 12 * 3_600_000;
     if (endsAt < cutoff) continue;
     const tickets = await ticketsWithExpiry(event);
+    const stats = eventStats(event, tickets);
     views.push({
       event: toPublicEvent(event, tickets),
-      stats: eventStats(event, tickets),
+      stats: { total: stats.total, pending: stats.pending, valid: stats.valid, used: stats.used, capacityLeft: stats.capacityLeft },
       attendees: tickets
         .filter((t) => t.status === "valid" || t.status === "used")
-        .sort((a, b) => a.holderName.localeCompare(b.holderName, "pt-BR"))
-        .map((t) => ({ code: t.code, name: scope.fullNames ? t.holderName : doorName(t.holderName), batchName: t.batchName, status: t.status, checkedInAt: t.checkedInAt })),
+        .sort((a, b) => Number(a.isTest) - Number(b.isTest) || a.holderName.localeCompare(b.holderName, "pt-BR"))
+        .map((t) => ({ code: t.code, name: scope.fullNames ? t.holderName : doorName(t.holderName), batchName: t.batchName, status: t.status, checkedInAt: t.checkedInAt, isTest: t.isTest })),
     });
   }
   return views;

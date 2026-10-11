@@ -13,6 +13,7 @@ import {
   IconPass,
   IconQr,
   IconReels,
+  IconRocket,
 } from "@/components/icons/prx-icons";
 import { PrxLogo } from "@/components/brand/prx-logo";
 import { AppNavProvider, useAppNav, type AppTab } from "@/components/app/app-nav";
@@ -28,6 +29,7 @@ import { HomeScreen } from "@/components/app/screens/home-screen";
 import { PassScreen } from "@/components/app/screens/pass-screen";
 import { BankScreen } from "@/components/app/screens/bank-screen";
 import { LiveScreen } from "@/components/app/screens/live-screen";
+import { FoundersScreen } from "@/components/app/screens/founders-screen";
 import { ProfileScreen } from "@/components/app/screens/profile-screen";
 import { CRYSTAL_CORNER, CRYSTAL_HERO, ObsidianBell, ObsidianCrystal, ObsidianDock, type ObsidianDockItem } from "@/components/obsidian/obsidian-ui";
 import { PwaInstallPrompt } from "@/components/app/pwa-install-prompt";
@@ -37,7 +39,7 @@ import { cn } from "@/lib/utils";
 import { calculatePrxLevel } from "@/lib/pass-data";
 
 /**
- * 5 destinos oficiais do PRX (Início, PRX Pass, Destaques, PRX Bank, PRX Live).
+ * 6 destinos oficiais do PRX (Início, PRX Pass, Destaques, PRX Bank, PRX Live, Founders).
  * Perfil, notificações e vouchers ficam fixos no topo do cabeçalho.
  */
 const NAV_ITEMS: ReadonlyArray<ObsidianDockItem<AppTab>> = [
@@ -46,6 +48,7 @@ const NAV_ITEMS: ReadonlyArray<ObsidianDockItem<AppTab>> = [
   { id: "reels", label: "Destaques", Icon: IconReels },
   { id: "bank", label: "PRX Bank", Icon: IconBank },
   { id: "live", label: "PRX Live", Icon: IconLive },
+  { id: "founders", label: "Founders", Icon: IconRocket },
 ];
 
 interface AppShellProps {
@@ -340,6 +343,7 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
                   {tab === "reels" && <ReelsScreen member={member} />}
                   {tab === "bank" && <BankScreen member={member} />}
                   {tab === "live" && <LiveScreen member={member} />}
+                  {tab === "founders" && <FoundersScreen member={member} />}
                   {tab === "profile" && (
                     <ProfileScreen
                       pass={pass}

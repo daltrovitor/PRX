@@ -47,7 +47,7 @@ describe("mapa de domínios", () => {
 
   it("zona prx.app.br: o apex e todos os subdomínios", () => {
     for (const host of ["prx.app.br", "teste.prx.app.br", "admin.prx.app.br", "prx.app.br:443"]) expect(isPrxZoneHost(host)).toBe(true);
-    for (const host of ["app.br", "evilprx.app.br", "prx.app.br.evil.com", "localhost:3100", "teste.prx.app.br"]) expect(isPrxZoneHost(host)).toBe(false);
+    for (const host of ["app.br", "evilprx.app.br", "prx.app.br.evil.com", "localhost:3100", "teste.viraweb.online"]) expect(isPrxZoneHost(host)).toBe(false);
   });
 
   it("o host do app: teste.prx.app.br em produção, o próprio localhost em desenvolvimento", () => {

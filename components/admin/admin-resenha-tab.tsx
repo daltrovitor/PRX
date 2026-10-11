@@ -104,6 +104,15 @@ function EditionCard({
             {event.issued}
             {event.capacity ? ` de ${event.capacity}` : ""} liberados · {event.checkedIn} entraram · {pending} pedidos pendentes
           </p>
+          <p className="text-[13px]">
+            {event.readiness.operational ? (
+              <span className="text-success">Pronto para operar (teste de portaria feito).</span>
+            ) : event.readiness.publishable ? (
+              <span className="text-muted-foreground">Falta o teste de portaria: emita um ingresso de teste em PRX LIVE → Simulação.</span>
+            ) : (
+              <span className="text-destructive">Para abrir a lista, preencha: {event.readiness.missing.join(", ")}.</span>
+            )}
+          </p>
           <p className="break-all pt-1 font-mono text-[12px] text-muted-foreground">/resenha/{edition.slug}</p>
         </div>
         <div className="flex flex-wrap gap-2">

@@ -123,7 +123,10 @@ export function DoorEvents({ endpoint, refreshKey, onValidate, emptyBody }: { en
                     {attendees.map((a) => (
                       <li key={a.code} className="flex items-center justify-between gap-3 py-3">
                         <div className="min-w-0">
-                          <p className="truncate text-[15px] font-medium text-ink">{a.name}</p>
+                          <p className="truncate text-[15px] font-medium text-ink">
+                            {a.name}
+                            {a.isTest ? <span className="ml-2 align-middle text-[11px] font-semibold uppercase tracking-[0.06em] text-destructive">Teste</span> : null}
+                          </p>
                           <p className="font-mono text-[13px] text-muted-foreground">
                             {a.code} · {a.batchName}
                           </p>

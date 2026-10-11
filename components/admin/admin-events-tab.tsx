@@ -23,6 +23,7 @@ import {
   type TicketStatus,
 } from "@/lib/live/types";
 import { VALIDATOR_LABEL } from "@/lib/live/rules";
+import { AGE_OPTIONS, ageRatingLabel } from "@/lib/live/age";
 import { formatDateTime, fromLocalInput, toLocalInput } from "@/lib/live/format";
 
 interface PartnerOption {
@@ -237,6 +238,12 @@ interface EventDraft {
   minPrxLevel: string;
   partnerId: string;
   staffCheckin: boolean;
+  /** "" = a definir (não publica); "0" = livre. */
+  minAge: string;
+  idCheckRequired: boolean;
+  entryRequirements: string;
+  cancellationPolicy: string;
+  organizerName: string;
   batches: BatchDraft[];
   modalities: RunModality[];
   categories: string;
@@ -262,6 +269,11 @@ function draftFrom(event: LiveEvent | null): EventDraft {
       minPrxLevel: "1",
       partnerId: "",
       staffCheckin: true,
+      minAge: "",
+      idCheckRequired: false,
+      entryRequirements: "",
+      cancellationPolicy: "",
+      organizerName: "",
       batches: [{ id: newBatchId(), name: "1º lote", price: "0", quantity: "", closed: false }],
       modalities: ["5k", "10k"],
       categories: DEFAULT_RUN_CATEGORIES.join(", "),
@@ -283,6 +295,11 @@ function draftFrom(event: LiveEvent | null): EventDraft {
     minPrxLevel: String(event.minPrxLevel),
     partnerId: event.partnerId ?? "",
     staffCheckin: event.staffCheckin,
+    minAge: event.minAge === null ? "" : String(event.minAge),
+    idCheckRequired: event.idCheckRequired,
+    entryRequirements: event.entryRequirements,
+    cancellationPolicy: event.cancellationPolicy,
+    organizerName: event.organizerName,
     batches: event.batches.map((b) => ({ id: b.id, name: b.name, price: String(b.price), quantity: b.quantity === null ? "" : String(b.quantity), closed: b.closed })),
     modalities: event.run?.modalities ?? ["5k", "10k"],
     categories: (event.run?.categories ?? DEFAULT_RUN_CATEGORIES).join(", "),
@@ -309,6 +326,11 @@ function payloadFrom(draft: EventDraft, status: EventStatus) {
     minPrxLevel: Number(draft.minPrxLevel) || 1,
     partnerId: draft.partnerId || null,
     staffCheckin: draft.staffCheckin,
+    minAge: draft.minAge === "" ? null : Number(draft.minAge),
+    idCheckRequired: draft.idCheckRequired,
+    entryRequirements: draft.entryRequirements,
+    cancellationPolicy: draft.cancellationPolicy,
+    organizerName: draft.organizerName,
     status,
     batches: draft.batches.map((b) => ({ id: b.id, name: b.name, price: money(b.price), quantity: b.quantity.trim() ? Number(b.quantity) : null, closed: b.closed })),
     run:
@@ -421,6 +443,37 @@ function EventForm({ event, partners, onSaved }: { event: LiveEvent | null; part
       <div className="flex items-end">
         <Checkbox label="Equipe PRX valida ingressos" hint="Funcionários com permissão de ingressos validam pelo portal da Equipe PRX." checked={draft.staffCheckin} onChange={(v) => set("staffCheckin", v)} />
       </div>
+
+      <h3 className={section}>Classificação e condições de entrada</h3>
+      <Field label="Idade mínima" hint="Obrigatória para publicar. Vale na compra (servidor) e na portaria.">
+        {(id, describedBy) => (
+          <Select id={id} aria-describedby={describedBy} value={draft.minAge} onChange={(e) => set("minAge", e.target.value)}>
+            <option value="">A definir</option>
+            {AGE_OPTIONS.map((age) => (
+              <option key={age} value={String(age)}>
+                {ageRatingLabel(age)}
+              </option>
+            ))}
+          </Select>
+        )}
+      </Field>
+      <div className="flex items-end">
+        <Checkbox
+          label="Documento com foto na entrada"
+          hint="Obrigatório quando há idade mínima: a portaria confere o documento e o nome."
+          checked={draft.idCheckRequired}
+          onChange={(v) => set("idCheckRequired", v)}
+        />
+      </div>
+      <Field label="Outras condições de entrada (opcional)" className="sm:col-span-2" hint="Aparece antes da compra e no ingresso.">
+        {(id, describedBy) => <Textarea id={id} aria-describedby={describedBy} value={draft.entryRequirements} maxLength={600} onChange={(e) => set("entryRequirements", e.target.value)} />}
+      </Field>
+      <Field label="Organizador" hint="Quem responde pelo evento. Obrigatório para publicar.">
+        {(id, describedBy) => <Input id={id} aria-describedby={describedBy} value={draft.organizerName} maxLength={120} onChange={(e) => set("organizerName", e.target.value)} />}
+      </Field>
+      <Field label="Política de cancelamento e reembolso" className="sm:col-span-2" hint="Obrigatória para publicar (mínimo 20 caracteres). Aparece antes da compra.">
+        {(id, describedBy) => <Textarea id={id} aria-describedby={describedBy} value={draft.cancellationPolicy} maxLength={1500} onChange={(e) => set("cancellationPolicy", e.target.value)} />}
+      </Field>
 
       <h3 className={section}>Lotação e regras</h3>
       <Field label="Lotação total (opcional)" hint="Vazio: limitado só pelos lotes.">
@@ -604,6 +657,7 @@ function EventDetail({ event, onBack, onEdit, onChanged, onDeleted }: { event: A
   }, [tickets, filter, query]);
 
   const kpis = [
+    { label: "Ingressos de teste", value: String(stats.test ?? 0) },
     { label: "Aguardando pagamento", value: String(stats.pending) },
     { label: "Ingressos válidos", value: String(stats.valid) },
     { label: "Entradas na portaria", value: String(stats.used) },
@@ -666,7 +720,7 @@ function EventDetail({ event, onBack, onEdit, onChanged, onDeleted }: { event: A
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {kpis.map((kpi) => (
           <div key={kpi.label} className="rounded-3xl glass p-5">
             <p className="text-[13px] text-muted-foreground">{kpi.label}</p>
@@ -676,6 +730,8 @@ function EventDetail({ event, onBack, onEdit, onChanged, onDeleted }: { event: A
       </div>
 
       {feedback && <Notice tone={feedback.ok ? "success" : "error"}>{feedback.text}</Notice>}
+
+      <ReadinessPanel event={event} />
 
       {event.status !== "cancelled" && !event.ended && (
         <form onSubmit={(e) => void sendInvite(e)} className="grid gap-4 rounded-3xl glass p-5 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
@@ -735,8 +791,12 @@ function EventDetail({ event, onBack, onEdit, onChanged, onDeleted }: { event: A
                 {shown.map((ticket) => (
                   <tr key={ticket.id} className="align-top">
                     <td className="px-4 py-3">
-                      <p className="font-medium text-ink">{ticket.holderName}</p>
+                      <p className="font-medium text-ink">
+                        {ticket.holderName}
+                        {ticket.isTest && <span className="ml-2 align-middle text-[11px] font-semibold uppercase tracking-[0.06em] text-destructive">Teste</span>}
+                      </p>
                       <p className="text-[13px] text-muted-foreground">{ticket.userEmail}</p>
+                      {ticket.discount > 0 && <p className="text-[13px] text-muted-foreground">Desconto de {formatBRL(ticket.discount)} (cupom)</p>}
                       {ticket.runDetails && (
                         <p className="text-[13px] text-muted-foreground">
                           {ticket.runDetails.modality.toUpperCase()} · {ticket.runDetails.category} · {ticket.runDetails.shirtSize}
@@ -798,6 +858,43 @@ function EventDetail({ event, onBack, onEdit, onChanged, onDeleted }: { event: A
             Publicar resultados
           </Button>
         </form>
+      )}
+    </section>
+  );
+}
+
+/** Prontidão do evento: o que falta para publicar e para operar (teste de portaria). */
+function ReadinessPanel({ event }: { event: AdminEvent }) {
+  const { readiness } = event;
+  return (
+    <section aria-labelledby={`ready-${event.id}`} className="space-y-4 rounded-3xl glass p-5 sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 id={`ready-${event.id}`} className="text-lg font-semibold tracking-[-0.02em] text-ink">
+          Prontidão para o lançamento
+        </h3>
+        <Tag tone={readiness.operational ? "success" : readiness.publishable ? "accent" : "warning"}>
+          {readiness.operational ? "Pronto para operar" : readiness.publishable ? "Publicável · falta o teste de portaria" : "Dados pendentes"}
+        </Tag>
+      </div>
+      <ul className="grid gap-2 sm:grid-cols-2">
+        {readiness.items.map((item) => (
+          <li key={item.key} className="flex items-start gap-3 rounded-2xl bg-surface px-4 py-3">
+            <span aria-hidden className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${item.ok ? "bg-success" : item.blocking ? "bg-destructive" : "bg-[#d97706]"}`} />
+            <span className="min-w-0">
+              <span className="block text-[14px] font-medium text-ink">
+                {item.label}
+                <span className="sr-only">{item.ok ? " (ok)" : item.blocking ? " (pendente, bloqueia a publicação)" : " (atenção)"}</span>
+              </span>
+              <span className="block break-words text-[13px] text-muted-foreground">{item.detail}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      {event.doorTestVerifiedAt && (
+        <p className="text-[13px] text-muted-foreground">
+          Teste de portaria em {formatDateTime(event.doorTestVerifiedAt)}
+          {event.doorTestVerifiedBy ? ` por ${event.doorTestVerifiedBy}` : ""}.
+        </p>
       )}
     </section>
   );

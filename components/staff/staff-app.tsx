@@ -12,6 +12,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useThemeScope } from "@/components/theme-provider";
 import { DoorEvents } from "@/components/validation/door-events";
 import { ValidationSheet, ValidatorPanel, useValidation } from "@/components/validation/validator";
+import { DoorEventPicker } from "@/components/validation/door-event-picker";
 import type { StaffActor } from "@/lib/staff/service";
 
 export type StaffAuthResult = { status: "authenticated"; actor: StaffActor } | { status: "unauthenticated" } | { status: "denied"; message: string };
@@ -79,7 +80,8 @@ type Tab = "validar" | "eventos";
 function StaffDashboard({ actor, onLogout }: { actor: StaffActor; onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>("validar");
   const [isTabChanging, setIsTabChanging] = useState(false);
-  const validation = useValidation();
+  const [doorEvent, setDoorEvent] = useState<string | null>(null);
+  const validation = useValidation(doorEvent);
   const scope = [actor.canValidateTickets ? "ingressos de eventos" : null, actor.canValidateBenefits ? "vouchers de benefícios" : null].filter(Boolean).join(" e ");
 
   const handleTabChange = (newTab: Tab) => {
@@ -130,7 +132,11 @@ function StaffDashboard({ actor, onLogout }: { actor: StaffActor; onLogout: () =
             ) : (
               <>
                 {tab === "validar" || !actor.canValidateTickets ? (
-                  <ValidatorPanel validation={validation} hint={`Leia o QR Code do app do membro ou digite o código. Você valida ${scope}.`} />
+                  <ValidatorPanel
+                    validation={validation}
+                    hint={`Leia o QR Code do app do membro ou digite o código. Você valida ${scope}.`}
+                    header={actor.canValidateTickets ? <DoorEventPicker endpoint="/api/staff/events" value={doorEvent} onChange={setDoorEvent} /> : undefined}
+                  />
                 ) : (
                   <DoorEvents
                     endpoint="/api/staff/events"

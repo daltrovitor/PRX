@@ -2,6 +2,7 @@
 import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { PartnerError, dbError } from "@/lib/partners/errors";
+import { LAUNCH_MIGRATION_HINT, launchSchemaReady } from "@/lib/db-features";
 import {
   EVENT_SERIES,
   EVENT_STATUSES,
@@ -31,6 +32,14 @@ export type NewEvent = Omit<LiveEvent, "id" | "createdAt" | "updatedAt">;
 export type EventPatch = Partial<Omit<LiveEvent, "id" | "createdAt" | "createdBy">>;
 export type NewTicket = Omit<LiveTicket, "id">;
 export type TicketPatch = Partial<Pick<LiveTicket, "status" | "paidAt" | "cancelledAt" | "checkedInAt" | "checkedInBy" | "checkedInByRole" | "checkedInByName" | "note">>;
+export interface TicketFilter {
+  eventId?: string;
+  eventIds?: string[];
+  userId?: string;
+  checkedInBy?: string;
+  promoCodeId?: string;
+  limit?: number;
+}
 export type NewSubmission = Omit<FoundersSubmission, "id" | "createdAt" | "updatedAt">;
 
 export interface LiveRepository {
@@ -41,15 +50,17 @@ export interface LiveRepository {
   updateEvent(id: string, patch: EventPatch): Promise<LiveEvent>;
   deleteEvent(id: string): Promise<void>;
 
-  listTickets(filter: { eventId?: string; eventIds?: string[]; userId?: string; checkedInBy?: string; limit?: number }): Promise<LiveTicket[]>;
+  listTickets(filter: TicketFilter): Promise<LiveTicket[]>;
   getTicket(id: string): Promise<LiveTicket | null>;
   getTicketByCode(code: string): Promise<LiveTicket | null>;
   insertTicket(ticket: NewTicket): Promise<LiveTicket>;
   /** Atualização condicional: só aplica se o status atual estiver em `fromStatuses`. */
   updateTicket(id: string, patch: TicketPatch, fromStatuses: TicketStatus[]): Promise<LiveTicket | null>;
   deleteTicket(id: string): Promise<void>;
-  /** Ids dos N primeiros ingressos ativos (ordem de criação): base do controle de lotação. */
+  /** Ids dos N primeiros ingressos ativos (ordem de criação, sem os de teste): base do controle de lotação. */
   firstActiveTicketIds(eventId: string, limit: number, batchId?: string): Promise<string[]>;
+  /** Ids dos N primeiros ingressos ativos (sem teste) com o cupom, opcionalmente de uma pessoa: limite de uso. */
+  firstPromoTicketIds(promoCodeId: string, limit: number, userId?: string): Promise<string[]>;
 
   listSubmissions(filter?: { userId?: string }): Promise<FoundersSubmission[]>;
   getSubmission(id: string): Promise<FoundersSubmission | null>;
@@ -81,6 +92,13 @@ interface EventRow {
   partner_id: string | null;
   partner_name: string | null;
   staff_checkin: boolean;
+  min_age?: number | null;
+  id_check_required?: boolean | null;
+  entry_requirements?: string | null;
+  cancellation_policy?: string | null;
+  organizer_name?: string | null;
+  door_test_verified_at?: string | null;
+  door_test_verified_by?: string | null;
   status: string;
   batches: unknown;
   run: unknown;
@@ -111,6 +129,10 @@ interface TicketRow {
   checked_in_by: string | null;
   checked_in_by_role: string | null;
   checked_in_by_name: string | null;
+  is_test?: boolean | null;
+  original_price?: number | string | null;
+  discount?: number | string | null;
+  promo_code_id?: string | null;
 }
 
 interface SubmissionRow {
@@ -150,6 +172,13 @@ function mapEvent(r: EventRow): LiveEvent {
     partnerId: r.partner_id,
     partnerName: r.partner_name,
     staffCheckin: r.staff_checkin,
+    minAge: r.min_age ?? null,
+    idCheckRequired: Boolean(r.id_check_required),
+    entryRequirements: r.entry_requirements ?? "",
+    cancellationPolicy: r.cancellation_policy ?? "",
+    organizerName: r.organizer_name ?? "",
+    doorTestVerifiedAt: r.door_test_verified_at ?? null,
+    doorTestVerifiedBy: r.door_test_verified_by ?? null,
     status: oneOf<EventStatus>(EVENT_STATUSES, r.status, "draft"),
     batches: Array.isArray(r.batches) ? (r.batches as TicketBatch[]) : [],
     run: (r.run as RunConfig | null) ?? null,
@@ -176,6 +205,13 @@ function eventToRow(e: EventPatch): Record<string, unknown> {
     partnerId: "partner_id",
     partnerName: "partner_name",
     staffCheckin: "staff_checkin",
+    minAge: "min_age",
+    idCheckRequired: "id_check_required",
+    entryRequirements: "entry_requirements",
+    cancellationPolicy: "cancellation_policy",
+    organizerName: "organizer_name",
+    doorTestVerifiedAt: "door_test_verified_at",
+    doorTestVerifiedBy: "door_test_verified_by",
     status: "status",
     batches: "batches",
     run: "run",
@@ -211,6 +247,10 @@ function mapTicket(r: TicketRow): LiveTicket {
     checkedInBy: r.checked_in_by,
     checkedInByRole: (r.checked_in_by_role as ValidatorRole | null) ?? null,
     checkedInByName: r.checked_in_by_name,
+    isTest: Boolean(r.is_test),
+    originalPrice: r.original_price === null || r.original_price === undefined ? null : Number(r.original_price),
+    discount: Number(r.discount ?? 0),
+    promoCodeId: r.promo_code_id ?? null,
   };
 }
 
@@ -236,6 +276,10 @@ function ticketToRow(t: Partial<LiveTicket>): Record<string, unknown> {
     checkedInBy: "checked_in_by",
     checkedInByRole: "checked_in_by_role",
     checkedInByName: "checked_in_by_name",
+    isTest: "is_test",
+    originalPrice: "original_price",
+    discount: "discount",
+    promoCodeId: "promo_code_id",
   };
   const row: Record<string, unknown> = {};
   for (const [key, column] of Object.entries(map)) {
@@ -271,6 +315,35 @@ function mapSubmission(r: SubmissionRow): FoundersSubmission {
 type SupabaseClient = NonNullable<typeof supabaseAdmin>;
 const FOUNDERS_BUCKET = "founders";
 
+/** Colunas da migração do lançamento e o valor que elas têm quando o recurso não é usado. */
+const LAUNCH_EVENT_DEFAULTS: Record<string, unknown> = {
+  min_age: null,
+  id_check_required: false,
+  entry_requirements: "",
+  cancellation_policy: "",
+  organizer_name: "",
+  door_test_verified_at: null,
+  door_test_verified_by: null,
+};
+const LAUNCH_TICKET_DEFAULTS: Record<string, unknown> = { is_test: false, original_price: null, discount: 0, promo_code_id: null };
+
+/**
+ * Antes da migração do lançamento, grava só as colunas antigas. Se o pedido usa
+ * um recurso novo (idade mínima, teste, cupom), recusa em vez de perder o dado.
+ */
+async function compatRow(row: Record<string, unknown>, defaults: Record<string, unknown>): Promise<Record<string, unknown>> {
+  if (await launchSchemaReady()) return row;
+  const legacy: Record<string, unknown> = {};
+  for (const [column, value] of Object.entries(row)) {
+    if (!(column in defaults)) {
+      legacy[column] = value;
+      continue;
+    }
+    if (value !== undefined && value !== defaults[column]) throw new PartnerError(LAUNCH_MIGRATION_HINT, 503);
+  }
+  return legacy;
+}
+
 class SupabaseLiveRepository implements LiveRepository {
   readonly mode = "supabase" as const;
   constructor(private readonly db: SupabaseClient) {}
@@ -297,7 +370,7 @@ class SupabaseLiveRepository implements LiveRepository {
   async insertEvent(event: NewEvent) {
     const { data, error } = await this.db
       .from("live_events")
-      .insert({ ...eventToRow(event), created_by: event.createdBy })
+      .insert({ ...(await compatRow(eventToRow(event), LAUNCH_EVENT_DEFAULTS)), created_by: event.createdBy })
       .select("*")
       .single();
     if (error) throw dbError(error, "Não foi possível criar o evento");
@@ -307,7 +380,7 @@ class SupabaseLiveRepository implements LiveRepository {
   async updateEvent(id: string, patch: EventPatch) {
     const { data, error } = await this.db
       .from("live_events")
-      .update({ ...eventToRow(patch), updated_at: new Date().toISOString() })
+      .update({ ...(await compatRow(eventToRow(patch), LAUNCH_EVENT_DEFAULTS)), updated_at: new Date().toISOString() })
       .eq("id", id)
       .select("*")
       .maybeSingle();
@@ -321,8 +394,12 @@ class SupabaseLiveRepository implements LiveRepository {
     if (error) throw dbError(error, "Não foi possível excluir o evento");
   }
 
-  async listTickets(filter: { eventId?: string; eventIds?: string[]; userId?: string; checkedInBy?: string; limit?: number }) {
+  async listTickets(filter: TicketFilter) {
     let query = this.db.from("live_tickets").select("*").order("created_at", { ascending: false });
+    if (filter.promoCodeId) {
+      if (!(await launchSchemaReady())) return [];
+      query = query.eq("promo_code_id", filter.promoCodeId);
+    }
     if (filter.eventId) query = query.eq("event_id", filter.eventId);
     if (filter.eventIds) {
       if (filter.eventIds.length === 0) return [];
@@ -355,7 +432,11 @@ class SupabaseLiveRepository implements LiveRepository {
   }
 
   async insertTicket(ticket: NewTicket) {
-    const { data, error } = await this.db.from("live_tickets").insert(ticketToRow(ticket)).select("*").single();
+    const { data, error } = await this.db
+      .from("live_tickets")
+      .insert(await compatRow(ticketToRow(ticket), LAUNCH_TICKET_DEFAULTS))
+      .select("*")
+      .single();
     if (error) throw dbError(error, "Não foi possível emitir o ingresso");
     return mapTicket(data as TicketRow);
   }
@@ -382,8 +463,25 @@ class SupabaseLiveRepository implements LiveRepository {
       .order("id", { ascending: true })
       .limit(limit);
     if (batchId) query = query.eq("batch_id", batchId);
+    if (await launchSchemaReady()) query = query.eq("is_test", false);
     const { data, error } = await query;
     if (error) throw dbError(error, "Não foi possível conferir a lotação");
+    return (data as Array<{ id: string }>).map((r) => r.id);
+  }
+
+  async firstPromoTicketIds(promoCodeId: string, limit: number, userId?: string) {
+    let query = this.db
+      .from("live_tickets")
+      .select("id")
+      .eq("promo_code_id", promoCodeId)
+      .eq("is_test", false)
+      .in("status", ["pending_payment", "valid", "used"])
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .limit(limit);
+    if (userId) query = query.eq("user_id", userId);
+    const { data, error } = await query;
+    if (error) throw dbError(error, "Não foi possível conferir o uso do cupom");
     return (data as Array<{ id: string }>).map((r) => r.id);
   }
 
@@ -505,9 +603,10 @@ class MemoryLiveRepository implements LiveRepository {
     this.state.events = this.state.events.filter((e) => e.id !== id);
   }
 
-  async listTickets(filter: { eventId?: string; eventIds?: string[]; userId?: string; checkedInBy?: string; limit?: number }) {
+  async listTickets(filter: TicketFilter) {
     return clone(
       this.state.tickets
+        .filter((t) => !filter.promoCodeId || t.promoCodeId === filter.promoCodeId)
         .filter((t) => !filter.eventId || t.eventId === filter.eventId)
         .filter((t) => !filter.eventIds || filter.eventIds.includes(t.eventId))
         .filter((t) => !filter.userId || t.userId === filter.userId)
@@ -547,7 +646,15 @@ class MemoryLiveRepository implements LiveRepository {
 
   async firstActiveTicketIds(eventId: string, limit: number, batchId?: string) {
     return this.state.tickets
-      .filter((t) => t.eventId === eventId && (!batchId || t.batchId === batchId) && ["pending_payment", "valid", "used"].includes(t.status))
+      .filter((t) => t.eventId === eventId && !t.isTest && (!batchId || t.batchId === batchId) && ["pending_payment", "valid", "used"].includes(t.status))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
+      .slice(0, limit)
+      .map((t) => t.id);
+  }
+
+  async firstPromoTicketIds(promoCodeId: string, limit: number, userId?: string) {
+    return this.state.tickets
+      .filter((t) => t.promoCodeId === promoCodeId && !t.isTest && (!userId || t.userId === userId) && ["pending_payment", "valid", "used"].includes(t.status))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
       .slice(0, limit)
       .map((t) => t.id);

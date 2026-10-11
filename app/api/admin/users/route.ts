@@ -5,6 +5,7 @@ import { userStore, verifyAdminRequest } from "@/lib/auth";
 import { passStore } from "@/lib/pass-store";
 import { isRegisteredMember } from "@/lib/members";
 import { errorMessage } from "@/lib/errors";
+import { recordAdminAction } from "@/lib/admin/audit";
 import type { AuthUserLike } from "@/lib/db-rows";
 
 export async function GET(req: NextRequest) {
@@ -264,6 +265,14 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json(
         { error: "Usuário não encontrado." },
         { status: 404 }
+      );
+    }
+
+    if (auth.adminUser) {
+      await recordAdminAction(
+        auth.adminUser,
+        { action: "member.updated", targetType: "user", targetId: String(returnUser.id ?? targetKey), summary: `Membro atualizado${role !== undefined ? `: papel ${role}` : ""}${prxScore !== undefined ? ` · XP ${prxScore}` : ""}`, meta: { role, prxScore } },
+        req
       );
     }
 

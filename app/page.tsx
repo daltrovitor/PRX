@@ -1,7 +1,7 @@
 // Hello World
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { RevolutLanding } from "@/components/marketing/revolut-landing";
 import { AppShell } from "@/components/app/app-shell";
 import { QuickLogin } from "@/components/auth/quick-login";
@@ -13,6 +13,7 @@ import { useKnownAccount, type KnownAccount } from "@/lib/known-account";
 import { needsQuickLogin } from "@/lib/lock";
 import { PrxLoader } from "@/components/brand/prx-loader";
 import { useAuth } from "@/hooks/use-auth";
+import { captureLiveLink } from "@/components/app/live/live-link";
 
 export default function HomePage() {
   const { user, loading, logout, unlocked, requiresUnlock, offering } = useAuth();
@@ -32,6 +33,10 @@ export default function HomePage() {
   const checking = !loading && !user && pendingGoogle === undefined;
   const [viewMode, setViewMode] = useState<"app" | "showcase">("app");
   const [introDone, setIntroDone] = useState(false);
+  // Link de divulgação do PRX LIVE: guarda o evento/cupom antes do login (inclusive pelo Google).
+  useEffect(() => {
+    captureLiveLink();
+  }, []);
 
   let content: ReactNode = null;
 

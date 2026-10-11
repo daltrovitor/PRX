@@ -21,6 +21,13 @@ import { AdminWaitlistTab } from "@/components/admin/admin-waitlist-tab";
 import { AdminLegalTab } from "@/components/admin/admin-legal-tab";
 import { AdminNotificationsTab } from "@/components/admin/admin-notifications-tab";
 import { AdminAsaasTab } from "@/components/admin/admin-asaas-tab";
+import { AdminOverview } from "@/components/admin/admin-overview";
+import { AdminPromosTab } from "@/components/admin/admin-promos-tab";
+import { AdminSimulationTab } from "@/components/admin/admin-simulation-tab";
+import { AdminTicketModels } from "@/components/admin/admin-ticket-models";
+import { AdminLogsTab } from "@/components/admin/admin-logs-tab";
+import { AdminFoundersContent } from "@/components/admin/admin-founders-content";
+import type { DirectoryMember } from "@/lib/admin/members";
 import type { LegalMetrics } from "@/lib/legal/checklist-store";
 import type { PartnerOverview } from "@/lib/partners/service";
 import { PrxLogo } from "@/components/brand/prx-logo";
@@ -37,7 +44,112 @@ import type { PointRule } from "@/lib/points/types";
 import type { ViabilityValues } from "@/components/admin/viability-calculator";
 import { behaviorCoinsPerMonth, coinsPerRealFromRules } from "@/lib/points/economics";
 
-type TabKey = "members" | "partners" | "benefits" | "finance" | "points" | "reels" | "missions" | "vouchers" | "events" | "resenha" | "founders" | "staff" | "family" | "waitlist" | "legal" | "notifications" | "asaas";
+type TabKey =
+  | "overview"
+  | "members"
+  | "partners"
+  | "benefits"
+  | "finance"
+  | "points"
+  | "reels"
+  | "missions"
+  | "vouchers"
+  | "events"
+  | "resenha"
+  | "simulation"
+  | "ticketModel"
+  | "voucherModel"
+  | "founders"
+  | "foundersContent"
+  | "promos"
+  | "staff"
+  | "family"
+  | "waitlist"
+  | "legal"
+  | "audit"
+  | "validations"
+  | "notifications"
+  | "asaas";
+
+type ModuleKey = "overview" | "users" | "live" | "pass" | "founders" | "finance" | "marketing" | "team" | "settings";
+
+/** Módulos do painel: cada um com as abas que fazem algo real (nada de seção vazia). */
+const MODULES: ReadonlyArray<{ key: ModuleKey; label: string; tabs: ReadonlyArray<{ key: TabKey; label: string }> }> = [
+  { key: "overview", label: "Visão geral", tabs: [{ key: "overview", label: "Indicadores" }] },
+  {
+    key: "users",
+    label: "Usuários",
+    tabs: [
+      { key: "members", label: "Membros" },
+      { key: "family", label: "Verificações" },
+      { key: "waitlist", label: "Lista de espera" },
+    ],
+  },
+  {
+    key: "live",
+    label: "PRX LIVE",
+    tabs: [
+      { key: "events", label: "Eventos" },
+      { key: "resenha", label: "Resenha" },
+      { key: "simulation", label: "Simulação e portaria" },
+      { key: "ticketModel", label: "Modelo do ingresso" },
+    ],
+  },
+  {
+    key: "pass",
+    label: "PRX PASS",
+    tabs: [
+      { key: "partners", label: "Parceiros" },
+      { key: "benefits", label: "Benefícios" },
+      { key: "vouchers", label: "Vouchers" },
+      { key: "missions", label: "Missões" },
+      { key: "points", label: "Pontos" },
+      { key: "voucherModel", label: "Modelo do voucher" },
+    ],
+  },
+  {
+    key: "founders",
+    label: "PRX Founders",
+    tabs: [
+      { key: "foundersContent", label: "Conteúdo" },
+      { key: "founders", label: "Inscrições" },
+    ],
+  },
+  {
+    key: "finance",
+    label: "Financeiro",
+    tabs: [
+      { key: "finance", label: "Financeiro" },
+      { key: "asaas", label: "Asaas" },
+    ],
+  },
+  {
+    key: "marketing",
+    label: "Marketing",
+    tabs: [
+      { key: "promos", label: "Cupons e links" },
+      { key: "reels", label: "Destaques" },
+      { key: "notifications", label: "Notificações" },
+    ],
+  },
+  { key: "team", label: "Equipe e permissões", tabs: [{ key: "staff", label: "Equipe e portaria" }] },
+  {
+    key: "settings",
+    label: "Configurações e auditoria",
+    tabs: [
+      { key: "legal", label: "Jurídico" },
+      { key: "audit", label: "Auditoria" },
+      { key: "validations", label: "Validações" },
+    ],
+  },
+];
+
+const moduleOf = (tab: TabKey): ModuleKey => MODULES.find((m) => m.tabs.some((t) => t.key === tab))?.key ?? "overview";
+
+/** Contas de parceiro para a aba Parceiros (só as primeiras 100, paginadas no servidor). */
+function asAdminUser(m: DirectoryMember): AdminUser {
+  return { id: m.id, email: m.email, name: m.name, role: m.role, prxScore: m.prxScore, prxLevel: m.prxLevel, walletBalance: 0, bankBalance: m.bankBalance, bankStatus: m.bankStatus, createdAt: m.createdAt, vouchersCount: 0, vouchers: [] };
+}
 
 export interface AdminIdentity {
   name?: string;
@@ -57,7 +169,7 @@ interface AdminData {
   legalOpen?: number;
 }
 
-type AdminResponse = AdminData & { count?: number; metrics?: LegalMetrics };
+type AdminResponse = AdminData & { count?: number; metrics?: LegalMetrics; members?: DirectoryMember[] };
 
 async function fetchAdminIdentity(): Promise<AdminIdentity | null> {
   try {
@@ -73,7 +185,7 @@ async function fetchAdminData(): Promise<AdminData> {
   try {
     const [u, b, m, v, p, r, w, l] = await Promise.all(
       [
-        "/api/admin/users",
+        "/api/admin/members?role=partner&pageSize=100",
         "/api/admin/benefits",
         "/api/admin/missions",
         "/api/admin/vouchers",
@@ -88,7 +200,7 @@ async function fetchAdminData(): Promise<AdminData> {
       )
     );
     return {
-      users: Array.isArray(u.users) ? u.users : undefined,
+      users: Array.isArray(u.members) ? u.members.map(asAdminUser) : undefined,
       benefits: Array.isArray(b.benefits) ? b.benefits : undefined,
       missions: Array.isArray(m.missions) ? m.missions : undefined,
       vouchers: Array.isArray(v.vouchers) ? v.vouchers : undefined,
@@ -110,7 +222,8 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
   useThemeScope("app");
   const [auth, setAuth] = useState<"checking" | "guest" | "admin">(initialAdmin ? "admin" : "guest");
   const [admin, setAdmin] = useState<AdminIdentity | null>(initialAdmin);
-  const [tab, setTab] = useState<TabKey>("members");
+  const [tab, setTab] = useState<TabKey>("overview");
+  const [simPreset, setSimPreset] = useState<{ eventId: string; code: string } | null>(null);
   const [isTabChanging, setIsTabChanging] = useState(false);
 
   const handleTabChange = useCallback((newTab: TabKey) => {
@@ -186,15 +299,18 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
 
   if (auth === "guest") return <AdminLogin onSuccess={checkAuth} />;
 
-  const validVouchers = vouchers.filter((v) => v.status === "valid").length;
   const economy = { coinsPerReal: coinsPerRealFromRules(rules), behaviorCoinsPerMonth: behaviorCoinsPerMonth(rules) };
-  const kpis = [
-    { label: "Membros", value: users.length },
-    { label: "Parceiros ativos", value: partners.filter((p) => p.status === "ATIVO").length },
-    { label: "Benefícios no catálogo", value: benefits.filter((b) => b.partnerId).length },
-    { label: "Vouchers válidos", value: validVouchers },
-    { label: "Vouchers utilizados", value: vouchers.length - validVouchers },
-  ];
+  const activeModule = moduleOf(tab);
+  const moduleTabs = MODULES.find((m) => m.key === activeModule)?.tabs ?? [];
+  const counts: Partial<Record<TabKey, number | undefined>> = {
+    partners: partners.length,
+    benefits: benefits.length,
+    points: rules.length,
+    missions: missions.length,
+    vouchers: vouchers.length,
+    waitlist: waitlistCount,
+    legal: legalOpen,
+  };
 
   return (
     <div className="prx-app relative isolate min-h-dvh overflow-x-clip bg-background text-foreground">
@@ -226,46 +342,38 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
           </Button>
         </div>
 
-        {/* Topo da pirâmide: indicadores */}
-        <section aria-label="Indicadores" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {kpis.map((kpi) => (
-            <div key={kpi.label} className="rounded-3xl glass p-5">
-              <p className="text-[13px] text-muted-foreground">{kpi.label}</p>
-              <p className="mt-2 text-[34px] font-light leading-none tracking-[-0.035em] text-ink [font-feature-settings:'pnum']">{kpi.value}</p>
-            </div>
-          ))}
-        </section>
-
-        <Segmented
-          label="Seções do painel"
-          value={tab}
-          onChange={handleTabChange}
-          options={[
-            { value: "members", label: "Membros", count: users.length },
-            { value: "partners", label: "Parceiros", count: partners.length },
-            { value: "benefits", label: "Benefícios", count: benefits.length },
-            { value: "finance", label: "Financeiro" },
-            { value: "points", label: "Pontos", count: rules.length },
-            { value: "reels", label: "Destaques" },
-            { value: "missions", label: "Missões", count: missions.length },
-            { value: "vouchers", label: "Vouchers", count: vouchers.length },
-            { value: "events", label: "Eventos" },
-            { value: "resenha", label: "Resenha" },
-            { value: "founders", label: "Founders" },
-            { value: "staff", label: "Equipe" },
-            { value: "family", label: "Verificações" },
-            { value: "waitlist", label: "Lista de Espera", count: waitlistCount },
-            { value: "legal", label: "Jurídico", count: legalOpen },
-            { value: "notifications", label: "Notificações" },
-            { value: "asaas", label: "Asaas" },
-          ]}
-        />
+        <nav aria-label="Módulos do painel" className="space-y-3">
+          <Segmented
+            label="Módulos do painel"
+            value={activeModule}
+            onChange={(key) => handleTabChange(MODULES.find((m) => m.key === key)?.tabs[0]?.key ?? "overview")}
+            options={MODULES.map((m) => ({ value: m.key, label: m.label }))}
+          />
+          {moduleTabs.length > 1 && (
+            <Segmented label="Seções do módulo" value={tab} onChange={handleTabChange} options={moduleTabs.map((t) => ({ value: t.key, label: t.label, count: counts[t.key] }))} />
+          )}
+        </nav>
 
         {isTabChanging ? (
           <CircleLoader minHeight={420} label="Carregando janela..." />
         ) : (
           <>
-            {tab === "members" && <AdminMembersTab users={users} onRefresh={loadData} />}
+            {tab === "overview" && <AdminOverview />}
+            {tab === "members" && <AdminMembersTab />}
+            {tab === "simulation" && <AdminSimulationTab key={simPreset ? `${simPreset.eventId}:${simPreset.code}` : "sim"} preset={simPreset} />}
+            {tab === "ticketModel" && <AdminTicketModels kind="live" />}
+            {tab === "voucherModel" && <AdminTicketModels kind="pass" />}
+            {tab === "foundersContent" && <AdminFoundersContent />}
+            {tab === "promos" && (
+              <AdminPromosTab
+                onPreview={(eventId, code) => {
+                  setSimPreset({ eventId, code });
+                  handleTabChange("simulation");
+                }}
+              />
+            )}
+            {tab === "audit" && <AdminLogsTab log="admin" />}
+            {tab === "validations" && <AdminLogsTab key="validations" log="validations" />}
             {tab === "partners" && (
               <AdminPartnersTab partners={partners} benefits={benefits} users={users} onRefresh={loadData} onGoToBenefits={() => handleTabChange("benefits")} />
             )}

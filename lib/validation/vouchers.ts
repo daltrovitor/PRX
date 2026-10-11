@@ -6,6 +6,9 @@ import { getBenefit, isUuid, listBenefitsByPartner, listVouchersForBenefits, typ
 import { PartnerError, dbError, isMissingColumn } from "@/lib/partners/errors";
 import type { Validator } from "@/lib/validation/actor";
 import { rewardVoucherUse } from "@/lib/points/service";
+import { checkRateLimit } from "@/lib/security";
+import { PASS_QR_MESSAGES, parsePassInput, verifyPassInput, type PassQrVerdict } from "@/lib/pass/dynamic-qr";
+import { recordValidation } from "@/lib/validation/log";
 
 /**
  * Baixa de vouchers do PRX PASS no balcão. O parceiro só enxerga vouchers dos
@@ -15,6 +18,8 @@ import { rewardVoucherUse } from "@/lib/points/service";
 
 /** Normaliza o texto digitado ou o conteúdo do QR para o código do voucher. */
 export function extractVoucherCode(input: string): string {
+  const parsed = parsePassInput(input);
+  if (parsed.kind !== "static") return parsed.code;
   const trimmed = input.trim();
   // Payload: PRX_PASS::PRX-1234-5678::Parceiro. NXTGEN_PASS:: é o prefixo legado de antes do rebrand.
   if (trimmed.startsWith("PRX_PASS::") || trimmed.startsWith("NXTGEN_PASS::")) {
@@ -138,43 +143,60 @@ export type VoucherOutcome =
 
 const isExpired = (v: CatalogVoucher) => v.status === "valid" && Boolean(v.expiresAt) && Date.now() > new Date(v.expiresAt as string).getTime();
 
-async function locate(validator: Validator, rawInput: string): Promise<CatalogVoucher> {
+/** Limites contra abuso: leituras por operador e tentativas inválidas por voucher. */
+const VALIDATOR_RATE = { max: 60, windowS: 60 };
+const BAD_PROOF_RATE = { max: 8, windowS: 600 };
+
+async function locate(validator: Validator, rawInput: string): Promise<{ voucher: CatalogVoucher; proof: PassQrVerdict }> {
   if (validator.role === "staff" && !validator.canValidateBenefits) throw new PartnerError("Seu acesso da equipe não inclui validação de benefícios.", 403);
   if (!rawInput.trim()) throw new PartnerError("Informe ou escaneie o código do voucher.", 400);
+  const rate = checkRateLimit(`pass-validate:${validator.userId}`, VALIDATOR_RATE.max, VALIDATOR_RATE.windowS);
+  if (!rate.allowed) throw new PartnerError(`Muitas leituras seguidas. Aguarde ${rate.resetInSeconds}s.`, 429);
   const normalizedCode = extractVoucherCode(rawInput);
   const found = await findVoucher(normalizedCode, rawInput);
   if (!found) throw new PartnerError(`Voucher '${normalizedCode}' não encontrado no sistema. Verifique o código e tente novamente.`, 404);
   await assertCanValidateVoucher(validator, found);
-  return found;
+  const proof = verifyPassInput(parsePassInput(rawInput), { id: found.id, code: found.code, userId: found.userId });
+  if (proof === "invalid") {
+    const bad = checkRateLimit(`pass-bad:${found.code}`, BAD_PROOF_RATE.max, BAD_PROOF_RATE.windowS);
+    if (!bad.allowed) throw new PartnerError("Muitas tentativas inválidas para este voucher. Aguarde 10 minutos e peça ao cliente para abrir o voucher no app.", 429);
+  }
+  return { voucher: found, proof };
 }
 
+const logBase = (v: CatalogVoucher) => ({ kind: "voucher" as const, code: v.code, refId: v.id, eventId: null, partnerId: v.partnerId || null, isTest: false });
+
 export async function lookupVoucher(validator: Validator, rawInput: string): Promise<VoucherOutcome> {
-  const found = await locate(validator, rawInput);
+  const { voucher: found, proof } = await locate(validator, rawInput);
   const expired = isExpired(found);
+  const proofIssue = found.status === "valid" && !expired && proof !== "ok" ? PASS_QR_MESSAGES[proof] : null;
+  const warning =
+    found.status === "used"
+      ? `Atenção: Este voucher já consta como UTILIZADO${found.validatedAt ? ` em ${displayDate(found.validatedAt)}` : ""}.`
+      : expired
+        ? `Voucher expirado em ${displayDate(found.expiresAt)}. O prazo de uso após a aquisição terminou.`
+        : proofIssue;
+  if (warning) await recordValidation(validator, { ...logBase(found), action: "lookup", outcome: "refused", reason: warning });
   return {
     ok: true,
-    canRedeem: found.status === "valid" && !expired,
-    warning:
-      found.status === "used"
-        ? `Atenção: Este voucher já consta como UTILIZADO${found.validatedAt ? ` em ${displayDate(found.validatedAt)}` : ""}.`
-        : expired
-          ? `Voucher expirado em ${displayDate(found.expiresAt)}. O prazo de uso após a aquisição terminou.`
-          : null,
+    canRedeem: found.status === "valid" && !expired && proof === "ok",
+    warning,
     voucher: counterView(found, expired),
   };
 }
 
 export async function redeemVoucher(validator: Validator, rawInput: string): Promise<VoucherOutcome> {
-  const found = await locate(validator, rawInput);
+  const { voucher: found, proof } = await locate(validator, rawInput);
+  const refuse = async (status: 400 | 409, error: string, expired = false): Promise<VoucherOutcome> => {
+    await recordValidation(validator, { ...logBase(found), action: "confirm", outcome: "refused", reason: error });
+    return { ok: false, status, error, voucher: counterView(found, expired) };
+  };
   if (found.status === "used") {
-    return {
-      ok: false,
-      status: 400,
-      error: `Este voucher já foi utilizado anteriormente${found.validatedAt ? ` em ${displayDate(found.validatedAt)}` : ""}.`,
-      voucher: counterView(found, false),
-    };
+    return refuse(400, `Este voucher já foi utilizado anteriormente${found.validatedAt ? ` em ${displayDate(found.validatedAt)}` : ""}.`);
   }
-  if (isExpired(found)) return { ok: false, status: 409, error: `Voucher expirado em ${displayDate(found.expiresAt)}.`, voucher: counterView(found, true) };
+  if (isExpired(found)) return refuse(409, `Voucher expirado em ${displayDate(found.expiresAt)}.`, true);
+  // Sem a prova do momento (QR dinâmico ou 6 dígitos) não há baixa: print antigo ou código copiado não passam.
+  if (proof !== "ok") return refuse(409, PASS_QR_MESSAGES[proof]);
 
   const validatedAt = new Date().toISOString();
   if (supabaseAdmin && isUuid(found.id)) {
@@ -185,7 +207,9 @@ export async function redeemVoucher(validator: Validator, rawInput: string): Pro
     if (result.error && isMissingColumn(result.error)) result = await update({ status: "used", validated_at: validatedAt });
     if (result.error) throw new PartnerError("Não foi possível dar baixa agora. Tente de novo.", 500);
     if (Array.isArray(result.data) && result.data.length === 0) {
-      return { ok: false, status: 409, error: "Este voucher acabou de ser utilizado em outro caixa.", voucher: counterView({ ...found, status: "used" }, false) };
+      const error = "Este voucher acabou de ser utilizado em outro caixa.";
+      await recordValidation(validator, { ...logBase(found), action: "confirm", outcome: "refused", reason: error });
+      return { ok: false, status: 409, error, voucher: counterView({ ...found, status: "used" }, false) };
     }
   }
 
@@ -194,6 +218,7 @@ export async function redeemVoucher(validator: Validator, rawInput: string): Pro
 
   // XP de fidelidade pelo uso no balcão (idempotente pelo voucher; nunca bloqueia a baixa).
   await rewardVoucherUse(found.userId, found.id, `${found.partnerName}: ${found.benefitTitle}`);
+  await recordValidation(validator, { ...logBase(found), action: "confirm", outcome: "accepted", reason: "" });
 
   return {
     ok: true,

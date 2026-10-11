@@ -323,7 +323,12 @@ export function PassScreen({ pass }: { pass: PassData }) {
         )}
       </Sheet>
 
-      <VoucherSheet voucher={openVoucher} onClose={() => setOpenVoucher(null)} />
+      <VoucherSheet
+        voucher={openVoucher}
+        onClose={() => setOpenVoucher(null)}
+        holderName={member.name || "Membro PRX"}
+        benefit={openVoucher ? (benefits.find((b) => b.id === openVoucher.benefitId) ?? null) : null}
+      />
     </div>
   );
 }

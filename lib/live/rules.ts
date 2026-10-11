@@ -30,8 +30,15 @@ export interface BatchAvailability {
   available: boolean;
 }
 
-export function batchAvailability(event: Pick<LiveEvent, "batches" | "capacity">, tickets: ReadonlyArray<Pick<LiveTicket, "batchId" | "status">>): BatchAvailability[] {
-  const active = tickets.filter(isActiveTicket);
+type CountedTicket = Pick<LiveTicket, "batchId" | "status"> & { isTest?: boolean };
+
+/** Ingresso de teste não ocupa lugar nem conta no limite por pessoa. */
+export function isRealActiveTicket(ticket: Pick<LiveTicket, "status"> & { isTest?: boolean }): boolean {
+  return isActiveTicket(ticket) && !ticket.isTest;
+}
+
+export function batchAvailability(event: Pick<LiveEvent, "batches" | "capacity">, tickets: ReadonlyArray<CountedTicket>): BatchAvailability[] {
+  const active = tickets.filter(isRealActiveTicket);
   const capacityLeft = event.capacity === null ? null : Math.max(0, event.capacity - active.length);
   return event.batches.map((batch) => {
     const sold = active.filter((t) => t.batchId === batch.id).length;
@@ -49,8 +56,8 @@ export type ReservationCheck =
 export function checkReservation(input: {
   event: LiveEvent;
   batchId: string;
-  eventTickets: ReadonlyArray<Pick<LiveTicket, "batchId" | "status">>;
-  memberTickets: ReadonlyArray<Pick<LiveTicket, "status">>;
+  eventTickets: ReadonlyArray<CountedTicket>;
+  memberTickets: ReadonlyArray<Pick<LiveTicket, "status"> & { isTest?: boolean }>;
   memberLevel: number;
   now?: Date;
 }): ReservationCheck {
@@ -58,7 +65,7 @@ export function checkReservation(input: {
   if (event.status !== "published") return { ok: false, reason: event.status === "cancelled" ? "Este evento foi cancelado." : "Este evento ainda não está aberto." };
   if (eventHasStarted(event, now)) return { ok: false, reason: "As vendas deste evento já encerraram." };
   if (input.memberLevel < event.minPrxLevel) return { ok: false, reason: `Disponível a partir do nível ${event.minPrxLevel}.` };
-  const mine = input.memberTickets.filter(isActiveTicket).length;
+  const mine = input.memberTickets.filter(isRealActiveTicket).length;
   if (mine >= event.perUserLimit) {
     return { ok: false, reason: event.perUserLimit === 1 ? "Você já tem um ingresso para este evento." : `Limite de ${event.perUserLimit} ingressos por pessoa.` };
   }
@@ -113,6 +120,16 @@ export const VALIDATOR_LABEL: Record<ValidatorRole, string> = { admin: "Admin PR
 
 export function ticketQrPayload(ticket: Pick<LiveTicket, "code" | "eventId">): string {
   return `PRX_LIVE::${ticket.code}::${ticket.eventId}`;
+}
+
+/** Código do pedido mostrado no ingresso e no admin (derivado do id; não é segredo nem autoriza nada). */
+export function purchaseCode(ticketId: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < ticketId.length; i++) {
+    hash ^= ticketId.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return `PED-${hash.toString(36).toUpperCase().padStart(7, "0").slice(-7)}`;
 }
 
 /** Extrai o código de um QR PRX_LIVE ou de um código digitado. */

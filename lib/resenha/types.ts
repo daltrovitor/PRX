@@ -176,6 +176,9 @@ export const editionInputSchema = z.object({
   city: cleanText(120).pipe(z.string().min(2, "Informe a cidade.")),
   address: cleanText(300).default(""),
   capacity: z.union([z.coerce.number().int().min(1).max(100_000), z.null()]).default(null),
+  /** Quem organiza e a política de cancelamento: exigidos para abrir a lista (evento publicado). */
+  organizerName: cleanText(120).default(""),
+  cancellationPolicy: cleanText(1500).default(""),
 });
 export type EditionInput = z.output<typeof editionInputSchema>;
 
