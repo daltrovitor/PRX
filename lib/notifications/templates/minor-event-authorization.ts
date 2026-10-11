@@ -105,7 +105,7 @@ export function renderMinorEventAuthorizationEmail(input: MinorEventAuthorizatio
           <!-- Footer -->
           <tr>
             <td style="padding:20px 32px;border-top:1px solid #1a1824;font-size:11px;color:#5a5a6b;line-height:1.5;">
-              ${escapeHtml(COMPANY.name)} · CNPJ ${escapeHtml(COMPANY.cnpj)}<br>
+              ${escapeHtml(COMPANY.legalName)} · CNPJ ${escapeHtml(COMPANY.cnpj)}<br>
               E-mail enviado automaticamente para ${escapeHtml(input.parentEmail)}.
             </td>
           </tr>
@@ -133,7 +133,7 @@ ${input.organizerName ? `- Organizador: ${input.organizerName}\n` : ""}
 Para autorizar ou recusar a participação, acesse o link seguro:
 ${input.authorizationUrl}
 
-${COMPANY.name} · CNPJ ${COMPANY.cnpj}
+${COMPANY.legalName} · CNPJ ${COMPANY.cnpj}
 `;
 
   return { subject, preheader, html, text };

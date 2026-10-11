@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       await cancelOwnTicket(user, body.ticketId);
     } else if (body.action === "resend_parent_email") {
       const resendResult = await resendGuardianAuthorization(user, body.ticketId);
-      return NextResponse.json({ success: true, ...resendResult }, { headers: NO_STORE });
+      return NextResponse.json({ ...resendResult }, { headers: NO_STORE });
     } else {
       const ticket = await reserveTicket(user, {
         eventId: body.eventId,
