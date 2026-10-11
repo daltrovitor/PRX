@@ -71,12 +71,35 @@ describe("publicação", () => {
 });
 
 describe("idade na compra", () => {
-  it("16 anos tem conta, compra evento livre, mas não compra evento 18+", async () => {
+  it("menor de 18 anos exige e-mail do responsável legal e gera pendência de liberação", async () => {
     const teen = member("2010-05-01");
     const adults = await createEvent(eventInput(), "admin");
-    await expect(reserveTicket(teen, { eventId: adults.id, batchId: "b1" })).rejects.toMatchObject({ status: 403, message: expect.stringContaining("menores de 18") });
+    // Sem e-mail do responsável, reserva é rejeitada com status 422
+    await expect(reserveTicket(teen, { eventId: adults.id, batchId: "b1" })).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining("responsável legal"),
+    });
+    // E-mail igual ao do próprio comprador é recusado
+    await expect(reserveTicket(teen, { eventId: adults.id, batchId: "b1", parentEmail: teen.email })).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining("diferente"),
+    });
+    // Com e-mail do responsável válido, a reserva é concluída com guardianConsent pendente
+    const reserved = await reserveTicket(teen, { eventId: adults.id, batchId: "b1", parentEmail: "pai@exemplo.com" });
+    expect(reserved.guardianConsent).toMatchObject({
+      guardianEmail: "pai@exemplo.com",
+      status: "pending",
+    });
+    expect(reserved.guardianConsent?.token).toBeDefined();
+
+    // Evento gratuito também gera ingresso válido com liberação pendente
     const free = await createEvent(eventInput({ minAge: 0, idCheckRequired: false, batches: [{ id: "g", name: "Grátis", price: 0, quantity: null, closed: false }] }), "admin");
-    await expect(reserveTicket(teen, { eventId: free.id, batchId: "g" })).resolves.toMatchObject({ status: "valid" });
+    const freeTicket = await reserveTicket(teen, { eventId: free.id, batchId: "g", parentEmail: "mae@exemplo.com" });
+    expect(freeTicket.status).toBe("valid");
+    expect(freeTicket.guardianConsent).toMatchObject({
+      guardianEmail: "mae@exemplo.com",
+      status: "pending",
+    });
   });
 
   it("sem data na conta, pede a data e grava a confirmada (sem sobrescrever)", async () => {

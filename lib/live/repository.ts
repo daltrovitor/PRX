@@ -12,6 +12,7 @@ import {
   type EventStatus,
   type FoundersStatus,
   type FoundersSubmission,
+  type GuardianConsent,
   type LiveEvent,
   type LiveTicket,
   type RunConfig,
@@ -31,7 +32,7 @@ import {
 export type NewEvent = Omit<LiveEvent, "id" | "createdAt" | "updatedAt">;
 export type EventPatch = Partial<Omit<LiveEvent, "id" | "createdAt" | "createdBy">>;
 export type NewTicket = Omit<LiveTicket, "id">;
-export type TicketPatch = Partial<Pick<LiveTicket, "status" | "paidAt" | "cancelledAt" | "checkedInAt" | "checkedInBy" | "checkedInByRole" | "checkedInByName" | "note">>;
+export type TicketPatch = Partial<Pick<LiveTicket, "status" | "paidAt" | "cancelledAt" | "checkedInAt" | "checkedInBy" | "checkedInByRole" | "checkedInByName" | "note" | "guardianConsent">>;
 export interface TicketFilter {
   eventId?: string;
   eventIds?: string[];
@@ -53,9 +54,11 @@ export interface LiveRepository {
   listTickets(filter: TicketFilter): Promise<LiveTicket[]>;
   getTicket(id: string): Promise<LiveTicket | null>;
   getTicketByCode(code: string): Promise<LiveTicket | null>;
+  getTicketByGuardianToken(token: string): Promise<LiveTicket | null>;
   insertTicket(ticket: NewTicket): Promise<LiveTicket>;
   /** Atualização condicional: só aplica se o status atual estiver em `fromStatuses`. */
   updateTicket(id: string, patch: TicketPatch, fromStatuses: TicketStatus[]): Promise<LiveTicket | null>;
+  updateGuardianConsent(ticketId: string, consent: GuardianConsent): Promise<LiveTicket | null>;
   deleteTicket(id: string): Promise<void>;
   /** Ids dos N primeiros ingressos ativos (ordem de criação, sem os de teste): base do controle de lotação. */
   firstActiveTicketIds(eventId: string, limit: number, batchId?: string): Promise<string[]>;
@@ -133,6 +136,7 @@ interface TicketRow {
   original_price?: number | string | null;
   discount?: number | string | null;
   promo_code_id?: string | null;
+  guardian_consent?: unknown | null;
 }
 
 interface SubmissionRow {
@@ -224,6 +228,30 @@ function eventToRow(e: EventPatch): Record<string, unknown> {
   return row;
 }
 
+function parseGuardianConsent(r: TicketRow): GuardianConsent | null {
+  if (r.guardian_consent && typeof r.guardian_consent === "object") {
+    return r.guardian_consent as GuardianConsent;
+  }
+  if (typeof r.guardian_consent === "string") {
+    try {
+      return JSON.parse(r.guardian_consent) as GuardianConsent;
+    } catch {
+      // ignore
+    }
+  }
+  if (r.note && r.note.includes("__PRX_GUARDIAN__:")) {
+    try {
+      const match = r.note.match(/__PRX_GUARDIAN__:(\{.*?\})__END__/);
+      if (match && match[1]) {
+        return JSON.parse(match[1]) as GuardianConsent;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return null;
+}
+
 function mapTicket(r: TicketRow): LiveTicket {
   return {
     id: r.id,
@@ -239,7 +267,7 @@ function mapTicket(r: TicketRow): LiveTicket {
     source: r.source === "invite" ? "invite" : r.source === "free" ? "free" : "purchase",
     runDetails: (r.run_details as RunDetails | null) ?? null,
     issuedBy: r.issued_by,
-    note: r.note ?? "",
+    note: (r.note ?? "").replace(/__PRX_GUARDIAN__:\{.*?\}__END__/, "").trim(),
     createdAt: r.created_at,
     paidAt: r.paid_at,
     cancelledAt: r.cancelled_at,
@@ -251,6 +279,7 @@ function mapTicket(r: TicketRow): LiveTicket {
     originalPrice: r.original_price === null || r.original_price === undefined ? null : Number(r.original_price),
     discount: Number(r.discount ?? 0),
     promoCodeId: r.promo_code_id ?? null,
+    guardianConsent: parseGuardianConsent(r),
   };
 }
 
@@ -280,11 +309,16 @@ function ticketToRow(t: Partial<LiveTicket>): Record<string, unknown> {
     originalPrice: "original_price",
     discount: "discount",
     promoCodeId: "promo_code_id",
+    guardianConsent: "guardian_consent",
   };
   const row: Record<string, unknown> = {};
   for (const [key, column] of Object.entries(map)) {
     const value = (t as Record<string, unknown>)[key];
     if (value !== undefined) row[column] = value;
+  }
+  if (t.guardianConsent !== undefined && t.guardianConsent !== null) {
+    const baseNote = ((row.note as string | undefined) ?? (t.note as string | undefined) ?? "").replace(/__PRX_GUARDIAN__:\{.*?\}__END__/, "").trim();
+    row.note = `${baseNote} __PRX_GUARDIAN__:${JSON.stringify(t.guardianConsent)}__END__`.trim();
   }
   return row;
 }
@@ -325,7 +359,7 @@ const LAUNCH_EVENT_DEFAULTS: Record<string, unknown> = {
   door_test_verified_at: null,
   door_test_verified_by: null,
 };
-const LAUNCH_TICKET_DEFAULTS: Record<string, unknown> = { is_test: false, original_price: null, discount: 0, promo_code_id: null };
+const LAUNCH_TICKET_DEFAULTS: Record<string, unknown> = { is_test: false, original_price: null, discount: 0, promo_code_id: null, guardian_consent: null };
 
 /**
  * Antes da migração do lançamento, grava só as colunas antigas. Se o pedido usa
@@ -431,6 +465,13 @@ class SupabaseLiveRepository implements LiveRepository {
     return data ? mapTicket(data as TicketRow) : null;
   }
 
+  async getTicketByGuardianToken(token: string) {
+    const { data, error } = await this.db.from("live_tickets").select("*").ilike("note", `%${token}%`).maybeSingle();
+    if (error || !data) return null;
+    const mapped = mapTicket(data as TicketRow);
+    return mapped.guardianConsent?.token === token ? mapped : null;
+  }
+
   async insertTicket(ticket: NewTicket) {
     const { data, error } = await this.db
       .from("live_tickets")
@@ -446,6 +487,16 @@ class SupabaseLiveRepository implements LiveRepository {
     if (error) throw dbError(error, "Não foi possível atualizar o ingresso");
     const rows = data as TicketRow[];
     return rows.length > 0 ? mapTicket(rows[0]) : null;
+  }
+
+  async updateGuardianConsent(ticketId: string, consent: GuardianConsent) {
+    const current = await this.getTicket(ticketId);
+    if (!current) return null;
+    const cleanNote = current.note.replace(/__PRX_GUARDIAN__:\{.*?\}__END__/, "").trim();
+    const note = `${cleanNote} __PRX_GUARDIAN__:${JSON.stringify(consent)}__END__`.trim();
+    const { data, error } = await this.db.from("live_tickets").update({ note }).eq("id", ticketId).select("*").maybeSingle();
+    if (error || !data) return null;
+    return mapTicket(data as TicketRow);
   }
 
   async deleteTicket(id: string) {
@@ -626,6 +677,11 @@ class MemoryLiveRepository implements LiveRepository {
     return found ? clone(found) : null;
   }
 
+  async getTicketByGuardianToken(token: string) {
+    const found = this.state.tickets.find((t) => t.guardianConsent?.token === token);
+    return found ? clone(found) : null;
+  }
+
   async insertTicket(ticket: NewTicket) {
     if (this.state.tickets.some((t) => t.code === ticket.code)) throw new PartnerError("Código repetido.", 409);
     const created: LiveTicket = { ...clone(ticket), id: newId("tkt") };
@@ -637,6 +693,13 @@ class MemoryLiveRepository implements LiveRepository {
     const index = this.state.tickets.findIndex((t) => t.id === id);
     if (index === -1 || !fromStatuses.includes(this.state.tickets[index].status)) return null;
     this.state.tickets[index] = { ...this.state.tickets[index], ...clone(patch) };
+    return clone(this.state.tickets[index]);
+  }
+
+  async updateGuardianConsent(ticketId: string, consent: GuardianConsent) {
+    const index = this.state.tickets.findIndex((t) => t.id === ticketId);
+    if (index === -1) return null;
+    this.state.tickets[index] = { ...this.state.tickets[index], guardianConsent: clone(consent) };
     return clone(this.state.tickets[index]);
   }
 

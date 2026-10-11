@@ -94,11 +94,20 @@ export function canValidateEvent(actor: CheckinActor, event: Pick<LiveEvent, "pa
 
 export type CheckinVerdict = { ok: true } | { ok: false; reason: string };
 
-export function checkinVerdict(ticket: Pick<LiveTicket, "status" | "checkedInAt">, event: Pick<LiveEvent, "status">): CheckinVerdict {
+export function checkinVerdict(
+  ticket: Pick<LiveTicket, "status" | "checkedInAt"> & { guardianConsent?: LiveTicket["guardianConsent"] },
+  event: Pick<LiveEvent, "status">
+): CheckinVerdict {
   if (event.status === "cancelled") return { ok: false, reason: "Evento cancelado: nenhum ingresso é aceito." };
   if (ticket.status === "pending_payment") return { ok: false, reason: "Pagamento pendente: este ingresso ainda não foi confirmado." };
   if (ticket.status === "cancelled") return { ok: false, reason: "Ingresso cancelado." };
   if (ticket.status === "used") return { ok: false, reason: "Este ingresso já foi utilizado." };
+  if (ticket.guardianConsent?.status === "pending") {
+    return { ok: false, reason: "Entrada não autorizada: liberação do responsável legal pendente." };
+  }
+  if (ticket.guardianConsent?.status === "rejected") {
+    return { ok: false, reason: "Entrada não autorizada: liberação recusada pelo responsável legal." };
+  }
   return { ok: true };
 }
 

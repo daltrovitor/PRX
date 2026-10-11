@@ -116,6 +116,22 @@ export const TICKET_STATUS_LABEL: Record<TicketStatus, string> = {
 export type TicketSource = "purchase" | "free" | "invite";
 export type ValidatorRole = "admin" | "partner" | "staff";
 
+export type GuardianApprovalStatus = "pending" | "approved" | "rejected";
+
+export interface GuardianConsent {
+  guardianEmail: string;
+  status: GuardianApprovalStatus;
+  token: string;
+  guardianName?: string | null;
+  guardianCpf?: string | null;
+  relationship?: string | null;
+  guardianPhone?: string | null;
+  respondedAt?: string | null;
+  rejectionReason?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
+}
+
 export interface RunDetails {
   modality: RunModality;
   category: string;
@@ -151,6 +167,8 @@ export interface LiveTicket {
   originalPrice: number | null;
   discount: number;
   promoCodeId: string | null;
+  /** Liberação/autorização pelo responsável legal quando o comprador é menor de idade. */
+  guardianConsent?: GuardianConsent | null;
 }
 
 export const FOUNDERS_STATUSES = ["sent", "review", "selected", "not_selected"] as const;

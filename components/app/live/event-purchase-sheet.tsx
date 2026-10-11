@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
  * única vez (conferida com o CPF da conta quando possível).
  */
 
-type Reserve = (input: { eventId: string; batchId: string; promoCode?: string; birthDate?: string }) => Promise<ActionResult>;
+type Reserve = (input: { eventId: string; batchId: string; promoCode?: string; birthDate?: string; parentEmail?: string }) => Promise<ActionResult>;
 type Quote = (input: { eventId: string; batchId: string; promoCode?: string }) => Promise<QuoteResult>;
 
 function batchNote(b: PublicBatch): string | null {
@@ -64,6 +64,7 @@ export function EventPurchaseSheet({
   const [summary, setSummary] = useState<TicketQuote | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
   const [birthDate, setBirthDate] = useState("");
+  const [parentEmail, setParentEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -79,6 +80,9 @@ export function EventPurchaseSheet({
       if (result.ok) {
         setSummary(result.quote);
         setPromoError(null);
+        if (result.quote.age?.suggestedParentEmail) {
+          setParentEmail((prev) => prev || result.quote.age?.suggestedParentEmail || "");
+        }
       } else if (appliedCode) {
         // Cupom recusado: volta ao preço cheio e mostra o motivo.
         setPromoError(result.error);
@@ -95,14 +99,24 @@ export function EventPurchaseSheet({
   const age = summary?.age;
   const ageBlocked = Boolean(age && !age.eligible && !age.needsBirthDate);
   const needsBirth = Boolean(age?.needsBirthDate);
+  const requiresParent = Boolean(age?.requiresParentEmail);
   const total = summary?.total ?? batch?.price ?? 0;
 
   async function confirm() {
     if (!event || !batch) return;
     if (needsBirth && !birthDate) return setError("Informe sua data de nascimento para continuar.");
+    if (requiresParent && !parentEmail.trim()) {
+      return setError("Como você é menor de idade, informe o e-mail do seu responsável legal para autorizar a compra.");
+    }
     setBusy(true);
     setError(null);
-    const result = await reserve({ eventId: event.id, batchId: batch.id, promoCode: appliedCode ?? undefined, birthDate: needsBirth ? birthDate : undefined });
+    const result = await reserve({
+      eventId: event.id,
+      batchId: batch.id,
+      promoCode: appliedCode ?? undefined,
+      birthDate: needsBirth ? birthDate : undefined,
+      parentEmail: requiresParent ? parentEmail.trim() : undefined,
+    });
     setBusy(false);
     if (!result.ok) return setError(result.error);
     onDone(batch.price === 0 ? "free" : "reserved");
@@ -219,6 +233,24 @@ export function EventPurchaseSheet({
           {needsBirth && (
             <Field label="Sua data de nascimento" hint={`Este evento é ${event.ageRating}. A data fica na sua conta, é conferida com seu CPF quando possível e não pode ser alterada pelo app.`}>
               {(id, describedBy) => <Input id={id} aria-describedby={describedBy} type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} max={new Date().toISOString().slice(0, 10)} />}
+            </Field>
+          )}
+          {requiresParent && (
+            <Field
+              label="E-mail do seu responsável legal"
+              hint="Como você é menor de idade, seu responsável legal receberá um link seguro por e-mail para autorizar sua entrada no evento (conforme ECA - Lei 8.069/1990)."
+            >
+              {(id, describedBy) => (
+                <Input
+                  id={id}
+                  aria-describedby={describedBy}
+                  type="email"
+                  placeholder="responsavel@email.com"
+                  value={parentEmail}
+                  onChange={(e) => setParentEmail(e.target.value)}
+                  autoComplete="email"
+                />
+              )}
             </Field>
           )}
           {ageBlocked && age?.reason && <Notice tone="error">{age.reason}</Notice>}

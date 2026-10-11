@@ -4,12 +4,22 @@
 import type { PointerEvent } from "react";
 import { motion } from "motion/react";
 import { PrxLogo } from "@/components/brand/prx-logo";
+import { ContactlessIcon, EmbossedMark, EmvChip } from "@/components/app/bank/card-art";
+import { Tagline } from "@/components/marketing/tagline";
 import { cn } from "@/lib/utils";
 
-const cardShell = "prx-holo prx-card-black flex aspect-[1.586/1] w-full select-none flex-col justify-between rounded-[22px] p-5 text-left";
+/**
+ * Arte do cartão PRX: preto fosco, símbolo da marca em relevo, chip, nome do
+ * titular e, no canto, a frase do manifesto sorteada na sessão (a mesma da tela
+ * inicial). Tudo é medido em cqw, a largura do próprio cartão, então a arte
+ * escala inteira. Estilos da superfície: .prx-card-art em globals.css.
+ */
+
+const cardShell = "prx-card-art block aspect-[1.586/1] w-full select-none rounded-[5.4cqw] text-left";
+const light = "font-[family-name:var(--font-light),var(--font-sans)] font-light";
 
 /**
- * A película holográfica acompanha o ponteiro (variáveis CSS, sem re-render).
+ * A película acompanha o ponteiro (variáveis CSS, sem re-render).
  * Sem ponteiro, volta ao repouso: nada se move sozinho.
  */
 function trackHolo(event: PointerEvent<HTMLElement>) {
@@ -24,9 +34,35 @@ function resetHolo(event: PointerEvent<HTMLElement>) {
   event.currentTarget.style.removeProperty("--holo-y");
 }
 
-/** Selo dos cartões PRX enquanto não são emitidos. */
-function SoonBadge() {
-  return <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] ring-1 ring-white/25 backdrop-blur-sm">Em breve</span>;
+/**
+ * Frente do cartão. Só <span>: o PaymentCard é um <button>, que não aceita bloco.
+ * `status` diz a situação ("Em breve": os cartões ainda não são emitidos, então
+ * não há número nem validade inventados).
+ */
+function CardFace({ holder, status }: { holder: string; status: string }) {
+  return (
+    <>
+      <EmbossedMark className="pointer-events-none absolute left-[49.5cqw] top-[5.9cqw] h-auto w-[63.7cqw]" />
+
+      <span className="absolute left-[5.4cqw] top-[5.2cqw] flex items-center gap-[2.6cqw]">
+        <PrxLogo variant="symbol" title="" className="h-[6.6cqw] w-auto text-white" />
+        <span className={cn(light, "text-[3.3cqw] leading-none tracking-[0.5em] text-white/90")}>PRX</span>
+      </span>
+      <span className={cn(light, "absolute right-[5.4cqw] top-[6.2cqw] text-[length:max(9px,2.3cqw)] uppercase leading-none tracking-[0.28em] text-white/55")}>{status}</span>
+
+      <span className="absolute left-[5.4cqw] top-[24.5cqw] flex items-center gap-[2.8cqw]">
+        <EmvChip className="h-[10cqw] w-auto drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]" />
+        <ContactlessIcon className="h-[6.6cqw] w-auto text-white/80" />
+      </span>
+
+      <span className="absolute inset-x-[5.4cqw] bottom-[5.2cqw] flex items-end justify-between gap-[3cqw]">
+        <span className={cn(light, "line-clamp-2 min-w-0 break-words text-[3.3cqw] uppercase leading-[1.3] tracking-[0.2em] text-white/90")}>{holder}</span>
+        <span className={cn(light, "block max-w-[46cqw] shrink-0 text-balance text-right text-[length:max(10px,2.7cqw)] leading-[1.35] tracking-[0.08em] text-white/70")}>
+          <Tagline />
+        </span>
+      </span>
+    </>
+  );
 }
 
 /**
@@ -35,28 +71,20 @@ function SoonBadge() {
  */
 export function PaymentCard({ holder, onClick }: { holder: string; onClick?: () => void }) {
   return (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      whileTap={{ scale: 0.98 }}
-      transition={{ type: "spring", stiffness: 400, damping: 24 }}
-      onPointerMove={trackHolo}
-      onPointerLeave={resetHolo}
-      className={cn(cardShell, "cursor-pointer")}
-      aria-label="Cartão PRX Bank, chega em breve. Abrir cartões"
-    >
-      <span className="flex items-start justify-between">
-        <span className="text-[12px] font-semibold uppercase tracking-[0.06em]">PRX Bank</span>
-        <SoonBadge />
-      </span>
-      <span className="flex items-end justify-between gap-3">
-        <span className="min-w-0">
-          <span className="block truncate text-[13px] font-semibold uppercase tracking-[0.02em]">{holder}</span>
-          <span className="mt-0.5 block text-[11px] font-medium text-white/80">Cartão chega em breve</span>
-        </span>
-        <PrxLogo variant="compact" title="" className="h-7 w-auto shrink-0 text-white" />
-      </span>
-    </motion.button>
+    <div className="@container w-full">
+      <motion.button
+        type="button"
+        onClick={onClick}
+        whileTap={{ scale: 0.98 }}
+        transition={{ type: "spring", stiffness: 400, damping: 24 }}
+        onPointerMove={trackHolo}
+        onPointerLeave={resetHolo}
+        className={cn(cardShell, "cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-primary")}
+        aria-label="Cartão PRX Bank, chega em breve. Abrir cartões"
+      >
+        <CardFace holder={holder} status="Em breve" />
+      </motion.button>
+    </div>
   );
 }
 
@@ -67,34 +95,19 @@ export function PaymentCard({ holder, onClick }: { holder: string; onClick?: () 
  */
 export function CardVisual({ holder, label }: { holder: string; label: string }) {
   return (
-    <motion.div
-      whileHover={{ rotateX: 4, rotateY: -6, y: -2 }}
-      transition={{ type: "spring", stiffness: 300, damping: 24 }}
-      style={{ transformPerspective: 900 }}
-      onPointerMove={trackHolo}
-      onPointerLeave={resetHolo}
-      className={cn(cardShell, "mx-auto max-w-[380px] opacity-80 sm:mx-0")}
-      aria-label={`Cartão ${label.toLowerCase()} PRX, chega em breve`}
-      role="img"
-    >
-      <div className="flex items-start justify-between">
-        <span className="text-[12px] font-semibold uppercase tracking-[0.06em]">PRX Bank · {label}</span>
-        <SoonBadge />
-      </div>
-      <p className="font-mono text-base font-medium tracking-[0.12em] text-white min-[360px]:text-lg sm:text-xl">•••• •••• •••• ••••</p>
-      <div className="flex items-end justify-between gap-3 text-[11px] sm:text-[12px]">
-        <div className="min-w-0">
-          <span className="block font-medium text-white/70">Titular</span>
-          <span className="block truncate font-semibold uppercase">{holder}</span>
-        </div>
-        <div className="flex shrink-0 items-end gap-4 text-right">
-          <div>
-            <span className="block font-medium text-white/70">Validade</span>
-            <span className="block font-mono">••/••</span>
-          </div>
-          <PrxLogo variant="compact" title="" className="h-7 w-auto text-white" />
-        </div>
-      </div>
-    </motion.div>
+    <div className="@container mx-auto w-full max-w-[380px] sm:mx-0">
+      <motion.div
+        whileHover={{ rotateX: 4, rotateY: -6, y: -2 }}
+        transition={{ type: "spring", stiffness: 300, damping: 24 }}
+        style={{ transformPerspective: 900 }}
+        onPointerMove={trackHolo}
+        onPointerLeave={resetHolo}
+        className={cardShell}
+        aria-label={`Cartão ${label.toLowerCase()} PRX, chega em breve`}
+        role="img"
+      >
+        <CardFace holder={holder} status={`${label} · Em breve`} />
+      </motion.div>
+    </div>
   );
 }

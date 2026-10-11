@@ -30,6 +30,9 @@ export interface LiveTicketData {
   originalPrice?: number | null;
   discount?: number;
   statusLabel?: string;
+  guardianStatus?: "pending" | "approved" | "rejected" | null;
+  guardianName?: string | null;
+  guardianEmail?: string | null;
 }
 
 /** Conteúdo do QR do modelo: não segue o formato de ingresso, então nenhuma portaria o aceita. */
@@ -39,13 +42,21 @@ const DATE: Intl.DateTimeFormatOptions = { timeZone: "America/Sao_Paulo", weekda
 const TIME: Intl.DateTimeFormatOptions = { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" };
 
 export function LiveTicketCard({ data, qrPayload, variant = "live" }: { data: LiveTicketData; qrPayload: string | null; variant?: TicketVariant }) {
-  const payload = variant === "illustrative" ? ILLUSTRATIVE_TICKET_QR : qrPayload;
+  const isGuardianPending = data.guardianStatus === "pending";
+  const payload = variant === "illustrative" ? ILLUSTRATIVE_TICKET_QR : isGuardianPending ? null : qrPayload;
   const qr = useQrDataUrl(payload, 320);
   const when = new Date(data.startsAt);
   const notices = [
     "Ingresso pessoal: vale uma única entrada e é conferido na hora pela portaria.",
     data.idCheckRequired ? "Leve documento oficial com foto. O nome precisa conferir com o do ingresso." : null,
     data.ageRating !== "Livre" ? `Classificação: ${data.ageRating}.` : null,
+    data.guardianStatus === "pending"
+      ? "Aguardando liberação do responsável legal (link enviado por e-mail)."
+      : data.guardianStatus === "approved"
+      ? `Liberado pelo responsável legal: ${data.guardianName || "Confirmado"}.`
+      : data.guardianStatus === "rejected"
+      ? "Entrada recusada pelo responsável legal."
+      : null,
     data.entryRequirements && !(data.idCheckRequired && /^documento oficial com foto\.?$/i.test(data.entryRequirements.trim())) ? data.entryRequirements : null,
     "Não compartilhe prints: depois da primeira leitura, o QR deixa de valer.",
   ].filter(Boolean) as string[];

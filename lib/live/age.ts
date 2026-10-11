@@ -2,11 +2,11 @@
 import { ageOn } from "@/lib/family/age";
 
 /**
- * Idade por evento (função pura). A idade mínima para usar o PRX (12 anos) é
- * uma regra da conta; a de cada evento é outra, definida pelo admin no evento
- * e conferida no servidor na compra e, com documento, na portaria.
- * Não há exceção: quem não tem a idade do evento não compra, nem com cupom,
- * convite ou acompanhante (essa possibilidade depende de parecer jurídico).
+ * Idade por evento e política legal para menores de 18 anos.
+ * A idade mínima da conta PRX é 12 anos.
+ * Quando o comprador é menor de idade (< 18 anos):
+ * É obrigatório informar o e-mail do responsável legal, que recebe um link seguro
+ * para assinar a liberação formal do filho(a) ao evento (conforme ECA - Lei 8.069/1990).
  */
 
 /** Faixas da classificação indicativa usadas no Brasil (0 = livre). */
@@ -21,26 +21,57 @@ export function ageRatingLabel(minAge: number | null): string {
 export function ageRatingSentence(minAge: number | null): string {
   if (minAge === null) return "A classificação etária deste evento ainda não foi definida.";
   if (minAge === 0) return "Classificação livre.";
-  return `Proibida a entrada de menores de ${minAge} anos.`;
+  return `Classificação: ${minAge} anos (menores de 18 anos exigem liberação do responsável legal).`;
+}
+
+export function isMinorOn(birthDate: string, referenceDate: Date | string = new Date()): boolean {
+  const ref = typeof referenceDate === "string" ? new Date(referenceDate) : referenceDate;
+  return ageOn(birthDate, ref) < 18;
 }
 
 export type AgeCheck =
-  | { ok: true }
+  | { ok: true; isMinor: boolean; requiresParentEmail: boolean }
   | { ok: false; code: "BIRTH_DATE_REQUIRED" | "UNDER_AGE"; reason: string };
 
 /**
- * A pessoa terá a idade mínima no dia do evento (horário de Brasília)?
- * minAge null = evento antigo sem a regra: não restringe (a prontidão do
- * evento aponta a pendência e impede publicar eventos novos assim).
+ * Avalia se o participante pode comprar o ingresso para o evento.
+ * - Menores de 12 anos não podem comprar.
+ * - Menores de 18 anos (12 a 17 anos) podem adquirir ingressos mediante autorização
+ *   expressa do responsável legal (que recebe o link para liberação formal).
+ * - Maiores de 18 anos adquirem diretamente, respeitada a classificação mínima do evento.
  */
 export function checkAgeEligibility(minAge: number | null, birthDate: string | null, eventStartsAt: string): AgeCheck {
-  if (minAge === null || minAge === 0) return { ok: true };
   if (!birthDate) {
-    return { ok: false, code: "BIRTH_DATE_REQUIRED", reason: `Este evento é para maiores de ${minAge} anos. Confirme sua data de nascimento para continuar.` };
+    if (minAge !== null && minAge > 0) {
+      return {
+        ok: false,
+        code: "BIRTH_DATE_REQUIRED",
+        reason: `Este evento é ${ageRatingLabel(minAge)}. Confirme sua data de nascimento para continuar.`,
+      };
+    }
+    return { ok: true, isMinor: false, requiresParentEmail: false };
   }
+
   const age = ageOn(birthDate, new Date(eventStartsAt));
-  if (age < minAge) {
-    return { ok: false, code: "UNDER_AGE", reason: `Este evento é proibido para menores de ${minAge} anos. Pela sua data de nascimento, a compra não pode ser concluída.` };
+  if (age < 12) {
+    return {
+      ok: false,
+      code: "UNDER_AGE",
+      reason: "O ecossistema PRX é exclusivo para maiores de 12 anos.",
+    };
   }
-  return { ok: true };
+
+  if (age < 18) {
+    return { ok: true, isMinor: true, requiresParentEmail: true };
+  }
+
+  if (minAge !== null && minAge > 18 && age < minAge) {
+    return {
+      ok: false,
+      code: "UNDER_AGE",
+      reason: `Este evento é para maiores de ${minAge} anos. Pela sua data de nascimento, a compra não pode ser concluída.`,
+    };
+  }
+
+  return { ok: true, isMinor: false, requiresParentEmail: false };
 }

@@ -23,8 +23,8 @@ import { PORTAL_ROUTES, PRX_ZONE, portalOfHost } from "./lib/domains";
 const PUBLIC_PAGES = new Set(["/termos", "/termos-qrcode", "/privacidade", "/em-breve", "/sou-pai", "/teste", "/showcase"]);
 /** No domínio de teaser, só o teaser e os documentos legais. */
 const TEASER_PAGES = new Set(["/termos", "/termos-qrcode", "/privacidade"]);
-/** Páginas públicas com subcaminhos: a Resenha (/resenha/001 e /resenha/lista/<token>). */
-const PUBLIC_PREFIXES = ["/resenha/"];
+/** Páginas públicas com subcaminhos: a Resenha (/resenha/001 e /resenha/lista/<token>) e a Autorização de Menores (/autorizacao/<token>). */
+const PUBLIC_PREFIXES = ["/resenha/", "/autorizacao/"];
 const isPublicPrefix = (pathname: string) => PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
 function isTeaserHost(host: string): boolean {

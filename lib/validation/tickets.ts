@@ -45,6 +45,9 @@ export interface DoorTicket {
   ageRating: string;
   idCheckRequired: boolean;
   entryRequirements: string;
+  guardianApproved?: boolean;
+  guardianStatus?: string | null;
+  guardianName?: string | null;
 }
 
 export interface DoorOptions {
@@ -77,6 +80,9 @@ export function doorView(ticket: LiveTicket, event: LiveEvent, validator: Valida
     ageRating: ageRatingLabel(event.minAge),
     idCheckRequired: event.idCheckRequired,
     entryRequirements: event.entryRequirements,
+    guardianApproved: ticket.guardianConsent?.status === "approved",
+    guardianStatus: ticket.guardianConsent?.status ?? null,
+    guardianName: ticket.guardianConsent?.guardianName ?? null,
   };
 }
 

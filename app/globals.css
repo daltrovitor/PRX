@@ -517,6 +517,69 @@ nextjs-portal > *,
       repeating-linear-gradient(100deg, rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 3px);
   }
 
+  /* -------------------------------------------------------------------------
+     Cartão PRX preto (arte do PRX Bank): preto fosco, borda fina de violeta a
+     ciano e um brilho que acompanha o ponteiro (--holo-x/--holo-y, sem
+     re-render). Sem ponteiro fica em repouso: nada se move sozinho.
+     ------------------------------------------------------------------------- */
+  .prx-card-art {
+    --holo-x: 26%;
+    --holo-y: 16%;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    color: #ffffff;
+    background:
+      radial-gradient(120% 90% at 8% 0%, #18181d 0%, transparent 58%),
+      linear-gradient(135deg, #0e0e11 0%, #070709 56%, #0b0b0e 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      inset 14px 0 26px -20px rgba(139, 92, 246, 0.55),
+      inset 0 -14px 26px -20px rgba(37, 99, 235, 0.6),
+      0 24px 44px -24px rgba(0, 0, 0, 0.7);
+  }
+
+  html.dark .prx-card-art {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      inset 14px 0 26px -20px rgba(139, 92, 246, 0.55),
+      inset 0 -14px 26px -20px rgba(37, 99, 235, 0.6),
+      0 26px 48px -26px rgba(37, 99, 235, 0.4);
+  }
+
+  .prx-card-art::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(52% 78% at var(--holo-x) var(--holo-y), rgba(255, 255, 255, 0.13), transparent 64%),
+      linear-gradient(112deg, rgba(255, 255, 255, 0.055) 0%, transparent 34%),
+      repeating-linear-gradient(100deg, rgba(255, 255, 255, 0.022) 0 1px, transparent 1px 3px);
+  }
+
+  /* Borda de 1px: o degradê aparece só no anel (máscara com o miolo recortado). */
+  .prx-card-art::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    padding: 1px;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(104deg, #8b5cf6 0%, #6366f1 22%, #3b82f6 52%, #22b8f0 82%, #38d4f5 100%);
+    opacity: 0.92;
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+  }
+
   /* Metal claro (prata) para blocos de destaque sobre o branco. */
   .prx-metal {
     position: relative;

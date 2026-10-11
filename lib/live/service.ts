@@ -19,6 +19,9 @@ import {
 } from "@/lib/live/rules";
 import { ageRatingLabel, checkAgeEligibility } from "@/lib/live/age";
 import { buyerBirthDate, confirmBuyerBirthDate } from "@/lib/live/buyer";
+import { getFamilyRepository } from "@/lib/family/repository";
+import { isValidCpf } from "@/lib/prx/pix";
+import { sendMinorAuthorizationEmail } from "@/lib/notifications/minor-authorization";
 import { eventReadiness, type EventReadiness } from "@/lib/live/readiness";
 import { promoOverflow, quoteFor, resolvePromo } from "@/lib/live/promo-service";
 import { promoLabel, type PriceQuote, type PromoCode } from "@/lib/live/promo";
@@ -32,6 +35,8 @@ import {
   type EventStatus,
   type FoundersStatus,
   type FoundersSubmission,
+  type GuardianApprovalStatus,
+  type GuardianConsent,
   type LiveEvent,
   type LiveTicket,
   type RunResult,
@@ -193,6 +198,7 @@ export interface MemberTicket {
   checkedInByRole: ValidatorRole | null;
   holdUntil: string | null;
   event: PublicEvent | null;
+  guardianConsent: GuardianConsent | null;
 }
 
 function toMemberTicket(ticket: LiveTicket, event: PublicEvent | null): MemberTicket {
@@ -222,6 +228,7 @@ function toMemberTicket(ticket: LiveTicket, event: PublicEvent | null): MemberTi
     checkedInByRole: ticket.checkedInByRole,
     holdUntil,
     event,
+    guardianConsent: ticket.guardianConsent ?? null,
   };
 }
 
@@ -289,28 +296,87 @@ export interface ReserveInput {
   promoCode?: unknown;
   /** Data de nascimento confirmada na hora, quando o evento tem idade mínima e a conta ainda não tem a data. */
   birthDate?: unknown;
+  /** E-mail do responsável legal quando o comprador for menor de idade (< 18 anos). */
+  parentEmail?: unknown;
 }
 
 export interface TicketQuote extends PriceQuote {
   promo: { code: string; label: string } | null;
-  age?: { minAge: number | null; needsBirthDate: boolean; eligible: boolean; reason: string | null };
+  age?: {
+    minAge: number | null;
+    needsBirthDate: boolean;
+    eligible: boolean;
+    reason: string | null;
+    isMinor: boolean;
+    requiresParentEmail: boolean;
+    suggestedParentEmail?: string | null;
+  };
 }
 
-/** A pessoa pode comprar este evento pela idade? Confirma a data de nascimento se ela veio no pedido. */
-async function assertBuyerAge(event: LiveEvent, userId: string, rawBirthDate: unknown): Promise<void> {
-  if (event.minAge === null || event.minAge === 0) return;
-  let birth = await buyerBirthDate(userId);
-  if (!birth.birthDate && rawBirthDate !== undefined && rawBirthDate !== null && rawBirthDate !== "") birth = await confirmBuyerBirthDate(userId, rawBirthDate);
+/** A pessoa pode comprar este evento pela idade? Se for menor (< 18), exige e valida o e-mail do responsável legal. */
+async function assertBuyerAge(
+  event: LiveEvent,
+  user: StoredUser,
+  rawBirthDate: unknown,
+  rawParentEmail?: unknown
+): Promise<{ isMinor: boolean; parentEmail?: string }> {
+  let birth = await buyerBirthDate(user.id);
+  if (!birth.birthDate && rawBirthDate !== undefined && rawBirthDate !== null && rawBirthDate !== "") {
+    birth = await confirmBuyerBirthDate(user.id, rawBirthDate);
+  }
   const check = checkAgeEligibility(event.minAge, birth.birthDate, event.startsAt);
   if (!check.ok) throw new PartnerError(check.reason, check.code === "BIRTH_DATE_REQUIRED" ? 422 : 403);
+
+  if (check.requiresParentEmail) {
+    let parentEmail = typeof rawParentEmail === "string" ? rawParentEmail.trim().toLowerCase() : "";
+    if (!parentEmail) {
+      try {
+        const links = await getFamilyRepository().listLinksByChild(user.id);
+        const activeLink = links.find((l) => l.status === "active" || l.status === "pending");
+        if (activeLink?.parentEmail) parentEmail = activeLink.parentEmail.toLowerCase();
+      } catch {
+        // ignora
+      }
+    }
+    if (!parentEmail) {
+      throw new PartnerError("Como você é menor de idade, informe o e-mail do seu responsável legal para autorizar sua entrada no evento.", 422);
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(parentEmail)) {
+      throw new PartnerError("E-mail do responsável legal inválido.", 422);
+    }
+    if (parentEmail === user.email.toLowerCase()) {
+      throw new PartnerError("O e-mail do responsável legal deve ser diferente do seu e-mail.", 422);
+    }
+    return { isMinor: true, parentEmail };
+  }
+
+  return { isMinor: false };
 }
 
 /** O que a tela precisa saber da idade antes de reservar (sem expor a data guardada). */
 async function ageStatus(event: LiveEvent, userId: string): Promise<TicketQuote["age"]> {
-  if (event.minAge === null || event.minAge === 0) return { minAge: event.minAge, needsBirthDate: false, eligible: true, reason: null };
   const birth = await buyerBirthDate(userId);
   const check = checkAgeEligibility(event.minAge, birth.birthDate, event.startsAt);
-  return { minAge: event.minAge, needsBirthDate: !birth.birthDate, eligible: check.ok, reason: check.ok ? null : check.reason };
+  let suggestedParentEmail: string | null = null;
+  if (check.ok && check.requiresParentEmail) {
+    try {
+      const links = await getFamilyRepository().listLinksByChild(userId);
+      const activeLink = links.find((l) => l.status === "active" || l.status === "pending");
+      if (activeLink?.parentEmail) suggestedParentEmail = activeLink.parentEmail;
+    } catch {
+      // ignora
+    }
+  }
+  return {
+    minAge: event.minAge,
+    needsBirthDate: !birth.birthDate && event.minAge !== null && event.minAge > 0,
+    eligible: check.ok,
+    reason: check.ok ? null : check.reason,
+    isMinor: check.ok ? check.isMinor : false,
+    requiresParentEmail: check.ok ? check.requiresParentEmail : false,
+    suggestedParentEmail,
+  };
 }
 
 /** Cupom (se houver) e preço final calculados no servidor. */
@@ -335,6 +401,8 @@ export async function quoteTicket(user: StoredUser, input: ReserveInput): Promis
  * Garante o ingresso. Gratuito sai válido na hora; pago vira reserva
  * aguardando pagamento. Lotação e limites são reconferidos depois de inserir,
  * para duas reservas simultâneas do último lugar não passarem as duas.
+ * Se o comprador for menor de idade, emite pendência de liberação do responsável legal
+ * e despacha o e-mail transacional com o link seguro.
  */
 export async function reserveTicket(user: StoredUser, input: ReserveInput): Promise<MemberTicket> {
   const event = await repo().getEvent(input.eventId);
@@ -345,7 +413,7 @@ export async function reserveTicket(user: StoredUser, input: ReserveInput): Prom
   const memberTickets = eventTickets.filter((t) => t.userId === user.id);
   const check = checkReservation({ event, batchId: input.batchId, eventTickets, memberTickets, memberLevel: user.prxLevel || 1 });
   if (!check.ok) throw new PartnerError(check.reason, 409);
-  await assertBuyerAge(event, user.id, input.birthDate);
+  const ageValidation = await assertBuyerAge(event, user, input.birthDate, input.parentEmail);
   const { quote, promo } = await priceTicket(event, check.batch, user.id, input.promoCode);
 
   let runDetails: LiveTicket["runDetails"] = null;
@@ -356,6 +424,16 @@ export async function reserveTicket(user: StoredUser, input: ReserveInput): Prom
     if (!event.run.modalities.includes(parsed.data.modality)) throw new PartnerError("Distância indisponível nesta etapa.", 422);
     if (!event.run.categories.includes(parsed.data.category)) throw new PartnerError("Categoria indisponível nesta etapa.", 422);
     runDetails = { modality: parsed.data.modality, category: parsed.data.category, shirtSize: parsed.data.shirtSize, termsAcceptedAt: new Date().toISOString() };
+  }
+
+  let guardianConsent: GuardianConsent | null = null;
+  if (ageValidation.isMinor && ageValidation.parentEmail) {
+    const guardianToken = crypto.randomBytes(24).toString("hex");
+    guardianConsent = {
+      guardianEmail: ageValidation.parentEmail,
+      status: "pending",
+      token: guardianToken,
+    };
   }
 
   const free = quote.total === 0 && check.batch.price === 0;
@@ -385,12 +463,31 @@ export async function reserveTicket(user: StoredUser, input: ReserveInput): Prom
     checkedInBy: null,
     checkedInByRole: null,
     checkedInByName: null,
+    guardianConsent,
   });
 
   const overflow = (await exceedsLimits(event, ticket)) ?? (promo ? await promoOverflow(promo, ticket) : null);
   if (overflow) {
     await repo().deleteTicket(ticket.id);
     throw new PartnerError(overflow, 409);
+  }
+
+  if (guardianConsent && ageValidation.parentEmail) {
+    void sendMinorAuthorizationEmail({
+      ticketId: ticket.id,
+      childUserId: user.id,
+      childName: user.fullName || "Membro PRX",
+      childEmail: user.email,
+      parentEmail: ageValidation.parentEmail,
+      token: guardianConsent.token,
+      eventTitle: event.title,
+      eventStartsAt: event.startsAt,
+      eventVenue: event.venue,
+      eventCity: event.city,
+      eventAddress: event.address,
+      eventAgeRating: ageRatingLabel(event.minAge),
+      organizerName: event.organizerName,
+    }).catch(() => undefined);
   }
 
   return toMemberTicket(ticket, toPublicEvent(event, [...eventTickets, ticket]));
@@ -427,6 +524,161 @@ export async function cancelOwnTicket(user: Pick<StoredUser, "id">, ticketId: st
   }
   const updated = await repo().updateTicket(ticketId, { status: "cancelled", cancelledAt: new Date().toISOString(), note: "Cancelado pelo membro." }, [ticket.status]);
   if (!updated) throw new PartnerError("O ingresso mudou de situação. Atualize a tela.", 409);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Liberação e Autorização de Menores pelo Responsável Legal                  */
+/* -------------------------------------------------------------------------- */
+
+export interface GuardianAuthorizationView {
+  token: string;
+  status: GuardianApprovalStatus;
+  ticketId: string;
+  ticketCode: string;
+  holderName: string;
+  childEmail: string;
+  parentEmail: string;
+  event: {
+    id: string;
+    title: string;
+    seriesLabel: string;
+    startsAt: string;
+    venue: string;
+    city: string;
+    address: string;
+    ageRating: string;
+    organizerName: string;
+  };
+  consent: GuardianConsent;
+}
+
+export async function getGuardianAuthorization(token: string): Promise<GuardianAuthorizationView> {
+  if (!token || typeof token !== "string") throw new PartnerError("Token de autorização inválido.", 400);
+  const ticket = await repo().getTicketByGuardianToken(token);
+  if (!ticket || !ticket.guardianConsent) {
+    throw new PartnerError("Pedido de autorização não encontrado ou link expirado.", 404);
+  }
+  const event = await repo().getEvent(ticket.eventId);
+  if (!event) throw new PartnerError("Evento não encontrado.", 404);
+
+  return {
+    token,
+    status: ticket.guardianConsent.status,
+    ticketId: ticket.id,
+    ticketCode: ticket.code,
+    holderName: ticket.holderName,
+    childEmail: ticket.userEmail,
+    parentEmail: ticket.guardianConsent.guardianEmail,
+    event: {
+      id: event.id,
+      title: event.title,
+      seriesLabel: SERIES_LABEL[event.series],
+      startsAt: event.startsAt,
+      venue: event.venue,
+      city: event.city,
+      address: event.address,
+      ageRating: ageRatingLabel(event.minAge),
+      organizerName: event.organizerName,
+    },
+    consent: ticket.guardianConsent,
+  };
+}
+
+export async function respondGuardianAuthorization(
+  token: string,
+  input: {
+    action: "approve" | "reject";
+    guardianName?: string;
+    guardianCpf?: string;
+    relationship?: string;
+    guardianPhone?: string;
+    rejectionReason?: string;
+  },
+  meta: { ip?: string; userAgent?: string } = {}
+): Promise<GuardianAuthorizationView> {
+  const current = await getGuardianAuthorization(token);
+  if (current.status !== "pending") {
+    throw new PartnerError(`Esta autorização já foi ${current.status === "approved" ? "concedida" : "recusada"}.`, 409);
+  }
+
+  const now = new Date().toISOString();
+  let updatedConsent: GuardianConsent;
+
+  if (input.action === "reject") {
+    updatedConsent = {
+      ...current.consent,
+      status: "rejected",
+      respondedAt: now,
+      rejectionReason: input.rejectionReason?.slice(0, 300) || "Recusado pelo responsável legal.",
+      ip: meta.ip ?? null,
+      userAgent: meta.userAgent ?? null,
+    };
+  } else {
+    const guardianName = (input.guardianName || "").trim();
+    if (!guardianName || guardianName.length < 3) {
+      throw new PartnerError("Informe o nome completo do responsável legal.", 422);
+    }
+    const rawCpf = (input.guardianCpf || "").replace(/\D/g, "");
+    if (rawCpf.length !== 11 || !isValidCpf(rawCpf)) {
+      throw new PartnerError("CPF do responsável legal inválido. Confira os 11 dígitos.", 422);
+    }
+    const relationship = (input.relationship || "").trim();
+    if (!relationship) {
+      throw new PartnerError("Informe o parentesco (Pai, Mãe ou Responsável Legal).", 422);
+    }
+
+    updatedConsent = {
+      ...current.consent,
+      status: "approved",
+      guardianName,
+      guardianCpf: rawCpf,
+      relationship,
+      guardianPhone: input.guardianPhone?.trim() || null,
+      respondedAt: now,
+      ip: meta.ip ?? null,
+      userAgent: meta.userAgent ?? null,
+    };
+  }
+
+  const updatedTicket = await repo().updateGuardianConsent(current.ticketId, updatedConsent);
+  if (!updatedTicket) {
+    throw new PartnerError("Não foi possível atualizar a autorização.", 500);
+  }
+
+  return {
+    ...current,
+    status: updatedConsent.status,
+    consent: updatedConsent,
+  };
+}
+
+export async function resendGuardianAuthorization(user: StoredUser, ticketId: string): Promise<{ success: boolean; parentEmail: string }> {
+  const ticket = await repo().getTicket(ticketId);
+  if (!ticket || ticket.userId !== user.id) throw new PartnerError("Ingresso não encontrado.", 404);
+  if (!ticket.guardianConsent) throw new PartnerError("Este ingresso não possui solicitação de autorização de responsável.", 400);
+  if (ticket.guardianConsent.status !== "pending") {
+    throw new PartnerError(`A autorização já foi ${ticket.guardianConsent.status === "approved" ? "aprovada" : "recusada"}.`, 409);
+  }
+  const event = await repo().getEvent(ticket.eventId);
+  if (!event) throw new PartnerError("Evento não encontrado.", 404);
+
+  await sendMinorAuthorizationEmail({
+    ticketId: ticket.id,
+    childUserId: user.id,
+    childName: user.fullName || "Membro PRX",
+    childEmail: user.email,
+    parentEmail: ticket.guardianConsent.guardianEmail,
+    token: ticket.guardianConsent.token,
+    eventTitle: event.title,
+    eventStartsAt: event.startsAt,
+    eventVenue: event.venue,
+    eventCity: event.city,
+    eventAddress: event.address,
+    eventAgeRating: ageRatingLabel(event.minAge),
+    organizerName: event.organizerName,
+  });
+
+  return { success: true, parentEmail: ticket.guardianConsent.guardianEmail };
 }
 
 const MAX_OPEN_SUBMISSIONS = 1;

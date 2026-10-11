@@ -207,7 +207,7 @@ export function useLiveData(userId: string) {
 
   /** Reserva/garante o ingresso; depois recarrega a vitrine (lugares restantes mudaram). */
   const reserve = useCallback(
-    async (input: { eventId: string; batchId: string; run?: unknown; promoCode?: string; birthDate?: string }): Promise<ActionResult> => {
+    async (input: { eventId: string; batchId: string; run?: unknown; promoCode?: string; birthDate?: string; parentEmail?: string }): Promise<ActionResult> => {
       const { ok, json } = await postJson("/api/live", { action: "reserve", ...input });
       if (!ok) return failure(json, "Não foi possível garantir o ingresso.");
       if (json.wallet) applyWallet(json.wallet as MemberWallet);

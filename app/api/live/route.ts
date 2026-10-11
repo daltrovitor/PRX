@@ -6,7 +6,7 @@ import { checkRateLimit } from "@/lib/security";
 import { PartnerError } from "@/lib/partners/errors";
 import { errorResponse, readJson } from "@/lib/partners/http";
 import { firstIssue } from "@/lib/partners/types";
-import { cancelOwnTicket, listPublicEvents, memberWallet, quoteTicket, reserveTicket } from "@/lib/live/service";
+import { cancelOwnTicket, listPublicEvents, memberWallet, quoteTicket, reserveTicket, resendGuardianAuthorization } from "@/lib/live/service";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
@@ -28,19 +28,22 @@ const purchase = {
   batchId: z.string().min(1).max(40),
   promoCode: z.string().max(40).optional(),
   birthDate: z.string().max(10).optional(),
+  parentEmail: z.string().trim().email("E-mail do responsável legal inválido.").max(160).optional(),
 };
 
 const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("quote"), ...purchase }),
   z.object({ action: z.literal("reserve"), ...purchase, run: z.unknown().optional() }),
   z.object({ action: z.literal("cancel"), ticketId: z.string().min(1).max(100) }),
+  z.object({ action: z.literal("resend_parent_email"), ticketId: z.string().min(1).max(100) }),
 ]);
 
 /**
  * POST /api/live
  *   { action: "quote", eventId, batchId, promoCode? }                resumo: original, desconto, total e a regra de idade
- *   { action: "reserve", eventId, batchId, promoCode?, birthDate?, run? }  gratuito sai válido; pago vira reserva aguardando pagamento
+ *   { action: "reserve", eventId, batchId, promoCode?, birthDate?, parentEmail?, run? }  gratuito sai válido; pago vira reserva aguardando pagamento
  *   { action: "cancel", ticketId }                                  desiste da reserva (ou do ingresso gratuito)
+ *   { action: "resend_parent_email", ticketId }                      reenvia o e-mail de autorização ao responsável
  */
 export async function POST(req: NextRequest) {
   try {
@@ -59,8 +62,18 @@ export async function POST(req: NextRequest) {
     }
     if (body.action === "cancel") {
       await cancelOwnTicket(user, body.ticketId);
+    } else if (body.action === "resend_parent_email") {
+      const resendResult = await resendGuardianAuthorization(user, body.ticketId);
+      return NextResponse.json({ success: true, ...resendResult }, { headers: NO_STORE });
     } else {
-      const ticket = await reserveTicket(user, { eventId: body.eventId, batchId: body.batchId, run: body.run, promoCode: body.promoCode, birthDate: body.birthDate });
+      const ticket = await reserveTicket(user, {
+        eventId: body.eventId,
+        batchId: body.batchId,
+        run: body.run,
+        promoCode: body.promoCode,
+        birthDate: body.birthDate,
+        parentEmail: body.parentEmail,
+      });
       const wallet = await memberWallet(user);
       return NextResponse.json({ success: true, ticket, wallet }, { status: 201, headers: NO_STORE });
     }
