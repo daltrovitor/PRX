@@ -4,7 +4,7 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { ShieldCheck, ShieldAlert, CheckCircle2, XCircle, Calendar, MapPin, Building, User, AlertCircle, ArrowRight } from "lucide-react";
-import { formatCpf } from "@/lib/cpf-mask";
+import { maskCpfInput, formatCpf } from "@/lib/cpf-mask";
 
 interface AuthorizationData {
   token: string;
