@@ -9,6 +9,7 @@ import { useAppNav } from "@/components/app/app-nav";
 import { useBankAccount, useHiddenBalance, useLiveData, usePointsWallet } from "@/components/app/use-prx-stores";
 import { TextLink, TransactionRow } from "@/components/app/shared";
 import { PaymentCard } from "@/components/app/bank/card-visual";
+import { FeaturedPartnerBanner } from "@/components/app/pass/featured-partner-banner";
 import { WalletTriad } from "@/components/app/points/wallet-triad";
 import { PointsSheet } from "@/components/app/points/points-sheet";
 import { EmptyState, ProgressBar } from "@/components/app/ui";
@@ -25,6 +26,7 @@ import {
 } from "@/components/obsidian/obsidian-ui";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
 import { formatEventDate } from "@/lib/live/format";
+import { pickFeaturedBenefit } from "@/lib/partners/featured";
 
 const reveal = {
   hidden: { opacity: 0, y: 14 },
@@ -67,6 +69,7 @@ export function HomeScreen({ pass }: { pass: PassData }) {
   );
   const ticketEvents = new Set((live?.wallet.tickets ?? []).filter((t) => t.status === "valid" || t.status === "pending_payment").map((t) => t.eventId));
   const transactions = account?.transactions ?? [];
+  const featured = useMemo(() => pickFeaturedBenefit(benefits), [benefits]);
 
   const balanceActions: ReadonlyArray<ObsidianAction> = [
     { key: "pix", label: "Pix", Icon: IconPixDiamonds, onClick: () => go("bank", "chaves") },
@@ -148,6 +151,13 @@ export function HomeScreen({ pass }: { pass: PassData }) {
             ))}
           </ul>
         </motion.section>
+
+        {/* Parceiro em destaque (mídia paga ou, sem venda, o 1º do catálogo): logo abaixo dos eventos. */}
+        {featured && (
+          <motion.section aria-label="Parceiro em destaque" initial="hidden" animate="show" custom={4} variants={reveal} className="order-5 min-w-0 lg:col-span-12">
+            <FeaturedPartnerBanner benefit={featured} onOpen={() => go("pass", `beneficio:${featured.id}`)} />
+          </motion.section>
+        )}
       </div>
 
       {/* Base da pirâmide: o dia a dia do membro */}
