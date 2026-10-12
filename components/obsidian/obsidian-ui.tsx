@@ -12,6 +12,7 @@ import cardMetalImg from "@/public/brand/showcase/prx-card-metal.png";
 import liveConcertImg from "@/public/brand/showcase/prx-live-concert.png";
 import investCopperImg from "@/public/brand/showcase/prx-invest-copper.jpg";
 import meHorizonImg from "@/public/brand/showcase/prx-me-horizon.jpg";
+import { Tagline } from "@/components/marketing/tagline";
 
 /*
  * Cyber-Luxury Obsidian — blocos visuais compartilhados.
@@ -73,7 +74,7 @@ const GREETING_SIZE = {
   phone: { label: "text-[12px]", title: "text-[23px]" },
 } as const;
 
-/** "OI, NOME" em ardósia e o manifesto monumental em três linhas. */
+/** "OI, NOME" em ardósia e a frase do manifesto sorteada na sessão (uma entre as 100). */
 export function ObsidianGreeting({
   name,
   as: Title = "h1",
@@ -90,11 +91,7 @@ export function ObsidianGreeting({
     <div className={className}>
       <p className={cn("ob-label text-muted-foreground", size.label)}>Oi, {name}</p>
       <Title className={cn("ob-display mt-3 text-ink sm:mt-4", size.title)}>
-        O futuro
-        <br />
-        não se assiste.
-        <br />
-        Se constrói.
+        <Tagline />
       </Title>
     </div>
   );

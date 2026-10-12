@@ -5,13 +5,11 @@ import type { PointerEvent } from "react";
 import { motion } from "motion/react";
 import { PrxLogo } from "@/components/brand/prx-logo";
 import { ContactlessIcon, EmbossedMark, EmvChip } from "@/components/app/bank/card-art";
-import { Tagline } from "@/components/marketing/tagline";
 import { cn } from "@/lib/utils";
 
 /**
- * Arte do cartão PRX: preto fosco, símbolo da marca em relevo, chip, nome do
- * titular e, no canto, a frase do manifesto sorteada na sessão (a mesma da tela
- * inicial). Tudo é medido em cqw, a largura do próprio cartão, então a arte
+ * Arte do cartão PRX: preto fosco, símbolo da marca em relevo, chip e nome do
+ * titular. Tudo é medido em cqw, a largura do próprio cartão, então a arte
  * escala inteira. Estilos da superfície: .prx-card-art em globals.css.
  */
 
@@ -57,9 +55,6 @@ function CardFace({ holder, status }: { holder: string; status: string }) {
 
       <span className="absolute inset-x-[5.4cqw] bottom-[5.2cqw] flex items-end justify-between gap-[3cqw]">
         <span className={cn(light, "line-clamp-2 min-w-0 break-words text-[3.3cqw] uppercase leading-[1.3] tracking-[0.2em] text-white/90")}>{holder}</span>
-        <span className={cn(light, "block max-w-[46cqw] shrink-0 text-balance text-right text-[length:max(10px,2.7cqw)] leading-[1.35] tracking-[0.08em] text-white/70")}>
-          <Tagline />
-        </span>
       </span>
     </>
   );
