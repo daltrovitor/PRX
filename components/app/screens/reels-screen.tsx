@@ -2,11 +2,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import Image from "next/image";
 import { PrxImage } from "@/components/ui/prx-image";
 import { AnimatePresence, motion } from "motion/react";
 import type { User } from "@/hooks/use-auth";
 import { useAppNav } from "@/components/app/app-nav";
+import { runReelCta } from "@/components/app/reels/reel-cta";
 import { Button, EmptyState } from "@/components/app/ui";
 import { IconBookmark, IconBookmarkFilled, IconHeart, IconHeartFilled, IconPlay, IconVolume, IconVolumeOff } from "@/components/icons/prx-icons";
 import { REEL_COLLECTION_LABEL, type MemberReel, type ReelAction } from "@/lib/reels/types";
@@ -131,9 +131,7 @@ export function ReelsScreen({ member }: { member: User }) {
 
   function openCta(reel: MemberReel) {
     void post("cta", reel.id);
-    if (reel.ctaKind === "benefit" && reel.ctaTarget) go("pass", `beneficio:${reel.ctaTarget}`);
-    else if (reel.ctaKind === "external" && /^https:\/\//i.test(reel.ctaTarget)) window.open(reel.ctaTarget, "_blank", "noopener,noreferrer");
-    else go("pass");
+    runReelCta(reel, go);
   }
 
   function scrollTo(index: number) {

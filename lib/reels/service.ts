@@ -3,9 +3,12 @@ import { PartnerError } from "@/lib/partners/errors";
 import { getPartnerRepository } from "@/lib/partners/repository";
 import { getBenefit } from "@/lib/partners/catalog";
 import { getReelsRepository, type ReactionKind } from "@/lib/reels/repository";
-import { ctaLabelOf, type MemberReel, type PartnerReel, type ReelAction, type ReelInput } from "@/lib/reels/types";
+import { ctaLabelOf, type HomeBanner, type MemberReel, type PartnerReel, type ReelAction, type ReelInput } from "@/lib/reels/types";
 
-/** Feed do membro: vídeos ativos de parceiros sem bloqueio, com as curtidas e salvos dele. */
+/** Quantos banners a Home mostra: o admin ordena e o resto fica de fora. */
+export const MAX_HOME_BANNERS = 5;
+
+/** Feed do membro: vídeos ativos de parceiros sem bloqueio, com as curtidas e salvos dele. Banners da Home não entram. */
 export async function memberFeed(userId: string): Promise<MemberReel[]> {
   const repo = getReelsRepository();
   const [reels, reactions, partners] = await Promise.all([repo.list({ activeOnly: true }), repo.reactions(userId), getPartnerRepository().listPartners()]);
@@ -13,7 +16,7 @@ export async function memberFeed(userId: string): Promise<MemberReel[]> {
   const liked = new Set(reactions.filter((r) => r.kind === "like").map((r) => r.reelId));
   const saved = new Set(reactions.filter((r) => r.kind === "save").map((r) => r.reelId));
   return reels
-    .filter((reel) => !blocked.has(reel.partnerId))
+    .filter((reel) => reel.placement === "feed" && !blocked.has(reel.partnerId))
     .map((reel) => ({
       id: reel.id,
       partnerId: reel.partnerId,
@@ -31,6 +34,31 @@ export async function memberFeed(userId: string): Promise<MemberReel[]> {
       saves: reel.saves,
       liked: liked.has(reel.id),
       saved: saved.has(reel.id),
+    }));
+}
+
+/**
+ * Banners da Home: Destaques de imagem ativos de parceiros sem bloqueio, na ordem
+ * do admin. Mesmas regras e botão dos vídeos; visualização e clique entram nas
+ * métricas do destaque (engage).
+ */
+export async function homeBanners(): Promise<HomeBanner[]> {
+  const [reels, partners] = await Promise.all([getReelsRepository().list({ activeOnly: true }), getPartnerRepository().listPartners()]);
+  const blocked = new Set(partners.filter((p) => p.status === "SUSPENSO" || p.status === "BLOQUEADO").map((p) => p.id));
+  return reels
+    .filter((reel) => reel.placement === "home" && reel.posterUrl && !blocked.has(reel.partnerId))
+    .slice(0, MAX_HOME_BANNERS)
+    .map((reel) => ({
+      id: reel.id,
+      partnerId: reel.partnerId,
+      partnerName: reel.partnerName,
+      partnerLogo: reel.partnerLogo,
+      title: reel.title,
+      caption: reel.caption,
+      imageUrl: reel.posterUrl,
+      ctaKind: reel.ctaKind,
+      ctaLabel: ctaLabelOf(reel),
+      ctaTarget: reel.ctaTarget,
     }));
 }
 
@@ -57,7 +85,9 @@ export async function engage(userId: string, reelId: string, action: ReelAction)
   };
 }
 
-async function withPartner(input: ReelInput) {
+async function withPartner(rawInput: ReelInput) {
+  // Banner da Home é só imagem: nenhum vídeo fica guardado.
+  const input = rawInput.placement === "home" ? { ...rawInput, videoUrl: "" } : rawInput;
   const catalogTarget = input.ctaKind === "catalog" ? "" : input.ctaTarget;
   if (!input.partnerId) {
     // Marca sem cadastro de parceiro: o vídeo mostra o nome informado.

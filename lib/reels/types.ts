@@ -6,7 +6,20 @@ import { z } from "zod";
  * novidades de parceiros, exibidos no feed da aba Destaques. O conteúdo é
  * curado pela PRX (admin) e cada vídeo leva a uma ação direta: benefício do
  * PASS, catálogo ou loja do parceiro. Os nomes técnicos (reels) ficam iguais.
+ *
+ * O mesmo cadastro também publica o BANNER DA HOME: um Destaque de imagem
+ * (placement "home") que aparece abaixo dos eventos, sem rótulo de anúncio, com
+ * a marca como "Parceiro PRX" e o mesmo botão de ação e métricas dos vídeos.
  */
+
+/** Onde o destaque aparece: vídeo no feed da aba Destaques ou banner de imagem na Home. */
+export const REEL_PLACEMENTS = ["feed", "home"] as const;
+export type ReelPlacement = (typeof REEL_PLACEMENTS)[number];
+
+export const REEL_PLACEMENT_LABEL: Record<ReelPlacement, string> = {
+  feed: "Aba Destaques (vídeo)",
+  home: "Banner da Home (imagem)",
+};
 
 export const REEL_COLLECTIONS = ["drops", "vibe", "descubra"] as const;
 export type ReelCollection = (typeof REEL_COLLECTIONS)[number];
@@ -31,6 +44,7 @@ export interface PartnerReel {
   partnerId: string;
   partnerName: string;
   partnerLogo: string;
+  placement: ReelPlacement;
   collection: ReelCollection;
   title: string;
   caption: string;
@@ -71,6 +85,20 @@ export interface MemberReel {
   saved: boolean;
 }
 
+/** O banner como a Home recebe: só a arte, o texto e o botão (nada de métricas). */
+export interface HomeBanner {
+  id: string;
+  partnerId: string;
+  partnerName: string;
+  partnerLogo: string;
+  title: string;
+  caption: string;
+  imageUrl: string;
+  ctaKind: ReelCtaKind;
+  ctaLabel: string;
+  ctaTarget: string;
+}
+
 export const REEL_ACTIONS = ["view", "like", "unlike", "save", "unsave", "cta"] as const;
 export type ReelAction = (typeof REEL_ACTIONS)[number];
 
@@ -87,10 +115,11 @@ export const reelInputSchema = z
     /** Parceiro cadastrado (opcional): sem ele, o vídeo mostra a marca informada em brandName. */
     partnerId: z.string().trim().max(100).default(""),
     brandName: z.string().trim().max(80).default(""),
+    placement: z.enum(REEL_PLACEMENTS).default("feed"),
     collection: z.enum(REEL_COLLECTIONS).default("descubra"),
     title: z.string().trim().min(2, "Informe o título.").max(80),
     caption: z.string().trim().max(220).default(""),
-    videoUrl: mediaUrl("Vídeo").refine((v) => v.length > 0, "Envie o vídeo vertical ou informe a URL."),
+    videoUrl: mediaUrl("Vídeo").default(""),
     posterUrl: mediaUrl("Capa").default(""),
     ctaKind: z.enum(REEL_CTA_KINDS).default("catalog"),
     ctaLabel: z.string().trim().max(28).default(""),
@@ -98,6 +127,8 @@ export const reelInputSchema = z
     sortOrder: z.coerce.number().int().min(0).max(9999).default(0),
     active: z.boolean().default(true),
   })
+  .refine((reel) => reel.placement !== "feed" || reel.videoUrl.length > 0, { message: "Envie o vídeo vertical ou informe a URL.", path: ["videoUrl"] })
+  .refine((reel) => reel.placement !== "home" || reel.posterUrl.length > 0, { message: "Envie a imagem do banner ou informe a URL.", path: ["posterUrl"] })
   .refine((reel) => reel.partnerId.length > 0 || reel.brandName.length >= 2, { message: "Escolha o parceiro ou informe o nome da marca.", path: ["brandName"] })
   .refine((reel) => reel.ctaKind !== "benefit" || reel.partnerId.length > 0, { message: "O botão de benefício precisa de um parceiro cadastrado.", path: ["partnerId"] })
   .refine((reel) => reel.ctaKind !== "benefit" || reel.ctaTarget.length > 0, { message: "Escolha o benefício do botão.", path: ["ctaTarget"] })

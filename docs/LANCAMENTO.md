@@ -36,6 +36,15 @@ Regra implementada (`lib/live/age.ts`, `lib/live/service.ts`):
 - O **token do link só existe no servidor e no e-mail do responsável**: o app do menor recebe apenas o estado e o e-mail parcial. O admin vê status, nome e CPF parcial, sem token nem IP.
 - Fica guardado em `guardian_consent`: e-mail, status, token, nome, CPF, parentesco, telefone, data/hora, IP e navegador da resposta. O link não expira por tempo: vale até o evento terminar ou o ingresso ser cancelado. O membro pode reenviar o e-mail (3 vezes por hora por ingresso).
 
+### Banner de parceiro na Home (12/10/2026)
+
+O banner logo abaixo de "Próximos eventos" é um **Destaque de imagem**, cadastrado no mesmo lugar dos vídeos: **Admin → Marketing → Destaques → "Novo banner da Home"**. Escolha o parceiro (o nome e a imagem de banner que ele já tem cadastrados vêm preenchidos), envie a imagem (JPG, PNG ou WEBP, até 8 MB; quase quadrada funciona melhor no celular), defina o botão (benefício, catálogo ou loja) e a ordem.
+
+- Aparece como os vídeos da aba Destaques: a marca com "Parceiro PRX" e o botão de ação. Até 5 banners ativos (um só ocupa a largura toda; vários viram carrossel, na ordem do admin).
+- Não depende do catálogo: é um destaque, não um benefício. Visualizações (uma por membro a cada 30 min) e cliques no botão entram nas métricas do destaque, na mesma tabela dos vídeos.
+- Pausar, editar ou excluir é pela mesma lista. Parceiro suspenso ou bloqueado deixa de aparecer sozinho.
+- Aplique **`supabase/migrations/20261012_prx_home_banner.sql`** (acrescenta `partner_reels.placement` e deixa o vídeo opcional para o banner). Sem ela, os vídeos seguem normais e o admin recebe "Falta aplicar a migração" ao criar um banner.
+
 ## 2. Admin (admin.prx.app.br)
 
 Navegação em módulos: **Visão geral · Usuários · PRX LIVE · PRX PASS · PRX Founders · Financeiro · Marketing · Equipe e permissões · Configurações e auditoria**.
@@ -114,7 +123,7 @@ Passo a passo quando tiver os dados: Admin → PRX LIVE → **Resenha** → Nova
 
 ## 8. O que depende de você
 
-1. Aplicar as migrações `20261011_prx_launch.sql` **e** `20261012_prx_guardian_consent.sql`.
+1. Aplicar as migrações `20261011_prx_launch.sql`, `20261012_prx_guardian_consent.sql` **e** `20261012_prx_home_banner.sql`.
 2. Dados da Resenha (tabela da seção 6) e o Insider real com autorização.
 3. Revisão jurídica: `/termos-qrcode`, política de cancelamento, regras de idade (a liberação do responsável para menores e o texto do termo em `/autorizacao/<token>`; evento 18+ fechado a menores) e qualquer "oportunidade de investimento" no Founders.
 4. Opcional: `PRX_PASS_QR_SECRET` (32+ caracteres aleatórios) na Vercel; Upstash/Redis para limite de tentativas global.

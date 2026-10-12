@@ -43,22 +43,38 @@ export async function requireLaunchSchema(): Promise<void> {
 export const GUARDIAN_MIGRATION = "20261012_prx_guardian_consent.sql";
 export const GUARDIAN_MIGRATION_HINT = `Falta aplicar a migração supabase/migrations/${GUARDIAN_MIGRATION} no Supabase para vender ingressos a menores de idade.`;
 
-let guardianCached: { at: number; ready: boolean } | null = null;
+const columnCache = new Map<string, { at: number; ready: boolean }>();
 
-/** true quando live_tickets já tem a coluna guardian_consent (memória: sempre true). */
-export async function guardianSchemaReady(): Promise<boolean> {
+/** true quando a coluna já existe no banco (cache de 1 min; memória: sempre true). Serve a migrações que só acrescentam uma coluna. */
+export async function columnReady(table: string, column: string): Promise<boolean> {
   if (!supabaseAdmin) return true;
-  if (guardianCached && Date.now() - guardianCached.at < TTL_MS) return guardianCached.ready;
-  const { error } = await supabaseAdmin.from("live_tickets").select("guardian_consent").limit(1);
+  const key = `${table}.${column}`;
+  const hit = columnCache.get(key);
+  if (hit && Date.now() - hit.at < TTL_MS) return hit.ready;
+  const { error } = await supabaseAdmin.from(table).select(column).limit(1);
   const missing = isMissingColumn(error);
   // Outro erro (rede): não marca como pronta nem guarda em cache.
   if (!missing && error) return false;
-  guardianCached = { at: Date.now(), ready: !missing };
-  return guardianCached.ready;
+  columnCache.set(key, { at: Date.now(), ready: !missing });
+  return !missing;
 }
+
+/** true quando live_tickets já tem a coluna guardian_consent (memória: sempre true). */
+export const guardianSchemaReady = () => columnReady("live_tickets", "guardian_consent");
+
+/**
+ * O banner da Home é um Destaque de imagem (partner_reels.placement = 'home').
+ * Sem a migração, o feed de vídeos segue igual e o admin recebe este aviso ao
+ * tentar criar um banner.
+ */
+export const HOME_BANNER_MIGRATION = "20261012_prx_home_banner.sql";
+export const HOME_BANNER_MIGRATION_HINT = `Falta aplicar a migração supabase/migrations/${HOME_BANNER_MIGRATION} no Supabase para publicar banners na Home.`;
+
+/** true quando partner_reels já tem a coluna placement (memória: sempre true). */
+export const homeBannerSchemaReady = () => columnReady("partner_reels", "placement");
 
 /** Só para testes. */
 export function resetLaunchSchemaCache(): void {
   cached = null;
-  guardianCached = null;
+  columnCache.clear();
 }

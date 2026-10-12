@@ -10,93 +10,9 @@ import type { GuardianConsent } from "@/lib/live/types";
  * responsável trouxe: gravar guardian_consent sem a migração derrubava toda venda.
  */
 
-type Row = Record<string, unknown>;
+const db = vi.hoisted(() => ({ tables: {} as Record<string, Record<string, unknown>[]>, columns: {} as Record<string, Set<string>>, seq: 0 }));
 
-const db = vi.hoisted(() => ({
-  tables: {} as Record<string, Row[]>,
-  columns: {} as Record<string, Set<string>>,
-  seq: 0,
-}));
-
-vi.mock("@/lib/supabase/client", () => {
-  const pathValue = (row: Row, column: string): unknown => {
-    const [base, key] = column.split("->>");
-    const value = row[base];
-    return key === undefined ? value : (value as Row | null | undefined)?.[key];
-  };
-
-  function from(table: string) {
-    const rows = (db.tables[table] ??= []);
-    const known = db.columns[table];
-    const state = { op: "select" as "select" | "insert" | "update", payload: null as Row | null, probe: null as string | null, mode: "many" as "many" | "single" | "maybe", filters: [] as Array<(r: Row) => boolean> };
-
-    const finish = (data: Row[]) => {
-      if (state.mode === "single") return data.length ? { data: data[0], error: null } : { data: null, error: { code: "PGRST116", message: "sem linhas" } };
-      if (state.mode === "maybe") return { data: data[0] ?? null, error: null };
-      return { data, error: null };
-    };
-
-    const run = () => {
-      if (!known) return { data: null, error: { code: "42P01", message: `tabela ${table} não existe` } };
-      if (state.op === "select") {
-        if (state.probe && !known.has(state.probe)) return { data: null, error: { code: "42703", message: `coluna ${state.probe} não existe` } };
-        return finish(rows.filter((r) => state.filters.every((f) => f(r))));
-      }
-      const payload = state.payload as Row;
-      const unknown = Object.keys(payload).find((key) => !known.has(key));
-      if (unknown) return { data: null, error: { code: "PGRST204", message: `Could not find the '${unknown}' column of '${table}' in the schema cache` } };
-      if (state.op === "insert") {
-        const row: Row = { id: `row_${++db.seq}`, ...payload };
-        rows.push(row);
-        return finish([row]);
-      }
-      const hit = rows.filter((r) => state.filters.every((f) => f(r)));
-      for (const row of hit) Object.assign(row, payload);
-      return finish(hit);
-    };
-
-    const api = {
-      select(columns?: string) {
-        state.probe = columns && columns !== "*" ? columns : null;
-        return api;
-      },
-      insert(payload: Row) {
-        state.op = "insert";
-        state.payload = payload;
-        return api;
-      },
-      update(payload: Row) {
-        state.op = "update";
-        state.payload = payload;
-        return api;
-      },
-      eq(column: string, value: unknown) {
-        state.filters.push((r) => pathValue(r, column) === value);
-        return api;
-      },
-      in(column: string, values: unknown[]) {
-        state.filters.push((r) => values.includes(pathValue(r, column)));
-        return api;
-      },
-      order: () => api,
-      limit: () => api,
-      single() {
-        state.mode = "single";
-        return Promise.resolve(run());
-      },
-      maybeSingle() {
-        state.mode = "maybe";
-        return Promise.resolve(run());
-      },
-      then(resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) {
-        return Promise.resolve(run()).then(resolve, reject);
-      },
-    };
-    return api;
-  }
-
-  return { supabaseAdmin: { from } };
-});
+vi.mock("@/lib/supabase/client", async () => ({ supabaseAdmin: (await import("@/lib/__tests__/fake-postgrest")).fakeSupabase(db) }));
 
 const BASE_COLUMNS = [
   "id", "code", "event_id", "batch_id", "batch_name", "user_id", "user_email", "holder_name", "price", "status", "source", "run_details", "issued_by", "note",
@@ -164,7 +80,7 @@ describe("liberação do responsável sem a migração 20261012", () => {
       message: expect.stringContaining("20261012_prx_guardian_consent.sql"),
     });
     expect(db.tables.live_tickets).toHaveLength(0);
-    await expect(repo.updateGuardianConsent("row_1", consent)).rejects.toMatchObject({ status: 503 });
+    await expect(repo.updateGuardianConsent("00000000-0000-4000-8000-000000000001", consent)).rejects.toMatchObject({ status: 503 });
     expect(await repo.getTicketByGuardianToken(consent.token)).toBeNull();
   });
 });

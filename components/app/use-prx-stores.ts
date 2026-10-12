@@ -5,6 +5,7 @@ import { useCallback, useEffect, useSyncExternalStore } from "react";
 import type { BankAccountView } from "@/lib/prx/bank";
 import type { MemberWallet, PublicEvent, TicketQuote } from "@/lib/live/service";
 import type { PointsWallet } from "@/lib/points/types";
+import type { HomeBanner } from "@/lib/reels/types";
 
 /**
  * Dados do PRX BANK e do PRX LIVE vindos do servidor (/api/bank e /api/live),
@@ -261,6 +262,18 @@ export function useLiveData(userId: string) {
 }
 
 export type QuoteResult = { ok: true; quote: TicketQuote } | { ok: false; error: string };
+
+/* -------------------------------------------------------------------------- */
+/* Banners da Home (Destaques de imagem)                                       */
+/* -------------------------------------------------------------------------- */
+
+const bannerResource = createResource<HomeBanner[]>("/api/reels/banner", (json) => (Array.isArray(json.banners) ? (json.banners as HomeBanner[]) : null));
+const NO_BANNERS: HomeBanner[] = [];
+
+/** Banners de parceiros da Home; vazio enquanto carrega ou se não houver nenhum ativo. */
+export function useHomeBanners(userId: string): ReadonlyArray<HomeBanner> {
+  return useResource(bannerResource, userId).data ?? NO_BANNERS;
+}
 
 /* Preferência de "ocultar saldo" — conveniência por aparelho. */
 const HIDE_KEY = "prx:hide-balance";

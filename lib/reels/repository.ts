@@ -3,7 +3,8 @@ import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { PartnerError, dbError } from "@/lib/partners/errors";
 import { isUuid } from "@/lib/partners/catalog";
-import { REEL_COLLECTIONS, REEL_CTA_KINDS, type PartnerReel, type ReelInput } from "@/lib/reels/types";
+import { HOME_BANNER_MIGRATION_HINT, homeBannerSchemaReady } from "@/lib/db-features";
+import { REEL_COLLECTIONS, REEL_CTA_KINDS, REEL_PLACEMENTS, type PartnerReel, type ReelInput } from "@/lib/reels/types";
 
 /**
  * Persistência dos Reels de parceiros: tabela partner_reels (+ reações por
@@ -34,10 +35,13 @@ interface ReelRow {
   partner_id: string | null;
   partner_name: string;
   partner_logo: string | null;
+  /** Ausente antes da migração do banner da Home: tudo é feed. */
+  placement?: string | null;
   collection: string;
   title: string;
   caption: string | null;
-  video_url: string;
+  /** Banner da Home não tem vídeo. */
+  video_url: string | null;
   poster_url: string | null;
   cta_kind: string;
   cta_label: string | null;
@@ -58,10 +62,11 @@ function mapRow(r: ReelRow): PartnerReel {
     partnerId: r.partner_id ?? "",
     partnerName: r.partner_name,
     partnerLogo: r.partner_logo ?? "",
+    placement: oneOf(REEL_PLACEMENTS, r.placement, "feed"),
     collection: oneOf(REEL_COLLECTIONS, r.collection, "descubra"),
     title: r.title,
     caption: r.caption ?? "",
-    videoUrl: r.video_url,
+    videoUrl: r.video_url ?? "",
     posterUrl: r.poster_url ?? "",
     ctaKind: oneOf(REEL_CTA_KINDS, r.cta_kind, "catalog"),
     ctaLabel: r.cta_label ?? "",
@@ -85,7 +90,7 @@ function toRow(input: ReelInput & { partnerName: string; partnerLogo: string }) 
     collection: input.collection,
     title: input.title,
     caption: input.caption,
-    video_url: input.videoUrl,
+    video_url: input.videoUrl || null,
     poster_url: input.posterUrl || null,
     cta_kind: input.ctaKind,
     cta_label: input.ctaLabel || null,
@@ -93,6 +98,17 @@ function toRow(input: ReelInput & { partnerName: string; partnerLogo: string }) 
     sort_order: input.sortOrder,
     is_active: input.active,
   };
+}
+
+/**
+ * Linha pronta para gravar. A coluna placement vem na migração do banner da Home:
+ * sem ela o vídeo do feed segue gravando como sempre e o banner é recusado com o aviso.
+ */
+async function writableRow(input: ReelInput & { partnerName: string; partnerLogo: string }): Promise<Record<string, unknown>> {
+  const row: Record<string, unknown> = toRow(input);
+  if (await homeBannerSchemaReady()) row.placement = input.placement;
+  else if (input.placement === "home") throw new PartnerError(HOME_BANNER_MIGRATION_HINT, 503);
+  return row;
 }
 
 type SupabaseClient = NonNullable<typeof supabaseAdmin>;
@@ -116,7 +132,7 @@ class SupabaseReelsRepository implements ReelsRepository {
   }
 
   async insert(input: ReelInput & { partnerName: string; partnerLogo: string }) {
-    const { data, error } = await this.db.from("partner_reels").insert(toRow(input)).select("*").single();
+    const { data, error } = await this.db.from("partner_reels").insert(await writableRow(input)).select("*").single();
     if (error) throw dbError(error, "Não foi possível publicar o vídeo");
     return mapRow(data as ReelRow);
   }
@@ -125,7 +141,7 @@ class SupabaseReelsRepository implements ReelsRepository {
     if (!isUuid(id)) return null;
     const { data, error } = await this.db
       .from("partner_reels")
-      .update({ ...toRow(input), updated_at: new Date().toISOString() })
+      .update({ ...(await writableRow(input)), updated_at: new Date().toISOString() })
       .eq("id", id)
       .select("*")
       .maybeSingle();
