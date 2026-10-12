@@ -4,7 +4,7 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { ShieldCheck, ShieldAlert, CheckCircle2, XCircle, Calendar, MapPin, Building, User, AlertCircle, ArrowRight } from "lucide-react";
-import { maskCpfInput, formatCpf } from "@/lib/cpf-mask";
+import { formatCpf } from "@/lib/cpf-mask";
 
 interface AuthorizationData {
   token: string;
@@ -28,8 +28,8 @@ interface AuthorizationData {
   consent: {
     guardianEmail: string;
     status: "pending" | "approved" | "rejected";
-    token: string;
     guardianName?: string | null;
+    /** Já vem parcial do servidor (***.123.456-**). */
     guardianCpf?: string | null;
     relationship?: string | null;
     guardianPhone?: string | null;
@@ -191,7 +191,7 @@ export default function AutorizacaoPage({ params }: { params: Promise<{ token: s
                 </div>
                 <div className="py-2.5 flex justify-between">
                   <span className="text-emerald-700">CPF do responsável</span>
-                  <span className="font-mono">{data.consent.guardianCpf ? formatCpf(data.consent.guardianCpf) : "Conferido"}</span>
+                  <span className="font-mono">{data.consent.guardianCpf || "Conferido"}</span>
                 </div>
                 <div className="py-2.5 flex justify-between">
                   <span className="text-emerald-700">Grau de parentesco</span>

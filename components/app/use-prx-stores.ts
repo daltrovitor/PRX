@@ -228,6 +228,13 @@ export function useLiveData(userId: string) {
     [applyWallet, userId]
   );
 
+  /** Reenvia ao responsável o e-mail com o link da liberação (comprador menor de 18 anos). */
+  const resendGuardian = useCallback(async (ticketId: string): Promise<ActionResult> => {
+    const { ok, json } = await postJson("/api/live", { action: "resend_parent_email", ticketId });
+    if (!ok) return failure(json, "Não foi possível reenviar o e-mail.");
+    return { ok: true };
+  }, []);
+
   const submitFounders = useCallback(
     async (form: FormData): Promise<ActionResult> => {
       try {
@@ -250,7 +257,7 @@ export function useLiveData(userId: string) {
     return { ok: true, quote: json.quote as TicketQuote };
   }, []);
 
-  return { data, loading, error, reload, reserve, cancel, submitFounders, quote };
+  return { data, loading, error, reload, reserve, cancel, resendGuardian, submitFounders, quote };
 }
 
 export type QuoteResult = { ok: true; quote: TicketQuote } | { ok: false; error: string };

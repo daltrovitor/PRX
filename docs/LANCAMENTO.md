@@ -23,6 +23,19 @@ Aplique **`supabase/migrations/20261011_prx_launch.sql`** no Supabase (SQL Edito
 
 Todas com RLS ligada e sem acesso de `anon`/`authenticated` (só a service role, pelas rotas `/api`).
 
+### Menores de 18 anos: liberação do responsável (12/10/2026)
+
+Aplique também **`supabase/migrations/20261012_prx_guardian_consent.sql`** (adiciona `live_tickets.guardian_consent` e o modelo de e-mail `minor_event_authorization` ao registro de envios). Sem ela, maiores de idade compram normalmente e **menores recebem o aviso "Falta aplicar a migração"** (nada é perdido nem gravado pela metade).
+
+Regra implementada (`lib/live/age.ts`, `lib/live/service.ts`):
+
+- **Menor de 12 anos**: não tem conta nem compra.
+- **12 a 17 anos**, evento abaixo de 18: informa o **e-mail do responsável** na compra (ou na inscrição da RUN). O responsável recebe um link (`/autorizacao/<token>`) e **libera ou recusa aquele ingresso** informando nome, CPF e parentesco. Até a liberação, o ingresso mostra "Aguardando responsável", o QR Code não aparece e a **portaria recusa a entrada**. Recusado, também não entra.
+- **Evento 18+**: continua fechado para menores, **mesmo com a liberação** (decisão conservadora; para mudar, `checkAgeEligibility` em `lib/live/age.ts`).
+- Qualquer evento pede a **data de nascimento** quando a conta ainda não tem (é ela que diz se a pessoa é menor).
+- O **token do link só existe no servidor e no e-mail do responsável**: o app do menor recebe apenas o estado e o e-mail parcial. O admin vê status, nome e CPF parcial, sem token nem IP.
+- Fica guardado em `guardian_consent`: e-mail, status, token, nome, CPF, parentesco, telefone, data/hora, IP e navegador da resposta. O link não expira por tempo: vale até o evento terminar ou o ingresso ser cancelado. O membro pode reenviar o e-mail (3 vezes por hora por ingresso).
+
 ## 2. Admin (admin.prx.app.br)
 
 Navegação em módulos: **Visão geral · Usuários · PRX LIVE · PRX PASS · PRX Founders · Financeiro · Marketing · Equipe e permissões · Configurações e auditoria**.
@@ -101,9 +114,9 @@ Passo a passo quando tiver os dados: Admin → PRX LIVE → **Resenha** → Nova
 
 ## 8. O que depende de você
 
-1. Aplicar a migração `20261011_prx_launch.sql`.
+1. Aplicar as migrações `20261011_prx_launch.sql` **e** `20261012_prx_guardian_consent.sql`.
 2. Dados da Resenha (tabela da seção 6) e o Insider real com autorização.
-3. Revisão jurídica: `/termos-qrcode`, política de cancelamento, regras de idade (acompanhante/autorização) e qualquer "oportunidade de investimento" no Founders.
+3. Revisão jurídica: `/termos-qrcode`, política de cancelamento, regras de idade (a liberação do responsável para menores e o texto do termo em `/autorizacao/<token>`; evento 18+ fechado a menores) e qualquer "oportunidade de investimento" no Founders.
 4. Opcional: `PRX_PASS_QR_SECRET` (32+ caracteres aleatórios) na Vercel; Upstash/Redis para limite de tentativas global.
 5. **CI e AZ**: as siglas não aparecem no código, nos documentos nem nos PDFs do projeto. Nada foi criado; diga o que significam (e se são campanhas em alguma plataforma) para eu configurar.
 6. Google Ads: ver [GOOGLE_ADS.md](GOOGLE_ADS.md) — nada foi publicado e nenhum orçamento foi usado.

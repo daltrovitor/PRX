@@ -5,6 +5,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { User } from "@/hooks/use-auth";
 import type { ActionResult, QuoteResult } from "@/components/app/use-prx-stores";
 import { EventDate } from "@/components/app/shared";
+import { AgeFields } from "@/components/app/live/age-fields";
 import { Button, Field, Input, Notice, Sheet, Tag, formatBRL } from "@/components/app/ui";
 import type { PublicBatch, PublicEvent, TicketQuote } from "@/lib/live/service";
 import { cn } from "@/lib/utils";
@@ -13,8 +14,9 @@ import { cn } from "@/lib/utils";
  * Compra no PRX LIVE: antes de reservar, a pessoa vê a classificação etária,
  * as condições de entrada, o organizador e a política de cancelamento. O cupom
  * (digitado ou vindo de um link) e o total são calculados no servidor; a tela
- * só mostra o resultado. Evento com idade mínima pede a data de nascimento uma
- * única vez (conferida com o CPF da conta quando possível).
+ * só mostra o resultado. A data de nascimento é pedida uma única vez (conferida
+ * com o CPF da conta quando possível); menor de 18 anos informa também o e-mail
+ * do responsável legal, que libera a entrada por um link (AgeFields).
  */
 
 type Reserve = (input: { eventId: string; batchId: string; promoCode?: string; birthDate?: string; parentEmail?: string }) => Promise<ActionResult>;
@@ -56,7 +58,8 @@ export function EventPurchaseSheet({
   reserve: Reserve;
   quote: Quote;
   onClose: () => void;
-  onDone: (kind: "free" | "reserved") => void;
+  /** `guardianPending`: o comprador é menor e o ingresso só vale depois da liberação do responsável. */
+  onDone: (kind: "free" | "reserved", guardianPending: boolean) => void;
 }) {
   const [batchId, setBatchId] = useState(() => event?.batches.find((b) => b.available)?.id ?? "");
   const [codeInput, setCodeInput] = useState(initialCode ?? "");
@@ -119,7 +122,7 @@ export function EventPurchaseSheet({
     });
     setBusy(false);
     if (!result.ok) return setError(result.error);
-    onDone(batch.price === 0 ? "free" : "reserved");
+    onDone(batch.price === 0 ? "free" : "reserved", requiresParent);
   }
 
   return (
@@ -230,29 +233,7 @@ export function EventPurchaseSheet({
             </dl>
           )}
 
-          {needsBirth && (
-            <Field label="Sua data de nascimento" hint={`Este evento é ${event.ageRating}. A data fica na sua conta, é conferida com seu CPF quando possível e não pode ser alterada pelo app.`}>
-              {(id, describedBy) => <Input id={id} aria-describedby={describedBy} type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} max={new Date().toISOString().slice(0, 10)} />}
-            </Field>
-          )}
-          {requiresParent && (
-            <Field
-              label="E-mail do seu responsável legal"
-              hint="Como você é menor de idade, seu responsável legal receberá um link seguro por e-mail para autorizar sua entrada no evento (conforme ECA - Lei 8.069/1990)."
-            >
-              {(id, describedBy) => (
-                <Input
-                  id={id}
-                  aria-describedby={describedBy}
-                  type="email"
-                  placeholder="responsavel@email.com"
-                  value={parentEmail}
-                  onChange={(e) => setParentEmail(e.target.value)}
-                  autoComplete="email"
-                />
-              )}
-            </Field>
-          )}
+          <AgeFields age={age} ageRating={event.ageRating} birthDate={birthDate} onBirthDate={setBirthDate} parentEmail={parentEmail} onParentEmail={setParentEmail} />
           {ageBlocked && age?.reason && <Notice tone="error">{age.reason}</Notice>}
           {levelLocked && <Notice tone="warning">Este evento é para membros a partir do nível {event.minPrxLevel}. Complete missões no PASS para subir de nível.</Notice>}
 

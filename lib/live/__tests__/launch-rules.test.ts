@@ -15,19 +15,31 @@ describe("idade por evento", () => {
     expect(ageRatingLabel(18)).toBe("18+");
   });
 
-  it("livre ou sem regra não pede data", () => {
-    expect(checkAgeEligibility(0, null, PARTY)).toEqual({ ok: true });
-    expect(checkAgeEligibility(null, null, PARTY)).toEqual({ ok: true });
+  it("sem a data de nascimento qualquer evento pede a data (é ela que diz se a pessoa é menor de idade)", () => {
+    expect(checkAgeEligibility(0, null, PARTY)).toMatchObject({ ok: false, code: "BIRTH_DATE_REQUIRED" });
+    expect(checkAgeEligibility(null, null, PARTY)).toMatchObject({ ok: false, code: "BIRTH_DATE_REQUIRED" });
+    // Maior de idade, livre ou sem regra: compra direto, sem e-mail de responsável.
+    expect(checkAgeEligibility(0, "1998-02-02", PARTY)).toEqual({ ok: true, isMinor: false, requiresParentEmail: false });
+    expect(checkAgeEligibility(null, "1998-02-02", PARTY)).toEqual({ ok: true, isMinor: false, requiresParentEmail: false });
   });
 
   it("evento 18+ pede a data e recusa quem não tem 18 no dia do evento (Brasília)", () => {
     expect(checkAgeEligibility(18, null, PARTY)).toMatchObject({ ok: false, code: "BIRTH_DATE_REQUIRED" });
-    // 16 anos: conta PRX válida (mínimo 12), mas não compra evento 18+.
-    expect(checkAgeEligibility(18, "2010-05-01", PARTY)).toMatchObject({ ok: false, code: "UNDER_AGE" });
+    // 16 anos: conta PRX válida (mínimo 12), mas não compra evento 18+, nem com a liberação do responsável.
+    expect(checkAgeEligibility(18, "2010-05-01", PARTY)).toMatchObject({ ok: false, code: "UNDER_AGE", reason: expect.stringContaining("menores de 18") });
     // Faz 18 no próprio dia do evento: pode.
-    expect(checkAgeEligibility(18, "2008-11-21", PARTY)).toEqual({ ok: true });
+    expect(checkAgeEligibility(18, "2008-11-21", PARTY)).toMatchObject({ ok: true, isMinor: false });
     // Faz 18 no dia seguinte: não pode.
     expect(checkAgeEligibility(18, "2008-11-22", PARTY)).toMatchObject({ ok: false, code: "UNDER_AGE" });
+  });
+
+  it("menor de 18 anos entra em evento abaixo de 18 só com a liberação do responsável; menor de 12 nunca", () => {
+    // 16 anos em evento 16+ e 14 anos em evento 16+: ambos pedem o e-mail do responsável.
+    expect(checkAgeEligibility(16, "2010-05-01", PARTY)).toEqual({ ok: true, isMinor: true, requiresParentEmail: true });
+    expect(checkAgeEligibility(16, "2012-05-01", PARTY)).toEqual({ ok: true, isMinor: true, requiresParentEmail: true });
+    expect(checkAgeEligibility(0, "2010-05-01", PARTY)).toEqual({ ok: true, isMinor: true, requiresParentEmail: true });
+    // Abaixo de 12 anos não há conta nem liberação.
+    expect(checkAgeEligibility(0, "2018-05-01", PARTY)).toMatchObject({ ok: false, code: "UNDER_AGE" });
   });
 });
 

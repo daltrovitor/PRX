@@ -71,35 +71,52 @@ describe("publicação", () => {
 });
 
 describe("idade na compra", () => {
-  it("menor de 18 anos exige e-mail do responsável legal e gera pendência de liberação", async () => {
+  it("evento 18+ segue fechado para menor de 18 anos, mesmo com e-mail do responsável", async () => {
     const teen = member("2010-05-01");
     const adults = await createEvent(eventInput(), "admin");
+    await expect(reserveTicket(teen, { eventId: adults.id, batchId: "b1", parentEmail: "pai@exemplo.com" })).rejects.toMatchObject({
+      status: 403,
+      message: expect.stringContaining("menores de 18"),
+    });
+    expect((await quoteTicket(teen, { eventId: adults.id, batchId: "b1" })).age).toMatchObject({ eligible: false, requiresParentEmail: false });
+  });
+
+  it("menor de 18 anos em evento abaixo de 18 exige e-mail do responsável legal e gera pendência de liberação", async () => {
+    const teen = member("2010-05-01");
+    const sixteen = await createEvent(eventInput({ minAge: 16 }), "admin");
     // Sem e-mail do responsável, reserva é rejeitada com status 422
-    await expect(reserveTicket(teen, { eventId: adults.id, batchId: "b1" })).rejects.toMatchObject({
+    await expect(reserveTicket(teen, { eventId: sixteen.id, batchId: "b1" })).rejects.toMatchObject({
       status: 422,
       message: expect.stringContaining("responsável legal"),
     });
     // E-mail igual ao do próprio comprador é recusado
-    await expect(reserveTicket(teen, { eventId: adults.id, batchId: "b1", parentEmail: teen.email })).rejects.toMatchObject({
+    await expect(reserveTicket(teen, { eventId: sixteen.id, batchId: "b1", parentEmail: teen.email })).rejects.toMatchObject({
       status: 422,
       message: expect.stringContaining("diferente"),
     });
-    // Com e-mail do responsável válido, a reserva é concluída com guardianConsent pendente
-    const reserved = await reserveTicket(teen, { eventId: adults.id, batchId: "b1", parentEmail: "pai@exemplo.com" });
-    expect(reserved.guardianConsent).toMatchObject({
-      guardianEmail: "pai@exemplo.com",
-      status: "pending",
-    });
-    expect(reserved.guardianConsent?.token).toBeDefined();
+    // Com e-mail do responsável válido, a reserva é concluída com a liberação pendente
+    const reserved = await reserveTicket(teen, { eventId: sixteen.id, batchId: "b1", parentEmail: "pai@exemplo.com" });
+    expect(reserved.guardianConsent).toEqual({ status: "pending", guardianEmail: "p***@exemplo.com", guardianName: null, respondedAt: null });
+    // O token do link só vai para o e-mail do responsável: nunca para o app do menor.
+    const stored = await getLiveRepository().getTicket(reserved.id);
+    expect(stored?.guardianConsent?.token).toBeTruthy();
+    expect(JSON.stringify(reserved)).not.toContain(stored!.guardianConsent!.token);
 
     // Evento gratuito também gera ingresso válido com liberação pendente
     const free = await createEvent(eventInput({ minAge: 0, idCheckRequired: false, batches: [{ id: "g", name: "Grátis", price: 0, quantity: null, closed: false }] }), "admin");
     const freeTicket = await reserveTicket(teen, { eventId: free.id, batchId: "g", parentEmail: "mae@exemplo.com" });
     expect(freeTicket.status).toBe("valid");
-    expect(freeTicket.guardianConsent).toMatchObject({
-      guardianEmail: "mae@exemplo.com",
-      status: "pending",
-    });
+    expect(freeTicket.guardianConsent).toMatchObject({ guardianEmail: "m***@exemplo.com", status: "pending" });
+  });
+
+  it("evento livre também pede a data de nascimento quando a conta não tem (para saber se é menor)", async () => {
+    const free = await createEvent(eventInput({ minAge: 0, idCheckRequired: false, batches: [{ id: "g", name: "Grátis", price: 0, quantity: null, closed: false }] }), "admin");
+    const buyer = member();
+    expect((await quoteTicket(buyer, { eventId: free.id, batchId: "g" })).age).toMatchObject({ needsBirthDate: true, eligible: false });
+    await expect(reserveTicket(buyer, { eventId: free.id, batchId: "g" })).rejects.toMatchObject({ status: 422 });
+    // Maior de idade: informa a data uma vez e compra sem pedir e-mail de responsável.
+    const adult = await reserveTicket(buyer, { eventId: free.id, batchId: "g", birthDate: "1998-02-02" });
+    expect(adult).toMatchObject({ status: "valid", guardianConsent: null });
   });
 
   it("sem data na conta, pede a data e grava a confirmada (sem sobrescrever)", async () => {

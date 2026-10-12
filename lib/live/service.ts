@@ -21,6 +21,9 @@ import { ageRatingLabel, checkAgeEligibility } from "@/lib/live/age";
 import { buyerBirthDate, confirmBuyerBirthDate } from "@/lib/live/buyer";
 import { getFamilyRepository } from "@/lib/family/repository";
 import { isValidCpf } from "@/lib/prx/pix";
+import { maskCpf } from "@/lib/family/age";
+import { checkRateLimit } from "@/lib/security";
+import { maskEmail } from "@/lib/notifications/format";
 import { sendMinorAuthorizationEmail } from "@/lib/notifications/minor-authorization";
 import { eventReadiness, type EventReadiness } from "@/lib/live/readiness";
 import { promoOverflow, quoteFor, resolvePromo } from "@/lib/live/promo-service";
@@ -198,7 +201,38 @@ export interface MemberTicket {
   checkedInByRole: ValidatorRole | null;
   holdUntil: string | null;
   event: PublicEvent | null;
-  guardianConsent: GuardianConsent | null;
+  guardianConsent: MemberGuardianView | null;
+}
+
+/**
+ * A liberação do responsável como o membro a vê. O token do link e os dados do
+ * responsável (CPF, IP) ficam só no servidor e no e-mail dele: quem recebesse o
+ * token pelo app (o menor!) poderia liberar a si mesmo.
+ */
+export interface MemberGuardianView {
+  status: GuardianApprovalStatus;
+  /** E-mail do responsável, parcialmente oculto. */
+  guardianEmail: string;
+  /** Só depois de aprovada. */
+  guardianName: string | null;
+  respondedAt: string | null;
+}
+
+function toMemberGuardian(consent: GuardianConsent | null | undefined): MemberGuardianView | null {
+  if (!consent) return null;
+  return {
+    status: consent.status,
+    guardianEmail: maskEmail(consent.guardianEmail),
+    guardianName: consent.status === "approved" ? consent.guardianName ?? null : null,
+    respondedAt: consent.respondedAt ?? null,
+  };
+}
+
+/** Ingresso para o admin: a liberação aparece (status, nome, CPF parcial), mas sem o token do link nem IP. */
+function redactGuardian<T extends { guardianConsent?: GuardianConsent | null }>(ticket: T): T {
+  const consent = ticket.guardianConsent;
+  if (!consent) return ticket;
+  return { ...ticket, guardianConsent: { ...consent, token: "", guardianCpf: consent.guardianCpf ? maskCpf(consent.guardianCpf) : null, ip: null, userAgent: null } };
 }
 
 function toMemberTicket(ticket: LiveTicket, event: PublicEvent | null): MemberTicket {
@@ -228,7 +262,7 @@ function toMemberTicket(ticket: LiveTicket, event: PublicEvent | null): MemberTi
     checkedInByRole: ticket.checkedInByRole,
     holdUntil,
     event,
-    guardianConsent: ticket.guardianConsent ?? null,
+    guardianConsent: toMemberGuardian(ticket.guardianConsent),
   };
 }
 
@@ -370,7 +404,8 @@ async function ageStatus(event: LiveEvent, userId: string): Promise<TicketQuote[
   }
   return {
     minAge: event.minAge,
-    needsBirthDate: !birth.birthDate && event.minAge !== null && event.minAge > 0,
+    // Sem a data não dá para saber se é menor de idade: pede em qualquer evento (uma vez, fica na conta).
+    needsBirthDate: !birth.birthDate,
     eligible: check.ok,
     reason: check.ok ? null : check.reason,
     isMinor: check.ok ? check.isMinor : false,
@@ -473,7 +508,9 @@ export async function reserveTicket(user: StoredUser, input: ReserveInput): Prom
   }
 
   if (guardianConsent && ageValidation.parentEmail) {
-    void sendMinorAuthorizationEmail({
+    // Aguarda o envio (a função nunca lança): em serverless, tarefa solta depois da resposta pode ser cortada e o
+    // responsável nunca receberia o link. Se o envio falhar, o membro reenvia pelo ingresso.
+    await sendMinorAuthorizationEmail({
       ticketId: ticket.id,
       childUserId: user.id,
       childName: user.fullName || "Membro PRX",
@@ -487,7 +524,7 @@ export async function reserveTicket(user: StoredUser, input: ReserveInput): Prom
       eventAddress: event.address,
       eventAgeRating: ageRatingLabel(event.minAge),
       organizerName: event.organizerName,
-    }).catch(() => undefined);
+    });
   }
 
   return toMemberTicket(ticket, toPublicEvent(event, [...eventTickets, ticket]));
@@ -530,12 +567,16 @@ export async function cancelOwnTicket(user: Pick<StoredUser, "id">, ticketId: st
 /* Liberação e Autorização de Menores pelo Responsável Legal                  */
 /* -------------------------------------------------------------------------- */
 
+/** A liberação como a página do link mostra: sem o token (já é o endereço) nem IP; CPF só em parte. */
+export type PublicGuardianConsent = Omit<GuardianConsent, "token" | "ip" | "userAgent">;
+
 export interface GuardianAuthorizationView {
   token: string;
   status: GuardianApprovalStatus;
   ticketId: string;
   ticketCode: string;
   holderName: string;
+  /** E-mail do menor, parcialmente oculto: o responsável só precisa reconhecer. */
   childEmail: string;
   parentEmail: string;
   event: {
@@ -549,10 +590,11 @@ export interface GuardianAuthorizationView {
     ageRating: string;
     organizerName: string;
   };
-  consent: GuardianConsent;
+  consent: PublicGuardianConsent;
 }
 
-export async function getGuardianAuthorization(token: string): Promise<GuardianAuthorizationView> {
+/** Ingresso, liberação e evento de um link de responsável (404 se o token não existe). */
+async function findGuardianTicket(token: string): Promise<{ ticket: LiveTicket; consent: GuardianConsent; event: LiveEvent }> {
   if (!token || typeof token !== "string") throw new PartnerError("Token de autorização inválido.", 400);
   const ticket = await repo().getTicketByGuardianToken(token);
   if (!ticket || !ticket.guardianConsent) {
@@ -560,15 +602,18 @@ export async function getGuardianAuthorization(token: string): Promise<GuardianA
   }
   const event = await repo().getEvent(ticket.eventId);
   if (!event) throw new PartnerError("Evento não encontrado.", 404);
+  return { ticket, consent: ticket.guardianConsent, event };
+}
 
+function toAuthorizationView(token: string, ticket: LiveTicket, consent: GuardianConsent, event: LiveEvent): GuardianAuthorizationView {
   return {
     token,
-    status: ticket.guardianConsent.status,
+    status: consent.status,
     ticketId: ticket.id,
     ticketCode: ticket.code,
     holderName: ticket.holderName,
-    childEmail: ticket.userEmail,
-    parentEmail: ticket.guardianConsent.guardianEmail,
+    childEmail: maskEmail(ticket.userEmail),
+    parentEmail: consent.guardianEmail,
     event: {
       id: event.id,
       title: event.title,
@@ -580,8 +625,22 @@ export async function getGuardianAuthorization(token: string): Promise<GuardianA
       ageRating: ageRatingLabel(event.minAge),
       organizerName: event.organizerName,
     },
-    consent: ticket.guardianConsent,
+    consent: {
+      guardianEmail: consent.guardianEmail,
+      status: consent.status,
+      guardianName: consent.guardianName ?? null,
+      guardianCpf: consent.guardianCpf ? maskCpf(consent.guardianCpf) : null,
+      relationship: consent.relationship ?? null,
+      guardianPhone: consent.guardianPhone ?? null,
+      respondedAt: consent.respondedAt ?? null,
+      rejectionReason: consent.rejectionReason ?? null,
+    },
   };
+}
+
+export async function getGuardianAuthorization(token: string): Promise<GuardianAuthorizationView> {
+  const { ticket, consent, event } = await findGuardianTicket(token);
+  return toAuthorizationView(token, ticket, consent, event);
 }
 
 export async function respondGuardianAuthorization(
@@ -596,17 +655,20 @@ export async function respondGuardianAuthorization(
   },
   meta: { ip?: string; userAgent?: string } = {}
 ): Promise<GuardianAuthorizationView> {
-  const current = await getGuardianAuthorization(token);
+  const { ticket, consent: current, event } = await findGuardianTicket(token);
   if (current.status !== "pending") {
     throw new PartnerError(`Esta autorização já foi ${current.status === "approved" ? "concedida" : "recusada"}.`, 409);
   }
+  // Liberar um ingresso cancelado, ou de um evento que já terminou, não faz sentido.
+  if (ticket.status === "cancelled") throw new PartnerError("Este ingresso foi cancelado: não há mais o que liberar.", 409);
+  if (eventHasEnded(event)) throw new PartnerError("Este evento já terminou.", 409);
 
   const now = new Date().toISOString();
   let updatedConsent: GuardianConsent;
 
   if (input.action === "reject") {
     updatedConsent = {
-      ...current.consent,
+      ...current,
       status: "rejected",
       respondedAt: now,
       rejectionReason: input.rejectionReason?.slice(0, 300) || "Recusado pelo responsável legal.",
@@ -628,7 +690,7 @@ export async function respondGuardianAuthorization(
     }
 
     updatedConsent = {
-      ...current.consent,
+      ...current,
       status: "approved",
       guardianName,
       guardianCpf: rawCpf,
@@ -640,16 +702,15 @@ export async function respondGuardianAuthorization(
     };
   }
 
-  const updatedTicket = await repo().updateGuardianConsent(current.ticketId, updatedConsent);
-  if (!updatedTicket) {
+  // Condicional: só grava se ainda estiver pendente, então a primeira resposta vence (duas abas, dois cliques).
+  const saved = await repo().updateGuardianConsent(ticket.id, updatedConsent);
+  if (!saved) {
+    const latest = (await repo().getTicket(ticket.id))?.guardianConsent?.status;
+    if (latest && latest !== "pending") throw new PartnerError(`Esta autorização já foi ${latest === "approved" ? "concedida" : "recusada"}.`, 409);
     throw new PartnerError("Não foi possível atualizar a autorização.", 500);
   }
 
-  return {
-    ...current,
-    status: updatedConsent.status,
-    consent: updatedConsent,
-  };
+  return toAuthorizationView(token, saved, updatedConsent, event);
 }
 
 export async function resendGuardianAuthorization(user: StoredUser, ticketId: string): Promise<{ success: boolean; parentEmail: string }> {
@@ -661,6 +722,9 @@ export async function resendGuardianAuthorization(user: StoredUser, ticketId: st
   }
   const event = await repo().getEvent(ticket.eventId);
   if (!event) throw new PartnerError("Evento não encontrado.", 404);
+  // Não deixa o menor lotar a caixa de entrada do responsável.
+  const limit = checkRateLimit(`guardian-resend:${ticket.id}`, 3, 3600);
+  if (!limit.allowed) throw new PartnerError(`O e-mail já foi reenviado algumas vezes. Tente de novo em ${Math.ceil(limit.resetInSeconds / 60)} min.`, 429);
 
   await sendMinorAuthorizationEmail({
     ticketId: ticket.id,
@@ -676,9 +740,10 @@ export async function resendGuardianAuthorization(user: StoredUser, ticketId: st
     eventAddress: event.address,
     eventAgeRating: ageRatingLabel(event.minAge),
     organizerName: event.organizerName,
+    resend: true,
   });
 
-  return { success: true, parentEmail: ticket.guardianConsent.guardianEmail };
+  return { success: true, parentEmail: maskEmail(ticket.guardianConsent.guardianEmail) };
 }
 
 const MAX_OPEN_SUBMISSIONS = 1;
@@ -842,7 +907,7 @@ export async function eventAttendees(eventId: string): Promise<{ event: LiveEven
   const event = await repo().getEvent(eventId);
   if (!event) throw new PartnerError("Evento não encontrado.", 404);
   const tickets = await ticketsWithExpiry(event);
-  return { event, tickets, stats: eventStats(event, tickets) };
+  return { event, tickets: tickets.map(redactGuardian), stats: eventStats(event, tickets) };
 }
 
 export async function confirmPayment(ticketId: string, note: string): Promise<LiveTicket> {
@@ -851,13 +916,13 @@ export async function confirmPayment(ticketId: string, note: string): Promise<Li
   if (ticket.status !== "pending_payment") throw new PartnerError("Este ingresso não está aguardando pagamento.", 409);
   const updated = await repo().updateTicket(ticketId, { status: "valid", paidAt: new Date().toISOString(), note: note.slice(0, 300) }, ["pending_payment"]);
   if (!updated) throw new PartnerError("A reserva mudou de situação (expirou ou foi cancelada). Atualize a lista.", 409);
-  return updated;
+  return redactGuardian(updated);
 }
 
 export async function adminCancelTicket(ticketId: string, note: string): Promise<LiveTicket> {
   const updated = await repo().updateTicket(ticketId, { status: "cancelled", cancelledAt: new Date().toISOString(), note: note.slice(0, 300) }, ["pending_payment", "valid"]);
   if (!updated) throw new PartnerError("Só reservas e ingressos válidos podem ser cancelados.", 409);
-  return updated;
+  return redactGuardian(updated);
 }
 
 /** Busca um membro PRX pelo e-mail (para convites/cortesias). */

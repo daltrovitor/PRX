@@ -35,7 +35,30 @@ export async function requireLaunchSchema(): Promise<void> {
   if (!(await launchSchemaReady())) throw new PartnerError(LAUNCH_MIGRATION_HINT, 503);
 }
 
+/**
+ * A liberação do responsável legal (menores de 18 anos) vem em outra migração.
+ * Sem ela, a venda para maiores de idade segue normal e a de menores é recusada
+ * com este aviso, em vez de perder o registro da liberação.
+ */
+export const GUARDIAN_MIGRATION = "20261012_prx_guardian_consent.sql";
+export const GUARDIAN_MIGRATION_HINT = `Falta aplicar a migração supabase/migrations/${GUARDIAN_MIGRATION} no Supabase para vender ingressos a menores de idade.`;
+
+let guardianCached: { at: number; ready: boolean } | null = null;
+
+/** true quando live_tickets já tem a coluna guardian_consent (memória: sempre true). */
+export async function guardianSchemaReady(): Promise<boolean> {
+  if (!supabaseAdmin) return true;
+  if (guardianCached && Date.now() - guardianCached.at < TTL_MS) return guardianCached.ready;
+  const { error } = await supabaseAdmin.from("live_tickets").select("guardian_consent").limit(1);
+  const missing = isMissingColumn(error);
+  // Outro erro (rede): não marca como pronta nem guarda em cache.
+  if (!missing && error) return false;
+  guardianCached = { at: Date.now(), ready: !missing };
+  return guardianCached.ready;
+}
+
 /** Só para testes. */
 export function resetLaunchSchemaCache(): void {
   cached = null;
+  guardianCached = null;
 }

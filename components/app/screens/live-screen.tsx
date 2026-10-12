@@ -1,10 +1,11 @@
 // Hello World
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { User } from "@/hooks/use-auth";
 import { useAppNav } from "@/components/app/app-nav";
 import { useLiveData, type ActionResult, type QuoteResult } from "@/components/app/use-prx-stores";
+import { AgeFields } from "@/components/app/live/age-fields";
 import { EventPurchaseSheet } from "@/components/app/live/event-purchase-sheet";
 import { clearLiveLink, peekLiveLink } from "@/components/app/live/live-link";
 import { LiveTicketCard } from "@/components/tickets/live-ticket-card";
@@ -12,7 +13,7 @@ import { EventDate } from "@/components/app/shared";
 import { CopyButton } from "@/components/app/pass/voucher-sheet";
 import { Button, EmptyState, Field, Notice, Segmented, Select, Sheet, Tag, formatBRL } from "@/components/app/ui";
 import { IconCheck } from "@/components/icons/prx-icons";
-import type { MemberTicket, PublicBatch, PublicEvent } from "@/lib/live/service";
+import type { MemberTicket, PublicBatch, PublicEvent, TicketQuote } from "@/lib/live/service";
 import { SERIES_LABEL, SHIRT_SIZES, TICKET_STATUS_LABEL, type EventSeries, type ShirtSize } from "@/lib/live/types";
 import { formatDateTime } from "@/lib/live/format";
 import { cn } from "@/lib/utils";
@@ -57,8 +58,18 @@ export function LiveScreen({ member }: { member: User }) {
       ) : (
         <>
           {section === "eventos" && <EventsPanel events={agenda} member={member} reserve={live.reserve} quote={live.quote} onDone={() => go("live", "ingressos")} />}
-          {section === "ingressos" && <TicketsPanel tickets={wallet.tickets} cancel={live.cancel} onBrowse={() => go("live")} />}
-          {section === "run" && <RunPanel events={events.filter((e) => e.series === "run")} tickets={wallet.tickets} member={member} reserve={live.reserve} cancel={live.cancel} />}
+          {section === "ingressos" && <TicketsPanel tickets={wallet.tickets} cancel={live.cancel} resendGuardian={live.resendGuardian} onBrowse={() => go("live")} />}
+          {section === "run" && (
+            <RunPanel
+              events={events.filter((e) => e.series === "run")}
+              tickets={wallet.tickets}
+              member={member}
+              reserve={live.reserve}
+              quote={live.quote}
+              cancel={live.cancel}
+              resendGuardian={live.resendGuardian}
+            />
+          )}
         </>
       )}
     </div>
@@ -80,16 +91,25 @@ function batchNote(b: PublicBatch): string | null {
   return null;
 }
 
-type Reserve = (input: { eventId: string; batchId: string; run?: unknown; promoCode?: string; birthDate?: string }) => Promise<ActionResult>;
+type Reserve = (input: { eventId: string; batchId: string; run?: unknown; promoCode?: string; birthDate?: string; parentEmail?: string }) => Promise<ActionResult>;
 type Quote = (input: { eventId: string; batchId: string; promoCode?: string }) => Promise<QuoteResult>;
 type Cancel = (ticketId: string) => Promise<ActionResult>;
+type ResendGuardian = (ticketId: string) => Promise<ActionResult>;
+
+/** Etiqueta do ingresso: válido, mas sem a liberação do responsável (menor de 18 anos), ainda não vale na portaria. */
+function ticketTag(ticket: MemberTicket): { tone: "success" | "warning" | "neutral" | "accent"; label: string } {
+  const guardian = ticket.guardianConsent?.status;
+  if (ticket.status === "valid" && guardian === "pending") return { tone: "warning", label: "Aguardando responsável" };
+  if (ticket.status === "valid" && guardian === "rejected") return { tone: "neutral", label: "Recusado pelo responsável" };
+  return { tone: statusTone(ticket.status), label: TICKET_STATUS_LABEL[ticket.status] };
+}
 
 function EventsPanel({ events, member, reserve, quote, onDone }: { events: PublicEvent[]; member: User; reserve: Reserve; quote: Quote; onDone: () => void }) {
   const [series, setSeries] = useState<EventSeries | "all">("all");
   // Link de divulgação (?evento=…&cupom=…): abre o evento com o cupom preenchido.
   const [link] = useState(() => peekLiveLink());
   const [selectedId, setSelectedId] = useState<string | null>(() => (link && events.some((e) => e.id === link.eventId) ? link.eventId : null));
-  const [done, setDone] = useState<"free" | "reserved" | null>(null);
+  const [done, setDone] = useState<{ kind: "free" | "reserved"; guardianPending: boolean } | null>(null);
 
   const seriesPresent = useMemo(() => [...new Set(events.map((e) => e.series))], [events]);
   const list = useMemo(() => events.filter((e) => series === "all" || e.series === series), [events, series]);
@@ -158,10 +178,10 @@ function EventsPanel({ events, member, reserve, quote, onDone }: { events: Publi
           setSelectedId(null);
           if (link) clearLiveLink();
         }}
-        onDone={(kind) => {
+        onDone={(kind, guardianPending) => {
           if (link) clearLiveLink();
           setSelectedId(null);
-          setDone(kind);
+          setDone({ kind, guardianPending });
         }}
       />
 
@@ -171,7 +191,7 @@ function EventsPanel({ events, member, reserve, quote, onDone }: { events: Publi
           setDone(null);
           onDone();
         }}
-        title={done === "free" ? "Ingresso garantido" : "Reserva feita"}
+        title={done?.guardianPending ? "Falta a liberação do responsável" : done?.kind === "free" ? "Ingresso garantido" : "Reserva feita"}
         footer={
           <Button
             block
@@ -190,9 +210,13 @@ function EventsPanel({ events, member, reserve, quote, onDone }: { events: Publi
             <IconCheck size={24} />
           </span>
           <p className="text-[15px] leading-relaxed text-ink">
-            {done === "free"
-              ? "Seu ingresso já está na carteira com o QR Code para a portaria."
-              : "Seu lugar está reservado. Assim que o pagamento for confirmado pela equipe PRX, o QR Code do ingresso é liberado."}
+            {done?.guardianPending
+              ? `Enviamos um e-mail ao seu responsável legal com um link para liberar sua entrada. O QR Code só vale na portaria depois da liberação${
+                  done.kind === "reserved" ? " e da confirmação do pagamento pela equipe PRX" : ""
+                }. Você acompanha, e reenvia o e-mail se precisar, em Meus ingressos.`
+              : done?.kind === "free"
+                ? "Seu ingresso já está na carteira com o QR Code para a portaria."
+                : "Seu lugar está reservado. Assim que o pagamento for confirmado pela equipe PRX, o QR Code do ingresso é liberado."}
           </p>
         </div>
       </Sheet>
@@ -208,10 +232,13 @@ function statusTone(status: MemberTicket["status"]): "success" | "warning" | "ne
   return "neutral";
 }
 
-function TicketSheet({ ticket, onClose, cancel }: { ticket: MemberTicket | null; onClose: () => void; cancel: Cancel }) {
+function TicketSheet({ ticket, onClose, cancel, resendGuardian }: { ticket: MemberTicket | null; onClose: () => void; cancel: Cancel; resendGuardian: ResendGuardian }) {
   const [busy, setBusy] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const event = ticket?.event ?? null;
+  const guardian = ticket?.guardianConsent ?? null;
   const cancellable = ticket && (ticket.status === "pending_payment" || (ticket.status === "valid" && ticket.price === 0 && ticket.source !== "invite" && event?.salesOpen));
 
   async function doCancel() {
@@ -224,11 +251,23 @@ function TicketSheet({ ticket, onClose, cancel }: { ticket: MemberTicket | null;
     onClose();
   }
 
+  async function doResend() {
+    if (!ticket) return;
+    setResending(true);
+    setError(null);
+    setInfo(null);
+    const result = await resendGuardian(ticket.id);
+    setResending(false);
+    if (!result.ok) return setError(result.error);
+    setInfo(`E-mail reenviado para ${guardian?.guardianEmail ?? "o responsável"}.`);
+  }
+
   return (
     <Sheet
       open={Boolean(ticket)}
       onClose={() => {
         setError(null);
+        setInfo(null);
         onClose();
       }}
       title={event?.title ?? "Ingresso"}
@@ -245,7 +284,7 @@ function TicketSheet({ ticket, onClose, cancel }: { ticket: MemberTicket | null;
         <div className="space-y-6">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-2">
-              <Tag tone={statusTone(ticket.status)}>{TICKET_STATUS_LABEL[ticket.status]}</Tag>
+              <Tag tone={ticketTag(ticket).tone}>{ticketTag(ticket).label}</Tag>
               <p className="text-sm text-muted-foreground">
                 {ticket.batchName} · {ticket.holderName}
               </p>
@@ -279,9 +318,23 @@ function TicketSheet({ ticket, onClose, cancel }: { ticket: MemberTicket | null;
                   price: ticket.price,
                   originalPrice: ticket.originalPrice,
                   discount: ticket.discount,
-                  statusLabel: TICKET_STATUS_LABEL[ticket.status],
+                  statusLabel: ticketTag(ticket).label,
+                  guardianStatus: guardian?.status ?? null,
+                  guardianName: guardian?.guardianName ?? null,
+                  guardianEmail: guardian?.guardianEmail ?? null,
                 }}
               />
+              {guardian?.status === "pending" && (
+                <Notice tone="warning">
+                  <p>
+                    Falta a liberação do responsável legal. Enviamos o link para <strong className="font-semibold">{guardian.guardianEmail}</strong>; o QR Code só vale na portaria depois que ele liberar.
+                  </p>
+                  <Button size="sm" variant="secondary" className="mt-3 min-h-12" onClick={() => void doResend()} disabled={resending}>
+                    {resending ? "Reenviando…" : "Reenviar e-mail ao responsável"}
+                  </Button>
+                </Notice>
+              )}
+              {guardian?.status === "rejected" && <Notice tone="error">O responsável recusou a liberação: este ingresso não vale na portaria.</Notice>}
               <div className="flex items-center justify-between gap-4 rounded-3xl bg-surface p-4">
                 <div>
                   <p className="text-[13px] text-muted-foreground">Código do ingresso</p>
@@ -303,6 +356,7 @@ function TicketSheet({ ticket, onClose, cancel }: { ticket: MemberTicket | null;
           )}
           {ticket.status === "used" && <Notice tone="success">Entrada registrada em {formatDateTime(ticket.checkedInAt)}.</Notice>}
           {ticket.status === "cancelled" && <Notice>Este ingresso foi cancelado.</Notice>}
+          {info && <Notice tone="success">{info}</Notice>}
           {error && <Notice tone="error">{error}</Notice>}
         </div>
       )}
@@ -319,7 +373,7 @@ function TicketCard({ ticket, onOpen }: { ticket: MemberTicket; onOpen: () => vo
       </div>
       <div className="flex min-w-0 flex-1 flex-col justify-between gap-4 p-5">
         <div>
-          <Tag tone={statusTone(ticket.status)}>{TICKET_STATUS_LABEL[ticket.status]}</Tag>
+          <Tag tone={ticketTag(ticket).tone}>{ticketTag(ticket).label}</Tag>
           <p className="mt-1.5 truncate text-[17px] font-semibold text-ink">{event?.title ?? "Evento indisponível"}</p>
         </div>
         <p className="font-mono text-[13px] text-muted-foreground">{ticket.status === "valid" || ticket.status === "used" ? ticket.code : ticket.batchName}</p>
@@ -328,7 +382,7 @@ function TicketCard({ ticket, onOpen }: { ticket: MemberTicket; onOpen: () => vo
   );
 }
 
-function TicketsPanel({ tickets, cancel, onBrowse }: { tickets: MemberTicket[]; cancel: Cancel; onBrowse: () => void }) {
+function TicketsPanel({ tickets, cancel, resendGuardian, onBrowse }: { tickets: MemberTicket[]; cancel: Cancel; resendGuardian: ResendGuardian; onBrowse: () => void }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const open = tickets.find((t) => t.id === openId) ?? null;
   const current = tickets.filter(isOpenTicket);
@@ -363,14 +417,30 @@ function TicketsPanel({ tickets, cancel, onBrowse }: { tickets: MemberTicket[]; 
           </ul>
         </div>
       )}
-      <TicketSheet ticket={open} onClose={() => setOpenId(null)} cancel={cancel} />
+      <TicketSheet ticket={open} onClose={() => setOpenId(null)} cancel={cancel} resendGuardian={resendGuardian} />
     </section>
   );
 }
 
 /* ------------------------------------------------------------------------ */
 
-function RunPanel({ events, tickets, member, reserve, cancel }: { events: PublicEvent[]; tickets: MemberTicket[]; member: User; reserve: Reserve; cancel: Cancel }) {
+function RunPanel({
+  events,
+  tickets,
+  member,
+  reserve,
+  quote,
+  cancel,
+  resendGuardian,
+}: {
+  events: PublicEvent[];
+  tickets: MemberTicket[];
+  member: User;
+  reserve: Reserve;
+  quote: Quote;
+  cancel: Cancel;
+  resendGuardian: ResendGuardian;
+}) {
   const upcoming = events.filter((e) => e.status === "published" && !e.ended).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   const past = events.filter((e) => e.ended && (e.run?.results.length ?? 0) > 0).sort((a, b) => b.startsAt.localeCompare(a.startsAt));
   const [stageId, setStageId] = useState<string | null>(null);
@@ -392,7 +462,16 @@ function RunPanel({ events, tickets, member, reserve, cancel }: { events: Public
           />
         )}
         {stage ? (
-          <RunStage key={stage.id} stage={stage} ticket={tickets.find((t) => t.eventId === stage.id && isOpenTicket(t)) ?? null} member={member} reserve={reserve} cancel={cancel} />
+          <RunStage
+            key={stage.id}
+            stage={stage}
+            ticket={tickets.find((t) => t.eventId === stage.id && isOpenTicket(t)) ?? null}
+            member={member}
+            reserve={reserve}
+            quote={quote}
+            cancel={cancel}
+            resendGuardian={resendGuardian}
+          />
         ) : (
           <EmptyState title="Inscrições encerradas" body="A próxima etapa aparece aqui quando abrir." />
         )}
@@ -408,26 +487,69 @@ function RunPanel({ events, tickets, member, reserve, cancel }: { events: Public
   );
 }
 
-function RunStage({ stage, ticket, member, reserve, cancel }: { stage: PublicEvent; ticket: MemberTicket | null; member: User; reserve: Reserve; cancel: Cancel }) {
+function RunStage({
+  stage,
+  ticket,
+  member,
+  reserve,
+  quote,
+  cancel,
+  resendGuardian,
+}: {
+  stage: PublicEvent;
+  ticket: MemberTicket | null;
+  member: User;
+  reserve: Reserve;
+  quote: Quote;
+  cancel: Cancel;
+  resendGuardian: ResendGuardian;
+}) {
   const run = stage.run;
   const [modality, setModality] = useState(run?.modalities[0] ?? "5k");
   const [category, setCategory] = useState(run?.categories[0] ?? "Geral");
   const [shirt, setShirt] = useState<ShirtSize>("M");
   const [batchId, setBatchId] = useState(stage.batches.find((b) => b.available)?.id ?? "");
   const [accepted, setAccepted] = useState(false);
+  const [birthDate, setBirthDate] = useState("");
+  const [parentEmail, setParentEmail] = useState("");
+  const [age, setAge] = useState<TicketQuote["age"]>();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [openTicket, setOpenTicket] = useState(false);
   const batch = stage.batches.find((b) => b.id === batchId);
   const levelLocked = (member.prxLevel || 1) < stage.minPrxLevel;
+  const ageBlocked = Boolean(age && !age.eligible && !age.needsBirthDate);
+
+  // Regra de idade do servidor: pede a data de nascimento (se a conta não tem) e o e-mail do responsável (menor de 18 anos).
+  useEffect(() => {
+    if (!batch) return;
+    let active = true;
+    quote({ eventId: stage.id, batchId: batch.id }).then((result) => {
+      if (!active || !result.ok) return;
+      setAge(result.quote.age);
+      const suggested = result.quote.age?.suggestedParentEmail;
+      if (suggested) setParentEmail((prev) => prev || suggested);
+    });
+    return () => {
+      active = false;
+    };
+  }, [stage.id, batch, quote]);
 
   async function register(event: FormEvent) {
     event.preventDefault();
     if (!batch) return setError("Escolha o lote da inscrição.");
     if (!accepted) return setError("Aceite o termo de responsabilidade para concluir a inscrição.");
+    if (age?.needsBirthDate && !birthDate) return setError("Informe sua data de nascimento para continuar.");
+    if (age?.requiresParentEmail && !parentEmail.trim()) return setError("Como você é menor de idade, informe o e-mail do seu responsável legal.");
     setBusy(true);
     setError(null);
-    const result = await reserve({ eventId: stage.id, batchId: batch.id, run: { modality, category, shirtSize: shirt, acceptedTerms: true } });
+    const result = await reserve({
+      eventId: stage.id,
+      batchId: batch.id,
+      run: { modality, category, shirtSize: shirt, acceptedTerms: true },
+      birthDate: age?.needsBirthDate ? birthDate : undefined,
+      parentEmail: age?.requiresParentEmail ? parentEmail.trim() : undefined,
+    });
     setBusy(false);
     if (!result.ok) setError(result.error);
   }
@@ -449,7 +571,7 @@ function RunStage({ stage, ticket, member, reserve, cancel }: { stage: PublicEve
 
       {ticket ? (
         <div className="space-y-4 rounded-3xl glass p-5 sm:p-6">
-          <Tag tone={statusTone(ticket.status)}>{ticket.status === "valid" ? "Inscrição confirmada" : TICKET_STATUS_LABEL[ticket.status]}</Tag>
+          <Tag tone={ticketTag(ticket).tone}>{ticket.status === "valid" && !ticket.guardianConsent ? "Inscrição confirmada" : ticketTag(ticket).label}</Tag>
           {ticket.runDetails && (
             <dl className="grid grid-cols-3 gap-4 text-sm">
               <div>
@@ -467,9 +589,9 @@ function RunStage({ stage, ticket, member, reserve, cancel }: { stage: PublicEve
             </dl>
           )}
           <Button variant="ink" onClick={() => setOpenTicket(true)}>
-            {ticket.status === "valid" ? "Mostrar QR do kit" : "Ver reserva"}
+            {ticket.status === "valid" ? (ticket.guardianConsent?.status === "approved" || !ticket.guardianConsent ? "Mostrar QR do kit" : "Ver inscrição") : "Ver reserva"}
           </Button>
-          <TicketSheet ticket={openTicket ? ticket : null} onClose={() => setOpenTicket(false)} cancel={cancel} />
+          <TicketSheet ticket={openTicket ? ticket : null} onClose={() => setOpenTicket(false)} cancel={cancel} resendGuardian={resendGuardian} />
         </div>
       ) : !stage.salesOpen || !run ? (
         <EmptyState title="Inscrições encerradas" body="Acompanhe os resultados quando a etapa terminar." />
@@ -540,9 +662,11 @@ function RunStage({ stage, ticket, member, reserve, cancel }: { stage: PublicEve
           {batch && batch.price > 0 && (
             <p className="text-[13px] text-muted-foreground">A inscrição fica reservada por até 72 h. Com o pagamento confirmado pela equipe PRX, o QR do kit é liberado.</p>
           )}
+          <AgeFields age={age} ageRating={stage.ageRating} birthDate={birthDate} onBirthDate={setBirthDate} parentEmail={parentEmail} onParentEmail={setParentEmail} />
+          {ageBlocked && age?.reason && <Notice tone="error">{age.reason}</Notice>}
           {levelLocked && <Notice tone="warning">Etapa para membros a partir do nível {stage.minPrxLevel}.</Notice>}
           {error && <Notice tone="error">{error}</Notice>}
-          <Button type="submit" block disabled={busy || !batch?.available || levelLocked}>
+          <Button type="submit" block disabled={busy || !batch?.available || levelLocked || ageBlocked}>
             {busy ? "Enviando…" : batch ? `Inscrever-se · ${batch.price === 0 ? "grátis" : formatBRL(batch.price)}` : "Inscrições esgotadas"}
           </Button>
         </form>

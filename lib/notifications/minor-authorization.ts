@@ -23,6 +23,8 @@ export interface SendMinorAuthorizationOptions {
   eventAddress?: string | null;
   eventAgeRating: string;
   organizerName?: string | null;
+  /** Reenvio pedido pelo membro: ganha chave própria, senão o provedor devolve o envio anterior (24 h) sem mandar outro e-mail. */
+  resend?: boolean;
 }
 
 /**
@@ -56,7 +58,7 @@ export async function sendMinorAuthorizationEmail(options: SendMinorAuthorizatio
       html: email.html,
       text: email.text,
       template: "minor_event_authorization",
-      idempotencyKey: `minor-auth-${options.ticketId}-${options.token.slice(0, 16)}`,
+      idempotencyKey: `minor-auth-${options.ticketId}-${options.token.slice(0, 16)}${options.resend ? `-r${Date.now()}` : ""}`,
     });
   } catch (err) {
     result = {
