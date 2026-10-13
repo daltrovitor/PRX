@@ -2,7 +2,7 @@
 import { after } from "next/server";
 import { asaasDeps } from "@/lib/bank/asaas/deps";
 import { syncOnboardingDocuments } from "@/lib/bank/asaas/documents";
-import { describeError } from "@/lib/bank/asaas/provisioning-log";
+import { logDeferred } from "@/lib/bank/asaas/provisioning-log";
 
 /**
  * Envio dos documentos depois da resposta ao membro (next/server `after`): o
@@ -20,7 +20,7 @@ export function scheduleDocumentSync(userId: string): void {
         await syncOnboardingDocuments(userId, deps);
       }
     } catch (err) {
-      console.warn("[prx-bank:abertura] documentos adiados para a próxima visita ou conciliação:", describeError(err));
+      logDeferred(userId, "abertura.documentos", err);
     }
   });
 }

@@ -12,6 +12,7 @@ import { assertCanHoldMoney, assertMinorSpend } from "@/lib/family/guards";
 import { assertBankKycApproved, bankKycState } from "@/lib/kyc/guards";
 import { asaasActiveFor, asaasDeps } from "@/lib/bank/asaas/deps";
 import { providerSnapshot } from "@/lib/bank/asaas/view";
+import { bankActivation } from "@/lib/bank/activation";
 import { createProviderCharge, createProviderPixKey, removeProviderPixKey } from "@/lib/bank/asaas/cash-in";
 import { assertNightLimit } from "@/lib/bank/asaas/limits";
 
@@ -78,6 +79,7 @@ export async function accountView(userId: string): Promise<BankAccountView> {
   const status = isSandbox && account.status === "pending_activation" ? "active" : (live?.provider?.state === "active" ? "active" : account.status);
   const virtualCard = account.virtualCard ?? (isSandbox ? { last4: "4242", expiry: "12/30", locked: false } : null);
   const kycState = isSandbox && kyc.status !== "approved" ? { ...kyc, status: "approved" as const } : kyc;
+  const activation = bankActivation({ kyc: kycState.status, bankOnline: isAsaas, sandbox: isSandbox, provider: provider?.state ?? null, accountStatus: status });
 
   return {
     status,
@@ -93,6 +95,7 @@ export async function accountView(userId: string): Promise<BankAccountView> {
     sandbox: isSandbox,
     kyc: kycState,
     provider,
+    activation,
   };
 }
 

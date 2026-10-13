@@ -116,7 +116,24 @@ export interface BankAccountView {
   kyc: BankKycState;
   /** Banco parceiro ligado neste ambiente (null = sem BaaS: pré-ativação ou sandbox). */
   provider: BankProviderView | null;
+  /** Etapa da abertura, decidida no servidor (lib/bank/activation.ts): a tela só mostra. */
+  activation: BankActivation;
 }
+
+/**
+ * Etapa da abertura do PRX BANK a partir do que está salvo (abertura no
+ * Supabase, subconta no banco parceiro):
+ *   form         sem abertura, ou recusada pelo PRX: formulário
+ *   waiting      abertura salva aguardando responsável, emancipação ou o banco parceiro
+ *   unavailable  dados aprovados, mas o banco parceiro não atende agora: nada a reenviar
+ *   ready        dados aprovados, conta ainda não criada no banco: abrir com os dados salvos
+ *   opening      criação da conta em andamento
+ *   review       conta criada no banco, em análise (documentos e aprovação)
+ *   rejected     o banco pediu um novo envio
+ *   active       conta liberada pelo banco (ou sandbox)
+ *   blocked      conta bloqueada
+ */
+export type BankActivation = "form" | "waiting" | "unavailable" | "ready" | "opening" | "review" | "rejected" | "active" | "blocked";
 
 export const MAX_PIX_KEYS = 5;
 const DAY = 86_400_000;

@@ -92,8 +92,8 @@ export function BankScreen({ member }: { member: User }) {
     );
   }
 
-  // Primeira visita ao PRX BANK: abertura de conta (KYC). O resto do PRX nunca pede documentos.
-  if (account.kyc.status !== "approved") return <BankKycPanel member={member} kyc={account.kyc} onDone={reload} />;
+  // Primeira visita ao PRX BANK: abertura de conta (KYC), ou a abertura salva aguardando. O resto do PRX nunca pede documentos.
+  if (account.activation === "form" || account.activation === "waiting") return <BankKycPanel member={member} kyc={account.kyc} onDone={reload} />;
 
   const active = account.status === "active";
   // Conta aprovada no Asaas: Pix e contas saem pelo banco parceiro, com confirmação.

@@ -8,7 +8,7 @@ import type { AsaasDeps } from "@/lib/bank/asaas/deps";
 import { applyStatusUpdate, eventInstant, fetchStatusSnapshot, parseSnapshot, snapshotFromEvent, type StatusSnapshot } from "@/lib/bank/asaas/account-status";
 import { ensureDefaultPixKey, handlePaymentEvent } from "@/lib/bank/asaas/cash-in";
 import { handleOutgoingEvent } from "@/lib/bank/asaas/outgoing-events";
-import type { CommercialInfoAlert, Subaccount } from "@/lib/bank/asaas/types";
+import type { AsaasBankStore, CommercialInfoAlert, Subaccount } from "@/lib/bank/asaas/types";
 
 /**
  * Eventos do Asaas (POST /api/bank/webhooks/asaas). Cada evento é gravado em
@@ -34,7 +34,8 @@ export const asaasEventSchema = z.object({
 export type AsaasEvent = z.output<typeof asaasEventSchema>;
 
 /** stale: situação mais antiga que a já aplicada; failed: gravado, processamento adiado. */
-export type WebhookOutcome = "processed" | "duplicate" | "ignored" | "stale" | "failed";
+/** deferred: Asaas desligado neste deploy; gravado para a conciliação processar quando ele voltar. */
+export type WebhookOutcome = "processed" | "duplicate" | "ignored" | "stale" | "failed" | "deferred";
 
 const text = (value: unknown): string | null => (typeof value === "string" && value.trim() ? value.trim() : null);
 
@@ -110,6 +111,16 @@ export async function handleAsaasEvent(event: AsaasEvent, deps: AsaasDeps): Prom
   const recorded = await deps.store.recordWebhook({ eventId: event.id, eventType: event.event, asaasAccountId: event.account?.id ?? null, payload: event });
   if (recorded === "duplicate") return "duplicate";
   return processRecorded(event, deps);
+}
+
+/**
+ * Asaas desligado neste deploy (chave ou ambiente errados): o evento autenticado
+ * fica gravado, sem efeito, e o Asaas recebe 200 para a fila não ser
+ * interrompida. reprocessPendingWebhooks processa quando a chave voltar.
+ */
+export async function deferAsaasEvent(event: AsaasEvent, store: AsaasBankStore): Promise<WebhookOutcome> {
+  const recorded = await store.recordWebhook({ eventId: event.id, eventType: event.event, asaasAccountId: event.account?.id ?? null, payload: event });
+  return recorded === "duplicate" ? "duplicate" : "deferred";
 }
 
 export interface WebhookRetryReport {

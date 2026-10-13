@@ -1,7 +1,8 @@
 // Hello World
 import { z } from "zod";
 import { errorMessage } from "@/lib/errors";
-import { asaasChecklist, readAsaasConfig, type AsaasCheck } from "@/lib/asaas/config";
+import { asaasChecklist, readAsaasConfig, webhookUrls, type AsaasCheck } from "@/lib/asaas/config";
+import { asaasRuntime, probeWebhookUrl, type AsaasRuntime } from "@/lib/asaas/runtime";
 import { getAsaasClient } from "@/lib/asaas/client";
 import { isMissingTable } from "@/lib/partners/errors";
 import { supabaseAdmin } from "@/lib/supabase/client";
@@ -19,6 +20,8 @@ export interface BankStatus {
   accounts: { production: number; sandbox: number; events: number } | null;
   /** Versão publicada (commit da Vercel), para saber se o deploy novo já entrou. */
   version: string | null;
+  /** O que este deploy lê de fato (tipo da chave, endpoint, URLs dos webhooks), sem segredos. */
+  runtime: AsaasRuntime;
 }
 
 function supabaseCheck(): AsaasCheck {
@@ -68,9 +71,20 @@ async function accountCounts(): Promise<BankStatus["accounts"]> {
   return production === null || sandbox === null || events === null ? null : { production, sandbox, events };
 }
 
+/** As URLs dos webhooks chamadas de verdade: precisam chegar ao PRX sem redirecionamento. */
+function webhookChecks(): Promise<AsaasCheck[]> {
+  const urls = webhookUrls();
+  if (!urls) return Promise.resolve([]);
+  return Promise.all([
+    probeWebhookUrl("Webhook de eventos responde direto (sem redirecionamento)", urls.events),
+    probeWebhookUrl("Webhook de validação de saque responde direto", urls.validateWithdraw),
+  ]);
+}
+
 export async function bankStatus(): Promise<BankStatus> {
   const config = readAsaasConfig();
-  const checks = [supabaseCheck(), ...asaasChecklist(), await migrationCheck(), await connectionCheck()];
-  const sha = (process.env.VERCEL_GIT_COMMIT_SHA ?? "").trim();
-  return { live: config !== null && checks.every((c) => c.ok), environment: config?.environment ?? null, checks, accounts: await accountCounts(), version: sha ? sha.slice(0, 7) : null };
+  const [migration, connection, webhooks, accounts] = await Promise.all([migrationCheck(), connectionCheck(), webhookChecks(), accountCounts()]);
+  const checks = [supabaseCheck(), ...asaasChecklist(), migration, connection, ...webhooks];
+  const runtime = asaasRuntime();
+  return { live: config !== null && checks.every((c) => c.ok), environment: config?.environment ?? null, checks, accounts, version: runtime.commit, runtime };
 }

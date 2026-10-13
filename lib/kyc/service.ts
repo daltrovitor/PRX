@@ -34,13 +34,17 @@ const AUTO_NOTE = "Aprovação automática: documentos enviados direto ao banco 
  * `allowRedo`: a conta ainda não existe no banco parceiro, então o membro pode
  * trocar uma abertura já aprovada (ex.: enviou fotos de teste). CPF e nascimento
  * continuam travados.
+ * `forward`: o banco parceiro recebe a abertura agora. A aprovação automática só
+ * vale porque o banco confere os documentos; com ele desligado neste deploy, a
+ * abertura fica salva "em andamento" (sem duplicar) e é aprovada quando o banco
+ * voltar (accountView → autoApproveBankKyc).
  */
 export async function submitBankKyc(
   user: MemberRef,
   input: BankKycInput,
   meta: { ip: string | null; userAgent: string },
   now = new Date(),
-  options: { allowRedo?: boolean } = {}
+  options: { allowRedo?: boolean; forward?: boolean } = {}
 ): Promise<BankKycApplication> {
   const identity = await familyRepo().getIdentity(user.id);
   if (identity?.accountType === "parent") throw new FamilyError(PARENT_NO_MONEY, 403);
@@ -115,7 +119,7 @@ export async function submitBankKyc(
     ip: meta.ip,
     userAgent: meta.userAgent.slice(0, 300),
   });
-  const app = await autoApproveBankKyc(user.id);
+  const app = options.forward === false ? await kycRepo().latestForUser(user.id) : await autoApproveBankKyc(user.id);
   if (!app) throw new FamilyError("Não foi possível registrar a abertura de conta.", 500);
   return app;
 }
@@ -167,7 +171,8 @@ export async function reviewBankKyc(id: string, decision: "approve" | "reject", 
         await logAsaasUnavailable(decided.userId);
       }
     } catch (err) {
-      console.warn("[kyc] Aviso ao provisionar Asaas após aprovação de KYC:", err);
+      const { logDeferred } = await import("@/lib/bank/asaas/provisioning-log");
+      logDeferred(decided.userId, "abertura.conta", err);
     }
   }
 

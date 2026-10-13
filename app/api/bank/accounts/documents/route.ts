@@ -6,7 +6,7 @@ import { familyErrorResponse, requireUser } from "@/lib/family/http";
 import { asaasActiveFor, asaasDeps } from "@/lib/bank/asaas/deps";
 import { subaccountDocuments, syncOnboardingDocuments, uploadSubaccountDocument } from "@/lib/bank/asaas/documents";
 import { currentSubaccount } from "@/lib/bank/asaas/subaccount";
-import { describeError } from "@/lib/bank/asaas/provisioning-log";
+import { logDeferred } from "@/lib/bank/asaas/provisioning-log";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     const deps = asaasDeps();
     const sub = await currentSubaccount(user.id, deps);
     if (sub?.asaasAccountId && sub.apiKeySealed && !sub.documentsSyncedAt) {
-      await syncOnboardingDocuments(user.id, deps).catch((err: unknown) => console.warn("[prx-bank:abertura] documentos adiados:", describeError(err)));
+      await syncOnboardingDocuments(user.id, deps).catch((err: unknown) => logDeferred(user.id, "abertura.documentos", err));
     }
     return NextResponse.json(await subaccountDocuments(user.id, deps), { headers: NO_STORE });
   } catch (error) {

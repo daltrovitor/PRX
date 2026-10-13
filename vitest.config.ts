@@ -8,5 +8,7 @@ export default defineConfig({
   test: {
     include: ["lib/**/*.test.ts"],
     environment: "node",
+    // Logs estruturados do PRX BANK (lib/asaas/log.ts) fora da saída dos testes.
+    env: { PRX_BANK_LOG: "off" },
   },
 });

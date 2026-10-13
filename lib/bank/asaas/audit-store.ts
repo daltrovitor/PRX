@@ -1,7 +1,8 @@
 // Hello World
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { isUuid } from "@/lib/partners/catalog";
-import { AUDIT_OUTCOMES, auditLine, type AuditFilter, type AuditReader, type AuditRecord, type AuditSink } from "@/lib/asaas/audit";
+import { bankLog } from "@/lib/asaas/log";
+import { AUDIT_OUTCOMES, type AuditFilter, type AuditReader, type AuditRecord, type AuditSink } from "@/lib/asaas/audit";
 
 /**
  * Onde ficam os registros das chamadas ao Asaas: tabela asaas_api_requests
@@ -101,7 +102,7 @@ export class SupabaseAuditStore implements AsaasAuditStore {
   private warn(message: string) {
     if (this.warned) return;
     this.warned = true;
-    console.warn(`[prx-asaas] registro não gravado no Supabase (aplique supabase/migrations/20261010_prx_asaas_audit.sql): ${message}`);
+    bankLog("error", "asaas.audit_store", { error: `registro não gravado no Supabase (aplique supabase/migrations/20261010_prx_asaas_audit.sql): ${message}` });
   }
 
   async start(record: AuditRecord) {
@@ -114,7 +115,6 @@ export class SupabaseAuditStore implements AsaasAuditStore {
   }
 
   async finish(record: AuditRecord) {
-    console.info(auditLine(record));
     try {
       const { error } = await this.db.from("asaas_api_requests").upsert({ ...toRow(record), updated_at: new Date().toISOString() }, { onConflict: "id" });
       if (error) this.warn(error.message);

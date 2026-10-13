@@ -15,7 +15,7 @@ import { asaasDeps } from "@/lib/bank/asaas/deps";
 import { ensureDefaultPixKey } from "@/lib/bank/asaas/cash-in";
 import { applyStatusUpdate, fetchStatusSnapshot, parseSnapshot } from "@/lib/bank/asaas/account-status";
 import { syncOnboardingDocuments } from "@/lib/bank/asaas/documents";
-import { describeError, logProvisioning } from "@/lib/bank/asaas/provisioning-log";
+import { describeError, logDeferred, logProvisioning } from "@/lib/bank/asaas/provisioning-log";
 import { adoptExistingSubaccount, formatAccount } from "@/lib/bank/asaas/recovery";
 import { currentSubaccount, requireSubaccount, subaccountView, type SubaccountView } from "@/lib/bank/asaas/subaccount";
 import type { ProvisioningOutcome } from "@/lib/bank/asaas/types";
@@ -230,7 +230,7 @@ export async function ensureAsaasCustomerAndAccount(userId: string, deps: AsaasD
     }
     if (!sub?.apiKeySealed) return subaccountView(sub);
 
-    await syncOnboardingDocuments(userId, deps).catch((err: unknown) => console.warn("[prx-bank:abertura] documentos adiados:", describeError(err)));
+    await syncOnboardingDocuments(userId, deps).catch((err: unknown) => logDeferred(userId, "abertura.documentos", err));
     if (deps.client.environment === "sandbox") {
       await approveInSandbox(userId, deps).catch((err: unknown) => logProvisioning(deps, { userId, step: "status", outcome: "failed", asaasAccountId: sub?.asaasAccountId ?? null, detail: `Aprovação simulada do sandbox: ${describeError(err)}` }));
     }

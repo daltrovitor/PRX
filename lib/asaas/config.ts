@@ -46,7 +46,7 @@ export function resolveBaseUrl(raw: string | undefined, environment: AsaasEnviro
 }
 
 /** Prefixo da chave diz o ambiente dela; chave sem prefixo conhecido é aceita (contas antigas). */
-function keyEnvironment(apiKey: string): AsaasEnvironment | null {
+export function keyEnvironment(apiKey: string): AsaasEnvironment | null {
   if (apiKey.startsWith("$aact_hmlg_")) return "sandbox";
   if (apiKey.startsWith("$aact_prod_")) return "production";
   return null;

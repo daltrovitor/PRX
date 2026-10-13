@@ -42,7 +42,10 @@ const LOOKUP_DELAY_MS = 800;
 const str = (value: unknown): string | null => (typeof value === "string" && value.trim() ? value.trim() : null);
 const refuse = (refuseReason: string): ValidationAnswer => ({ status: "REFUSED", refuseReason });
 
-async function lookup(object: Record<string, unknown>, deps: AsaasDeps): Promise<OutgoingRequest | null> {
+/** Só os pedidos do próprio PRX: a validação não depende da chave do Asaas estar ligada neste deploy. */
+export type ValidationDeps = Pick<AsaasDeps, "store" | "now">;
+
+async function lookup(object: Record<string, unknown>, deps: ValidationDeps): Promise<OutgoingRequest | null> {
   const ref = str(object.externalReference);
   if (ref && isUuid(ref)) {
     const found = await deps.store.getOutgoing(ref);
@@ -52,7 +55,7 @@ async function lookup(object: Record<string, unknown>, deps: AsaasDeps): Promise
   return id ? deps.store.findOutgoingByProviderRef(id) : null;
 }
 
-export async function validateWithdraw(input: WithdrawValidation, deps: AsaasDeps, wait: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms))): Promise<ValidationAnswer> {
+export async function validateWithdraw(input: WithdrawValidation, deps: ValidationDeps, wait: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms))): Promise<ValidationAnswer> {
   const kinds = COMPATIBLE[input.type.toUpperCase()];
   const object = input.transfer ?? input.bill ?? input.pixQrCode ?? null;
   if (!kinds || !object) return refuse("Operação não reconhecida pelo PRX.");

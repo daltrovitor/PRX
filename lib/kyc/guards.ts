@@ -25,6 +25,7 @@ export async function bankKycState(userId: string): Promise<BankKycState> {
       reviewNote: "",
       awaitingGuardian: false,
       awaitingEmancipation: false,
+      submittedAt: null,
     };
   }
   const [app, identity] = await Promise.all([getKycRepository().latestForUser(userId), getFamilyRepository().getIdentity(userId)]);
@@ -34,5 +35,6 @@ export async function bankKycState(userId: string): Promise<BankKycState> {
     reviewNote: app?.reviewNote ?? "",
     awaitingGuardian: minor && identity?.status === "link_pending",
     awaitingEmancipation: minor && identity?.status === "emancipation_pending",
+    submittedAt: app?.createdAt ?? null,
   };
 }

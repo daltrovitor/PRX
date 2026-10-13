@@ -2,40 +2,37 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Notice } from "@/components/app/ui";
+import { Button } from "@/components/app/ui";
 import { BankKycPanel } from "@/components/app/bank/bank-kyc";
 import { ProviderOnboarding } from "@/components/app/bank/provider-onboarding";
 import type { BankAccountView } from "@/lib/prx/bank";
 import type { User } from "@/hooks/use-auth";
 
-const FRESH_KYC = { status: "none", reviewNote: "", awaitingGuardian: false, awaitingEmancipation: false } as const;
+const FRESH_KYC = { status: "none", reviewNote: "", awaitingGuardian: false, awaitingEmancipation: false, submittedAt: null } as const;
+
+const dateBR = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : null);
 
 /**
- * Conta em ativação. Com a conta já aberta, mostra os documentos e a resposta da
- * aprovação. Sem conta aberta (inclusive as criadas antes da produção), sempre dá
- * o caminho: "Ativar minha conta" leva ao envio dos dados e documentos, e a
- * resposta (aprovada, em análise ou recusada) volta para esta tela.
+ * Conta em ativação. A etapa vem do servidor (account.activation), com o que
+ * está salvo: quem já enviou os dados vê a situação deles e nunca volta ao
+ * formulário vazio. Refazer o envio só por escolha ("Corrigir meus dados") e só
+ * enquanto a conta ainda não existe no banco parceiro.
  */
 export function ActivationPanel({ account, member, onChanged }: { account: BankAccountView; member: User; onChanged: () => Promise<void> | void }) {
-  const [sending, setSending] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
-  const provider = account.provider;
-  const opened = provider && (provider.state === "pending_activation" || provider.state === "rejected" || provider.state === "provisioning");
+  const [redoing, setRedoing] = useState(false);
+  const { activation, provider } = account;
 
-  if (opened) return <ProviderOnboarding provider={provider} onChanged={() => void onChanged()} />;
-
-  if (sending) {
+  if (redoing) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" className="min-h-12" onClick={() => setSending(false)}>
+        <Button variant="ghost" className="min-h-12" onClick={() => setRedoing(false)}>
           Voltar
         </Button>
         <BankKycPanel
           member={member}
           kyc={FRESH_KYC}
-          onDone={async (providerError) => {
-            setNotice(providerError ?? null);
-            setSending(false);
+          onDone={async () => {
+            setRedoing(false);
             await onChanged();
           }}
         />
@@ -43,17 +40,40 @@ export function ActivationPanel({ account, member, onChanged }: { account: BankA
     );
   }
 
-  return (
-    <section className="glass space-y-4 rounded-3xl p-5 sm:p-6">
-      <h2 className="text-xl font-semibold tracking-[-0.02em] text-ink">Ative sua conta PRX BANK</h2>
-      <p className="text-[15px] leading-relaxed text-muted-foreground">
-        Envie seus dados e a frente e o verso do RG ou da CNH. Conferimos tudo e você recebe aqui a resposta: conta aprovada ou o que precisa ser reenviado. Em geral, em até 2
-        dias úteis.
-      </p>
-      {notice && <Notice tone="warning">{notice}</Notice>}
-      <Button className="min-h-12" onClick={() => setSending(true)}>
-        Ativar minha conta
-      </Button>
-    </section>
-  );
+  if (activation === "unavailable") {
+    const sent = dateBR(account.kyc.submittedAt);
+    return (
+      <section aria-labelledby="activation-title" className="glass space-y-4 rounded-3xl p-5 sm:p-6">
+        <h2 id="activation-title" className="text-xl font-semibold tracking-[-0.02em] text-ink">
+          Recebemos seus dados
+        </h2>
+        <p className="text-[15px] leading-relaxed text-muted-foreground">
+          Seus dados e documentos{sent ? `, enviados em ${sent},` : ""} estão salvos. A abertura da conta no PRX BANK ainda não foi concluída, e você não precisa enviar
+          nada de novo: avisamos aqui assim que a conta estiver pronta.
+        </p>
+        <Button variant="secondary" className="min-h-12" onClick={() => void onChanged()}>
+          Verificar de novo
+        </Button>
+      </section>
+    );
+  }
+
+  if (provider && (activation === "ready" || activation === "opening" || activation === "review" || activation === "rejected")) {
+    const sent = dateBR(account.kyc.submittedAt);
+    return (
+      <div className="space-y-3">
+        <ProviderOnboarding provider={provider} onChanged={() => void onChanged()} />
+        {activation === "ready" && (
+          <div className="space-y-2 px-1">
+            {sent && <p className="text-[13px] leading-relaxed text-muted-foreground">A conta é aberta com os dados enviados em {sent}.</p>}
+            <Button variant="ghost" className="min-h-12" onClick={() => setRedoing(true)}>
+              Corrigir meus dados
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return null;
 }

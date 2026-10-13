@@ -112,8 +112,8 @@ export function testDeps(client: AsaasClient, kyc: BankKycApplication | null = a
 /** Variáveis que a integração precisa nos testes. */
 export const ASAAS_TEST_ENV = {
   ASAAS_WEBHOOK_AUTH_TOKEN: "t".repeat(48),
-  ASAAS_WEBHOOK_URL_EVENTS: "https://prx.app.br/api/bank/webhooks/asaas",
-  ASAAS_WEBHOOK_URL_VALIDATE_WITHDRAW: "https://prx.app.br/api/bank/webhooks/validate-withdraw",
+  ASAAS_WEBHOOK_URL_EVENTS: "https://www.prx.app.br/api/bank/webhooks/asaas",
+  ASAAS_WEBHOOK_URL_VALIDATE_WITHDRAW: "https://www.prx.app.br/api/bank/webhooks/validate-withdraw",
   PRX_EMAIL_FROM: "PRX <noreply@prx.app.br>",
   BANK_ENCRYPTION_KEY: "e".repeat(40),
 };

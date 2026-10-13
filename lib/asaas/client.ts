@@ -2,7 +2,7 @@
 import type { z } from "zod";
 import { readAsaasConfig, type AsaasConfig, type AsaasEnvironment } from "@/lib/asaas/config";
 import { AsaasError, parseErrorItems } from "@/lib/asaas/errors";
-import { newAuditRecord, type AuditRecord, type AuditSink } from "@/lib/asaas/audit";
+import { logAuditRecord, newAuditRecord, type AuditRecord, type AuditSink } from "@/lib/asaas/audit";
 import { operationName } from "@/lib/asaas/operations";
 import { sanitizePayload, sanitizeQuery, scrubText } from "@/lib/asaas/sanitize";
 import { getAsaasAuditStore } from "@/lib/bank/asaas/audit-store";
@@ -114,21 +114,22 @@ export class AsaasClient {
     const method = init.method ?? "GET";
     const subaccount = Boolean(init.apiKey && init.apiKey.trim());
     // Registro central (asaas_api_requests): aberto antes do envio, fechado com o desfecho. Nunca guarda a chave.
-    const record = this.audit
-      ? newAuditRecord({
-          environment: this.environment,
-          operation: operationName(method, path),
-          method,
-          path: path.split("?")[0].slice(0, 300),
-          query: sanitizeQuery(init.query),
-          auth: subaccount ? "subaccount" : "master",
-          requestBody: sanitizePayload(init.form ?? init.body),
-        })
-      : null;
+    const record = newAuditRecord({
+      environment: this.environment,
+      operation: operationName(method, path),
+      method,
+      path: path.split("?")[0].slice(0, 300),
+      query: sanitizeQuery(init.query),
+      auth: subaccount ? "subaccount" : "master",
+      requestBody: sanitizePayload(init.form ?? init.body),
+    });
     const started = Date.now();
     let attempts = 0;
+    // Toda chamada vira uma linha estruturada nos logs da Vercel, com ou sem o registro central.
     const close = async (patch: Partial<AuditRecord>) => {
-      if (record && this.audit) await this.audit.finish({ ...record, ...patch, attempts, durationMs: Date.now() - started });
+      const done: AuditRecord = { ...record, ...patch, attempts, durationMs: Date.now() - started };
+      logAuditRecord(done);
+      if (this.audit) await this.audit.finish(done);
     };
 
     let url: string;
@@ -149,7 +150,7 @@ export class AsaasClient {
       headers["Content-Type"] = "application/json";
       body = JSON.stringify(init.body);
     }
-    if (record && this.audit) await this.audit.start(record);
+    if (this.audit) await this.audit.start(record);
 
     for (let attempt = 0; ; attempt++) {
       attempts = attempt + 1;
@@ -203,7 +204,6 @@ export class AsaasClient {
       if (!parsed.success) {
         const issue = parsed.error.issues[0];
         const where = issue?.path.join(".") || "(raiz)";
-        console.warn("[asaas] resposta fora do formato esperado:", method, path, where);
         await close({ ...received, outcome: "invalid_response", errorCode: "invalid_response", errorDescription: `Formato inesperado no campo ${where}: ${issue?.message ?? ""}`.slice(0, 1000) });
         throw new AsaasError(502, [{ code: "invalid_response", description: "Resposta inesperada do PRX BANK." }], method !== "GET");
       }

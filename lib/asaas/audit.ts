@@ -3,6 +3,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import crypto from "crypto";
 import type { AsaasEnvironment } from "@/lib/asaas/config";
 import type { AuditOutcome } from "@/lib/asaas/audit-outcomes";
+import { bankLog } from "@/lib/asaas/log";
 
 export { AUDIT_OUTCOMES, type AuditOutcome } from "@/lib/asaas/audit-outcomes";
 
@@ -12,7 +13,7 @@ export { AUDIT_OUTCOMES, type AuditOutcome } from "@/lib/asaas/audit-outcomes";
  * a falha): quem chamou não precisa repassar nada além do contexto de negócio,
  * que viaja por AsyncLocalStorage (membro, subconta, pedido). Falha ao gravar
  * nunca derruba nem repete a operação: o registro é melhor esforço e tem os
- * logs da Vercel ("[prx-asaas]") como segunda trilha.
+ * logs da Vercel (JSON "asaas.request", lib/asaas/log.ts) como segunda trilha.
  */
 
 export interface AuditContext {
@@ -115,18 +116,30 @@ export function newAuditRecord(input: Pick<AuditRecord, "environment" | "operati
   };
 }
 
-/** Linha curta para os logs da Vercel (sem corpos). */
-export function auditLine(record: AuditRecord): string {
-  const who = record.userId ? ` user=${record.userId}` : "";
-  const res = record.asaasResourceId ? ` asaas=${record.asaasResourceId}` : "";
-  const err = record.errorCode ? ` erro=${record.errorCode}` : "";
-  return `[prx-asaas] ${record.operation} ${record.method} ${record.path} → ${record.outcome}${record.httpStatus ? ` ${record.httpStatus}` : ""} ${record.durationMs ?? "?"}ms tentativas=${record.attempts}${who}${res}${err} id=${record.id}`;
+/** Linha estruturada nos logs da Vercel (sem corpos): mesma correlação e id do registro no Supabase. */
+export function logAuditRecord(record: AuditRecord): void {
+  bankLog(record.outcome === "success" ? "info" : record.outcome === "pending" ? "warn" : "error", "asaas.request", {
+    correlationId: record.correlationId,
+    step: record.operation,
+    method: record.method,
+    endpoint: `/v3${record.path}`,
+    httpStatus: record.httpStatus,
+    durationMs: record.durationMs,
+    outcome: record.outcome,
+    errorCode: record.errorCode,
+    error: record.errorDescription,
+    userId: record.userId,
+    localId: record.businessRef ?? record.id,
+    asaasId: record.asaasResourceId ?? record.asaasAccountId,
+    environment: record.environment,
+    detail: `tentativas=${record.attempts} registro=${record.id}`,
+  });
 }
 
 /** Registro de algo que o PRX decidiu não enviar ao Asaas (regra ou configuração). */
 export async function recordNotSent(sink: AuditSink | null, input: { environment: AsaasEnvironment; operation: string; method: string; path: string; reason: string }): Promise<void> {
   const record = newAuditRecord({ environment: input.environment, operation: input.operation, method: input.method, path: input.path, query: null, auth: "none", requestBody: null });
   const done: AuditRecord = { ...record, outcome: "not_sent", durationMs: 0, errorCode: "not_sent", errorDescription: input.reason.slice(0, 1000) };
-  console.warn(auditLine(done), "·", input.reason);
+  logAuditRecord(done);
   await sink?.finish(done);
 }

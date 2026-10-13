@@ -2,6 +2,7 @@
 import type { supabaseAdmin } from "@/lib/supabase/client";
 import { dbError } from "@/lib/partners/errors";
 import { isUuid } from "@/lib/partners/catalog";
+import { bankLog } from "@/lib/asaas/log";
 import {
   COMMITTED_OUTGOING,
   type AsaasBankStore,
@@ -157,7 +158,7 @@ export class SupabaseAsaasBankStore implements AsaasBankStore {
       detail: entry.detail?.slice(0, 1000) ?? null,
     });
     // Tabela ainda não criada (migração 20261008) ou fora do ar: fica só a linha nos logs da Vercel.
-    if (error) console.warn("[prx-bank:abertura] registro não gravado no Supabase:", error.message);
+    if (error) bankLog("error", "bank.provisioning_store", { userId: entry.userId, error: `registro não gravado no Supabase: ${error.message}` });
   }
 
   async listProvisioning(userId: string, limit: number) {

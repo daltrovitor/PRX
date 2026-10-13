@@ -134,7 +134,9 @@ export interface BankKycState {
   awaitingGuardian: boolean;
   /** Emancipação ainda em análise. */
   awaitingEmancipation: boolean;
+  /** Quando a abertura atual foi enviada (para o membro reconhecer os dados salvos). */
+  submittedAt: string | null;
 }
 
 export const KYC_REQUIRED_MESSAGE = "Abra sua conta PRX BANK primeiro: envie seus dados e documentos na aba PRX BANK.";
-export const KYC_PENDING_MESSAGE = "Sua abertura de conta está aguardando seu responsável aceitar o vínculo na Conta Pai.";
+export const KYC_PENDING_MESSAGE = "Sua abertura de conta ainda está em andamento (responsável, emancipação ou PRX BANK). Acompanhe na aba PRX BANK.";

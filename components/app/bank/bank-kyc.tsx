@@ -52,7 +52,10 @@ export function BankKycPanel({ member, kyc, onDone }: { member: User; kyc: BankK
   return <KycForm member={member} rejectedNote={kyc.status === "rejected" ? kyc.reviewNote || "Revise os dados e os documentos." : null} onDone={onDone} />;
 }
 
+/** Abertura salva e ainda não aprovada: nunca é mostrada como aprovada nem pede o mesmo envio de novo. */
 function KycPending({ kyc }: { kyc: BankKycState }) {
+  const waitingPeople = kyc.awaitingGuardian || kyc.awaitingEmancipation;
+  const sent = kyc.submittedAt ? new Date(kyc.submittedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : null;
   const [canBio, setCanBio] = useState(false);
   const [bioBusy, setBioBusy] = useState(false);
   const [bioDone, setBioDone] = useState(false);
@@ -112,7 +115,9 @@ function KycPending({ kyc }: { kyc: BankKycState }) {
         <Tag>Aguardando</Tag>
         <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-ink">Recebemos sua abertura de conta</h2>
         <p className="text-[15px] leading-relaxed text-muted-foreground">
-          Assim que a etapa abaixo for concluída, seus dados e documentos seguem direto para o PRX BANK, que aprova a conta. Você recebe o aviso aqui.
+          {waitingPeople
+            ? "Assim que a etapa abaixo for concluída, seus dados e documentos seguem direto para o PRX BANK, que aprova a conta. Você recebe o aviso aqui."
+            : `Seus dados e documentos${sent ? `, enviados em ${sent},` : ""} estão salvos e seguem para o PRX BANK, que aprova a conta. Você não precisa enviar nada de novo: o aviso chega aqui.`}
         </p>
         {kyc.awaitingGuardian && (
           <Notice tone="warning">Como você tem menos de 18 anos, seu responsável precisa aceitar o vínculo na Conta Pai dele. Peça para ele abrir o PRX e aprovar.</Notice>
@@ -266,7 +271,7 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
             <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-ink">Ativar biometria bancária</h2>
           </div>
           <p className="text-[15px] leading-relaxed text-muted-foreground">
-            Seus dados foram enviados ao PRX BANK! Para maior segurança e agilidade em transações Pix e acessos futuros, ative o Face ID, Touch ID ou a digital do aparelho.
+            Recebemos seus dados! Para maior segurança e agilidade em transações Pix e acessos futuros, ative o Face ID, Touch ID ou a digital do aparelho.
           </p>
           {bioError && <Notice tone="error">{bioError}</Notice>}
           <div className="space-y-3 pt-4">

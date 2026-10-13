@@ -18,6 +18,8 @@ O PRX BANK opera contas de pagamento individualizadas como subcontas white label
 
 Sem essas condições, o app segue no modo de pré-ativação (ou sandbox em memória no desenvolvimento), sem nenhuma chamada ao Asaas.
 
+**Toda mudança de variável na Vercel só vale depois de um novo deploy** (Deployments → Redeploy do último deploy de produção). O deploy antigo continua lendo os valores antigos. Para conferir o que está valendo, use o card **PRX BANK · Asaas** (Admin → Financeiro): ele mostra o ambiente da Vercel e o commit do deploy em execução, o tipo da chave lida (produção `$aact_prod_`, sandbox `$aact_hmlg_` ou formato antigo) com os 4 últimos caracteres, para onde as chamadas vão e se cada URL de webhook chega ao PRX sem redirecionamento (o PRX chama a URL sem token e espera 401 dele mesmo). Cada registro "Asaas desligado" em `bank_provisioning_log` também traz o deploy (`production@abc1234`) que o escreveu.
+
 ### Produção
 
 | Variável | Valor |
@@ -75,13 +77,15 @@ Ao abrir o PRX BANK com `ASAAS_ENVIRONMENT=production`:
 
 ## Diagnóstico (Admin → Asaas)
 
-- **Registro de toda chamada** em `asaas_api_requests`: operação, método, caminho, corpo enviado e resposta (sem chaves, tokens ou senhas; CPF, e-mail, telefone e endereço mascarados), HTTP, duração, tentativas e desfecho (`success`, `http_error`, `rate_limited`, `timeout`, `network_error`, `invalid_response`, `not_sent`). O que o PRX decidiu não enviar também entra (`not_sent`). Segunda trilha: linhas `[prx-asaas]` nos logs da Vercel.
+- **Registro de toda chamada** em `asaas_api_requests`: operação, método, caminho, corpo enviado e resposta (sem chaves, tokens ou senhas; CPF, e-mail, telefone e endereço mascarados), HTTP, duração, tentativas e desfecho (`success`, `http_error`, `rate_limited`, `timeout`, `network_error`, `invalid_response`, `not_sent`). O que o PRX decidiu não enviar também entra (`not_sent`). Segunda trilha: logs da Vercel em JSON (uma linha por evento, `"scope":"prx-bank"`), com `correlationId`, etapa, endpoint, método, HTTP, duração, código e mensagem de erro sanitizados, id interno do membro, id local e id no Asaas. Filtre por `correlationId` para ver um cadastro inteiro: KYC (`bank.kyc`), abertura (`bank.provisioning`), cada chamada (`asaas.request`). Webhooks: `webhook.asaas` e `webhook.validate_withdraw`. As linhas são escritas em stdout/stderr porque o build de produção apaga `console.*` (`compiler.removeConsole` no `next.config.ts`).
 - **Detalhe** de cada chamada: o que o PRX tentou, o que o Asaas respondeu, o que significa pela documentação, causa (confirmada ou hipótese), próxima ação e o estado de negócio atual (subconta ou pedido de saída), separado do HTTP.
 - **Membro**: situação aplicada e situação no Asaas agora, webhook da subconta (fila interrompida? eventos faltando?), documentos pedidos e histórico da abertura. Ações: consultar situação, enviar documentos, atualizar/reativar webhook, gerar chave (subconta sem chave) e retomar abertura.
 - **Conciliação**: reprocessa eventos que falharam, consulta subcontas em análise, envia documentos, religa aberturas travadas e confere Pix e contas sem desfecho (só GET; nada de dinheiro é repetido). **Atualizar webhooks das subcontas** grava URL, eventos e o token atual em cada subconta.
 
 ## Garantias
 
+- **Abertura sem volta ao formulário**: a etapa da abertura (`account.activation`, `lib/bank/activation.ts`) é decidida no servidor com o que está salvo. Quem já enviou os dados vê "Recebemos seus dados" (banco indisponível), "Abrir conta" com os dados salvos (conta ainda não criada no Asaas) ou os documentos pedidos pelo Asaas; o formulário só volta por "Corrigir meus dados". Com o Asaas desligado no deploy, a abertura fica `pending` (sem aprovação automática, sem duplicata) e é aprovada quando o Asaas voltar.
+- **Asaas desligado no deploy**: o webhook de eventos grava o evento e responde 200 (`deferred`); a conciliação processa quando a chave voltar. A validação de saque só lê os pedidos do PRX e não depende da chave.
 - **Idempotência**: cada evento entra em `bank_webhooks_log` (único por `event_id`) antes de qualquer efeito. Um evento já processado volta 200 sem efeito. Se o processamento falhar, o evento fica gravado com o erro, o Asaas recebe 200 (a fila sequencial não para) e a conciliação reprocessa. Só uma falha ao gravar responde 500. Lançamentos usam `provider_ref` único.
 - **Nada sai duas vezes**: o pedido passa de `awaiting_confirmation` para `requested` numa troca atômica. 429 é repetido (respeitando `Retry-After`/`RateLimit-Reset`). 5xx ou timeout num POST nunca é repetido: o pedido fica em aberto, marcado como resultado desconhecido, até o webhook ou a conciliação (`GET /v3/transfers/{id}`, lista do dia pelo `externalReference`, `GET /v3/pix/transactions/{id}`, `GET /v3/bill/{id}`) decidir.
 - **Limites**: Pix noturno de R$ 1.000 entre 20h e 6h de Brasília (Res. BCB 142/2021), limites da Conta Família para menores e saldo do Asaas, conferidos no preparo e na confirmação.

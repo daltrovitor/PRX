@@ -344,6 +344,18 @@ describe("abertura do PRX BANK (KYC bancário)", () => {
     await expect(submitBankKyc(other, kycInput(other.id, cpf, "2001-01-01"), { ip: IP, userAgent: "" }, NOW)).rejects.toMatchObject({ code: "CPF_TAKEN" });
   });
 
+  it("banco parceiro desligado no deploy: a abertura fica salva em andamento, sem aprovação automática nem duplicata", async () => {
+    const u = person();
+    const cpf = nextCpf();
+    const app = await submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW, { forward: false, allowRedo: true });
+    // Pendente não é aprovação: nada foi conferido pelo banco.
+    expect(app).toMatchObject({ status: "pending", reviewedBy: null });
+    // Reenviar os mesmos dados não cria outro pedido.
+    await expect(submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW, { forward: false, allowRedo: true })).rejects.toThrow(/já está em análise/);
+    // Com o banco de volta (accountView), a mesma abertura é aprovada pelas regras do PRX e segue ao banco.
+    await expect(autoApproveBankKyc(u.id)).resolves.toMatchObject({ id: app.id, status: "approved", reviewedBy: "auto" });
+  });
+
   it("menor só é aprovado depois do vínculo com consentimento parental", async () => {
     const { user } = await registerParent({ fullName: "Ana Responsável", email: `r${uniq()}@prx.dev`, password: "Senha1234", cpf: nextCpf(), birthDate: "1980-02-02", phone: "11988887777" }, NOW);
     const parent = { id: user.id, email: user.email, fullName: user.fullName };
