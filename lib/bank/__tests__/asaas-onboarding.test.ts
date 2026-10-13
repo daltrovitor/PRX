@@ -3,10 +3,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { decryptSecret } from "@/lib/asaas/secrets";
 import { ACCOUNT_OPEN_RETRY, completeAsaasSandboxChecklist, currentSubaccount, ensureAsaasCustomerAndAccount, openSubaccount, subaccountView } from "@/lib/bank/asaas/onboarding";
 import { reconcileLegacyAccount } from "@/lib/bank/asaas/legacy";
-import { syncOnboardingDocuments, uploadSubaccountDocument } from "@/lib/bank/asaas/documents";
+import { DOCUMENT_REFUSED, syncOnboardingDocuments, uploadSubaccountDocument } from "@/lib/bank/asaas/documents";
 import { handleAsaasEvent } from "@/lib/bank/asaas/webhooks";
 import { AsaasClient } from "@/lib/asaas/client";
+import { PDFDocument } from "pdf-lib";
+import sharp from "sharp";
 import { ASAAS_TEST_ENV, USER_ID, approvedKyc, fakeAsaas, testDeps } from "./asaas-fakes";
+
+/** Foto de verdade no formato pedido (o servidor decodifica e converte). */
+const photo = async (format: "jpeg" | "png" | "webp") =>
+  new Uint8Array(await sharp({ create: { width: 40, height: 24, channels: 3, background: "#c8c8c8" } })[format]().toBuffer());
 
 const CREATED = { id: "acc_123", walletId: "wal_123", apiKey: "$aact_hmlg_subconta_secreta", accountNumber: { agency: "0001", account: "123456", accountDigit: "7" } };
 /** Nenhuma subconta com o CPF no Asaas (consulta feita antes de criar). */
@@ -183,7 +189,7 @@ describe("menores de idade e emancipação", () => {
     const { deps } = testDeps(client, minorKyc("emancipated"));
     await openSubaccount(USER_ID, deps);
     later(deps);
-    await expect(syncOnboardingDocuments(USER_ID, deps)).resolves.toEqual({ state: "done", sent: 2, viaLink: 0, memberUpload: 0 });
+    await expect(syncOnboardingDocuments(USER_ID, deps)).resolves.toEqual({ state: "done", sent: 2, viaLink: 0, memberUpload: 0, refused: 0 });
     const uploads = calls.filter((c) => c.method === "POST" && c.path.startsWith("/myAccount/documents/"));
     // Um arquivo por grupo: frente e verso num PDF só; a certidão no grupo de emancipação.
     expect(uploads.map((c) => c.path)).toEqual(["/myAccount/documents/grp-id", "/myAccount/documents/grp-emancipation"]);
@@ -210,15 +216,14 @@ describe("documentos da subconta", () => {
     expect(calls.some((c) => c.path === "/myAccount/documents")).toBe(false);
 
     later(deps);
-    await expect(syncOnboardingDocuments(USER_ID, deps)).resolves.toEqual({ state: "done", sent: 1, viaLink: 1, memberUpload: 0 });
+    await expect(syncOnboardingDocuments(USER_ID, deps)).resolves.toEqual({ state: "done", sent: 1, viaLink: 1, memberUpload: 0, refused: 0 });
     const uploads = calls.filter((c) => c.method === "POST" && c.path.startsWith("/myAccount/documents/"));
     expect(uploads.map((c) => c.path)).toEqual(["/myAccount/documents/grp-id"]);
     expect(uploads[0].apiKey).toBe(CREATED.apiKey);
     const form = uploads[0].body as FormData;
     expect(form.get("type")).toBe("IDENTIFICATION");
-    const pdf = new TextDecoder().decode(await (form.get("documentFile") as File).arrayBuffer());
-    expect(pdf.startsWith("%PDF-1.4")).toBe(true);
-    expect(pdf.match(/\/Type \/Page /g)).toHaveLength(2);
+    const pdf = await PDFDocument.load(new Uint8Array(await (form.get("documentFile") as File).arrayBuffer()));
+    expect(pdf.getPageCount()).toBe(2);
 
     await syncOnboardingDocuments(USER_ID, deps);
     const notices = await store.listNotifications(USER_ID, 10);
@@ -230,11 +235,54 @@ describe("documentos da subconta", () => {
     const { client, calls } = fakeAsaas({ ...NONE, "POST /accounts": { body: CREATED }, "GET /myAccount/documents": { body: groups }, "POST /myAccount/documents/*": { body: {} } });
     const { deps } = testDeps(client);
     await openSubaccount(USER_ID, deps);
-    const png = new File(["x"], "rg.png", { type: "image/png" });
-    await uploadSubaccountDocument(USER_ID, "grp-id", png, deps);
+    const png = new File([await photo("png") as BlobPart], "rg.png", { type: "image/png" });
+    await uploadSubaccountDocument(USER_ID, "grp-id", [png], deps);
     expect((calls.at(-1)?.body as FormData).get("type")).toBe("IDENTIFICATION");
-    await expect(uploadSubaccountDocument(USER_ID, "grp-selfie", png, deps)).rejects.toMatchObject({ status: 409 });
-    await expect(uploadSubaccountDocument(USER_ID, "grp-id", new File(["x"], "a.exe", { type: "application/x-msdownload" }), deps)).rejects.toMatchObject({ status: 422 });
+    // Foto única vai em JPEG, como o Asaas aceita.
+    expect(((calls.at(-1)?.body as FormData).get("documentFile") as File).type).toBe("image/jpeg");
+    await expect(uploadSubaccountDocument(USER_ID, "grp-selfie", [png], deps)).rejects.toMatchObject({ status: 409 });
+    await expect(uploadSubaccountDocument(USER_ID, "grp-id", [new File(["x"], "a.exe", { type: "application/x-msdownload" })], deps)).rejects.toMatchObject({ status: 422 });
+    // Arquivo que diz ser foto mas não é: recusado antes de ir ao Asaas.
+    const uploads = calls.filter((c) => c.method === "POST" && c.path.startsWith("/myAccount/documents/")).length;
+    await expect(uploadSubaccountDocument(USER_ID, "grp-id", [new File(["<svg/>"], "x.png", { type: "image/png" })], deps)).rejects.toMatchObject({ status: 422 });
+    expect(calls.filter((c) => c.method === "POST" && c.path.startsWith("/myAccount/documents/")).length).toBe(uploads);
+  });
+
+  it("frente e verso em WebP (como o app guardava) e PDF viram um PDF só, de pé", async () => {
+    const { client, calls } = fakeAsaas({ ...NONE, "POST /accounts": { body: CREATED }, "GET /myAccount/documents": { body: groups }, "POST /myAccount/documents/*": { body: {} } });
+    const { deps } = testDeps(client);
+    const scan = await PDFDocument.create();
+    scan.addPage();
+    const files: Record<string, Uint8Array> = { [`${USER_ID}/f.webp`]: await photo("webp"), [`${USER_ID}/b.webp`]: await photo("webp") };
+    deps.readDocument = async (path) => (files[path] ? { blob: new Blob([files[path] as BlobPart]), filename: path } : null);
+    deps.latestKyc = async () => approvedKyc({ documents: [{ kind: "id_back", path: `${USER_ID}/b.webp`, name: "" }, { kind: "id_front", path: `${USER_ID}/f.webp`, name: "" }] });
+    await openSubaccount(USER_ID, deps);
+    later(deps);
+    await expect(syncOnboardingDocuments(USER_ID, deps)).resolves.toMatchObject({ sent: 1, memberUpload: 0 });
+    const sent = (calls.at(-1)?.body as FormData).get("documentFile") as File;
+    expect(sent.type).toBe("application/pdf");
+    expect((await PDFDocument.load(new Uint8Array(await sent.arrayBuffer()))).getPageCount()).toBe(2);
+
+    // Envio manual: foto + PDF de várias páginas no mesmo grupo.
+    const pdfFile = new File([await scan.save() as BlobPart], "verso.pdf", { type: "application/pdf" });
+    const jpg = new File([await photo("jpeg") as BlobPart], "frente.jpg", { type: "image/jpeg" });
+    await uploadSubaccountDocument(USER_ID, "grp-id", [jpg, pdfFile], deps);
+    const merged = (calls.at(-1)?.body as FormData).get("documentFile") as File;
+    expect((await PDFDocument.load(new Uint8Array(await merged.arrayBuffer()))).getPageCount()).toBe(2);
+  });
+
+  it("recusa do Asaas na API (\"não pode ser enviado via API\"): mensagem clara ao membro e motivo para o admin", async () => {
+    const refusal = { status: 400, body: { errors: [{ code: "invalid_action", description: "Esse tipo de documento não pode ser enviado via API. Por favor, entre em contato com o suporte." }] } };
+    const { client } = fakeAsaas({ ...NONE, "POST /accounts": { body: CREATED }, "GET /myAccount/documents": { body: groups }, "POST /myAccount/documents/*": refusal });
+    const { deps, store } = testDeps(client);
+    await openSubaccount(USER_ID, deps);
+    later(deps);
+    // A sincronização segue com os outros grupos e registra a recusa.
+    await expect(syncOnboardingDocuments(USER_ID, deps)).resolves.toMatchObject({ state: "done", sent: 0, refused: 1 });
+    expect(store.provisioningLog().at(-1)?.detail).toContain("IDENTIFICATION: Asaas 400 invalid_action");
+    const jpg = new File([await photo("jpeg") as BlobPart], "rg.jpg", { type: "image/jpeg" });
+    await expect(uploadSubaccountDocument(USER_ID, "grp-id", [jpg], deps)).rejects.toMatchObject({ status: 409, message: DOCUMENT_REFUSED });
+    expect(store.provisioningLog().at(-1)).toMatchObject({ outcome: "blocked", detail: expect.stringContaining("IDENTIFICATION") });
   });
 });
 

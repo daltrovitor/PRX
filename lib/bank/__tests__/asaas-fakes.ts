@@ -1,4 +1,5 @@
 // Hello World
+import sharp from "sharp";
 import { AsaasClient } from "@/lib/asaas/client";
 import type { AsaasEnvironment } from "@/lib/asaas/config";
 import { MemoryBankMirror } from "@/lib/bank/asaas/mirror";
@@ -81,18 +82,15 @@ export function approvedKyc(overrides: Partial<BankKycApplication> = {}): BankKy
   } as BankKycApplication;
 }
 
-/** JPEG mínimo válido (16x16, 3 canais): o suficiente para o PDF de frente e verso. */
-export const TINY_JPEG = new Uint8Array([
-  0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00,
-  0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x10, 0x00, 0x10, 0x03, 0x01, 0x22, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01,
-  0xff, 0xd9,
-]);
+/** Foto JPEG de verdade (decodificável), como as do cadastro. */
+let photo: Promise<Uint8Array> | null = null;
+const realJpeg = () => (photo ??= sharp({ create: { width: 32, height: 20, channels: 3, background: "#d0d0d0" } }).jpeg().toBuffer().then((b) => new Uint8Array(b)));
 export const TINY_PDF = new TextEncoder().encode("%PDF-1.4\n%%EOF\n");
 
 /** Arquivos do cadastro: fotos JPEG e a certidão em PDF. */
-function fakeDocument(path: string): { blob: Blob; filename: string } {
+async function fakeDocument(path: string): Promise<{ blob: Blob; filename: string }> {
   const pdf = path.endsWith(".pdf");
-  return { blob: new Blob([(pdf ? TINY_PDF : TINY_JPEG) as BlobPart], { type: pdf ? "application/pdf" : "image/jpeg" }), filename: path.split("/").pop() ?? "doc" };
+  return { blob: new Blob([(pdf ? TINY_PDF : await realJpeg()) as BlobPart], { type: pdf ? "application/pdf" : "image/jpeg" }), filename: path.split("/").pop() ?? "doc" };
 }
 
 export function testDeps(client: AsaasClient, kyc: BankKycApplication | null = approvedKyc()) {
@@ -103,7 +101,7 @@ export function testDeps(client: AsaasClient, kyc: BankKycApplication | null = a
     store,
     mirror,
     latestKyc: async () => kyc,
-    readDocument: async (path) => fakeDocument(path),
+    readDocument: (path) => fakeDocument(path),
     now: () => new Date(),
   };
   return { deps, store, mirror };

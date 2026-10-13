@@ -190,8 +190,8 @@ export async function compressImageFile(file: File, options?: CompressImageOptio
   const mimeType = options?.mimeType ?? "image/webp";
   const minBytes = options?.minBytesToCompress ?? 50 * 1024;
 
-  // Arquivo já pequeno e em WebP não precisa recompressão
-  if (file.size <= minBytes && file.type === "image/webp") {
+  // Arquivo já pequeno e no formato pedido não precisa recompressão
+  if (file.size <= minBytes && file.type === mimeType) {
     return file;
   }
 

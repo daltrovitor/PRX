@@ -34,9 +34,9 @@ export function DocumentPicker({
     setBusy(true);
     setError(null);
     try {
-      // Se for foto (RG, CNH, certidão), compacta e redimensiona antes do envio
+      // Foto (RG, CNH, certidão): compacta e redimensiona em JPEG, formato que o banco parceiro aceita (WebP não).
       const uploadFile = file.type.startsWith("image/")
-        ? await compressImageFile(file, { maxWidth: 1600, maxHeight: 1600, quality: 0.82 })
+        ? await compressImageFile(file, { maxWidth: 1600, maxHeight: 1600, quality: 0.85, mimeType: "image/jpeg" })
         : file;
       onChange(await uploadFamilyDocument(kind, uploadFile));
     } catch (err) {

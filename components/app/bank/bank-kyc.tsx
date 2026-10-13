@@ -17,6 +17,8 @@ import { isValidCpf } from "@/lib/prx/pix";
 import { canUseBiometrics, registerPasskey } from "@/lib/passkeys/client";
 import { readKnownAccount } from "@/lib/known-account";
 import { IconLock } from "@/components/icons/prx-icons";
+import { loadKycPrefill, maskCep, maskPhone, seedFromPrefill } from "@/components/app/bank/kyc-prefill";
+import type { KycPrefill } from "@/lib/kyc/prefill";
 
 type Step = "dados" | "endereco" | "perfil" | "documentos";
 const STEPS: Step[] = ["dados", "endereco", "perfil", "documentos"];
@@ -27,13 +29,6 @@ const TITLES: Record<Step, { title: string; body: string }> = {
   documentos: { title: "Documento com foto", body: "RG ou CNH, frente e verso, com as informações legíveis." },
 };
 
-const maskPhone = (raw: string) => {
-  const d = raw.replace(/\D/g, "").slice(0, 11);
-  if (d.length <= 2) return d;
-  if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
-  return `(${d.slice(0, 2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}`;
-};
-const maskCep = (raw: string) => raw.replace(/\D/g, "").slice(0, 8).replace(/(\d{5})(\d)/, "$1-$2");
 
 function groupOf(birthDate: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(birthDate) && new Date(`${birthDate}T12:00:00Z`).getTime() < Date.now() ? ageGroup(birthDate) : null;
@@ -164,6 +159,25 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
   const [showBiometricsStep, setShowBiometricsStep] = useState(false);
   const [bioBusy, setBioBusy] = useState(false);
   const [bioError, setBioError] = useState<string | null>(null);
+  // O que a conta já sabe (cadastro e última abertura): pedido uma vez só.
+  const [known, setKnown] = useState<KycPrefill | null>(null);
+  const [skippedDados, setSkippedDados] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    void loadKycPrefill().then((prefill) => {
+      if (!alive || !prefill) return;
+      const seed = seedFromPrefill(prefill, member.name || "");
+      setKnown(prefill);
+      setDados(seed.dados);
+      if (seed.address) setAddress(seed.address);
+      if (seed.perfil) setPerfil(seed.perfil);
+      setDocs(seed.docs);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [member.name]);
 
   const group = groupOf(dados.birthDate);
   const minor = group === "child" || group === "teen";
@@ -175,15 +189,30 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  /** Primeiro problema dos dados pessoais, ou null quando estão prontos. */
+  function dadosError(): string | null {
+    if (dados.fullName.trim().split(/\s+/).length < 2) return "Informe o nome completo, com sobrenome.";
+    if (!isValidCpf(dados.cpf.replace(/\D/g, ""))) return "CPF inválido. Confira os 11 números.";
+    if (!group) return "Informe a data de nascimento.";
+    if (group === "under") return UNDER_AGE_MESSAGE;
+    if (group === "over") return "O PRX BANK é para jovens até 29 anos.";
+    if (dados.phone.replace(/\D/g, "").length !== 11) return "Informe o celular com DDD.";
+    return null;
+  }
+
+  /** Com CPF e nascimento da conta e o resto completo (adulto), o passo "Seus dados" não é pedido de novo. */
+  function start() {
+    setStarted(true);
+    if (known?.cpfLocked && known.birthDateLocked && !minor && dadosError() === null) {
+      setSkippedDados(true);
+      setStep("endereco");
+    }
+  }
+
   function nextFromDados(event: FormEvent) {
     event.preventDefault();
-    const cpf = dados.cpf.replace(/\D/g, "");
-    if (dados.fullName.trim().split(/\s+/).length < 2) return setError("Informe o nome completo, com sobrenome.");
-    if (!isValidCpf(cpf)) return setError("CPF inválido. Confira os 11 números.");
-    if (!group) return setError("Informe a data de nascimento.");
-    if (group === "under") return setError(UNDER_AGE_MESSAGE);
-    if (group === "over") return setError("O PRX BANK é para jovens até 29 anos.");
-    if (dados.phone.replace(/\D/g, "").length !== 11) return setError("Informe o celular com DDD.");
+    const problem = dadosError();
+    if (problem) return setError(problem);
     if (minor) {
       const path = group === "child" ? "linked" : minorPath;
       if (!path) return setError("Escolha: conta com o seu responsável ou emancipação.");
@@ -321,7 +350,7 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
           <p className="text-[15px] leading-relaxed text-white/85">
             Pix, cartão e PRX Coins em cada compra em parceiro. Leva uns 3 minutos: seus dados, endereço para o cartão e uma foto do documento.
           </p>
-          <Button variant="secondary" onClick={() => setStarted(true)}>
+          <Button variant="secondary" onClick={start}>
             Abrir minha conta
           </Button>
         </section>
@@ -350,9 +379,34 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
               <form onSubmit={nextFromDados} className="space-y-4">
                 <Field label="Nome completo">{(id) => <Input id={id} autoComplete="name" value={dados.fullName} onChange={(e) => setDados({ ...dados, fullName: e.target.value })} required />}</Field>
                 <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-                  <Field label="CPF" className="min-w-0">{(id) => <Input id={id} inputMode="numeric" placeholder="000.000.000-00" value={dados.cpf} onChange={(e) => setDados({ ...dados, cpf: maskCpfInput(e.target.value) })} required />}</Field>
-                  <Field label="Data de nascimento" className="min-w-0">
-                    {(id) => <Input id={id} type="date" autoComplete="bday" value={dados.birthDate} onChange={(e) => setDados({ ...dados, birthDate: e.target.value })} required className="w-full min-w-0 max-w-full cursor-pointer appearance-none [-webkit-appearance:none]" />}
+                  <Field label="CPF" className="min-w-0" hint={known?.cpfLocked ? "Da sua conta PRX" : undefined}>
+                    {(id, hint) => (
+                      <Input
+                        id={id}
+                        inputMode="numeric"
+                        placeholder="000.000.000-00"
+                        value={dados.cpf}
+                        readOnly={known?.cpfLocked}
+                        aria-describedby={hint}
+                        onChange={(e) => setDados({ ...dados, cpf: maskCpfInput(e.target.value) })}
+                        required
+                      />
+                    )}
+                  </Field>
+                  <Field label="Data de nascimento" className="min-w-0" hint={known?.birthDateLocked ? "Da sua conta PRX" : undefined}>
+                    {(id, hint) => (
+                      <Input
+                        id={id}
+                        type="date"
+                        autoComplete="bday"
+                        value={dados.birthDate}
+                        readOnly={known?.birthDateLocked}
+                        aria-describedby={hint}
+                        onChange={(e) => setDados({ ...dados, birthDate: e.target.value })}
+                        required
+                        className="w-full min-w-0 max-w-full cursor-pointer appearance-none [-webkit-appearance:none]"
+                      />
+                    )}
                   </Field>
                 </div>
                 <Field label="Celular com DDD">
@@ -390,6 +444,14 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
 
             {step === "endereco" && (
               <form onSubmit={nextFromEndereco} className="space-y-4">
+                {skippedDados && (
+                  <p className="rounded-2xl bg-surface p-4 text-[13px] leading-relaxed text-muted-foreground">
+                    Usamos os dados da sua conta: <span className="font-medium text-ink">{dados.fullName}</span>, CPF {dados.cpf}, celular {dados.phone}.{" "}
+                    <button type="button" className="min-h-12 cursor-pointer font-medium text-primary underline-offset-2 hover:underline" onClick={() => go("dados")}>
+                      Alterar nome ou celular
+                    </button>
+                  </p>
+                )}
                 <div className="grid gap-4 sm:grid-cols-[160px_1fr]">
                   <Field label="CEP">{(id) => <Input id={id} inputMode="numeric" autoComplete="postal-code" placeholder="00000-000" value={address.cep} onChange={(e) => setAddress({ ...address, cep: maskCep(e.target.value) })} required />}</Field>
                   <Field label="Rua">{(id) => <Input id={id} autoComplete="address-line1" value={address.street} onChange={(e) => setAddress({ ...address, street: e.target.value })} required />}</Field>

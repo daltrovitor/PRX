@@ -4,6 +4,7 @@ import { checkRateLimit } from "@/lib/security";
 import { PartnerError } from "@/lib/partners/errors";
 import { clientIp } from "@/lib/partners/http";
 import { bankKycSchema } from "@/lib/kyc/types";
+import { kycPrefill, withAccountIdentity } from "@/lib/kyc/prefill";
 import { bankKycState, submitBankKyc } from "@/lib/kyc/service";
 import { body, familyErrorResponse, invalid, requireUser } from "@/lib/family/http";
 import { asaasActiveFor } from "@/lib/bank/asaas/deps";
@@ -19,11 +20,16 @@ const NO_STORE = { "Cache-Control": "no-store" };
 /** O envio dos documentos roda depois da resposta (15 s após a criação da subconta). */
 export const maxDuration = 60;
 
-/** GET /api/bank/kyc — situação da abertura do PRX BANK (sem dados pessoais). */
+/**
+ * GET /api/bank/kyc — situação da abertura do PRX BANK e o que a conta já sabe
+ * (prefill: CPF, nascimento, nome, celular e a última abertura), para a tela
+ * não pedir de novo. Só para o próprio membro, sem cache.
+ */
 export async function GET(req: NextRequest) {
   try {
     const user = await requireUser(req);
-    return NextResponse.json({ kyc: await bankKycState(user.id) }, { headers: NO_STORE });
+    const [kyc, prefill] = await Promise.all([bankKycState(user.id), kycPrefill(user)]);
+    return NextResponse.json({ kyc, prefill }, { headers: NO_STORE });
   } catch (error) {
     return familyErrorResponse(error, "Erro ao carregar a abertura de conta.");
   }
@@ -56,10 +62,12 @@ export async function POST(req: NextRequest) {
     if (!rate.allowed) throw new PartnerError(`Muitas tentativas. Tente em ${rate.resetInSeconds}s.`, 429);
     const parsed = bankKycSchema.safeParse(await body(req));
     if (!parsed.success) invalid(parsed.error.issues);
+    // CPF e nascimento da conta (cadastro conferido na Receita) valem mais que os da tela: pedidos uma vez só.
+    const input = withAccountIdentity(parsed.data, await kycPrefill(user));
     const bankOffline = usesSupabaseBank(user.id) && !isSandboxMode() && !asaasActiveFor(user.id);
     // Uma correlação para o cadastro, a abertura no Asaas e cada chamada à API (logs da Vercel e asaas_api_requests).
     return await withAsaasAudit({ userId: user.id }, async () => {
-      const app = await submitBankKyc(user, parsed.data, { ip: clientIp(req), userAgent: req.headers.get("user-agent") ?? "" }, new Date(), {
+      const app = await submitBankKyc(user, input, { ip: clientIp(req), userAgent: req.headers.get("user-agent") ?? "" }, new Date(), {
         allowRedo: await canRedo(user.id),
         forward: !bankOffline,
       });

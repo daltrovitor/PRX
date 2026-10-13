@@ -47,7 +47,15 @@ function causeOf400(record: AuditRecord): Diagnosis["cause"] {
     if (/renda|income/.test(text)) return hypothesis("Renda/faturamento (incomeValue) ausente ou fora do aceito.");
   }
   if (record.operation === "pix.keys.create") return hypothesis("Chave Pix só com a conta aprovada e a prova de vida feita; 1 minuto entre criações; até 5 chaves (pessoa física).");
-  if (record.operation === "documents.upload") return hypothesis("Grupo que exige o link seguro (onboardingUrl), arquivo em formato não aceito ou grupo já resolvido.");
+  if (record.operation === "documents.upload") {
+    // "Esse tipo de documento não pode ser enviado via API": o canal, não o arquivo (o PRX já manda JPEG ou PDF).
+    if (/via api/.test(text)) {
+      return hypothesis(
+        "O Asaas não aceita este tipo de documento pela API nesta conta. Se o grupo não traz onboardingUrl, o envio de documentos por API (BaaS) provavelmente não está liberado na conta-pai: confirme com o gerente de contas do Asaas."
+      );
+    }
+    return hypothesis("Grupo que exige o link seguro (onboardingUrl), arquivo em formato não aceito ou grupo já resolvido.");
+  }
   if (record.operation === "transfers.create" || record.operation === "pix.qr.pay" || record.operation === "bill.create") return hypothesis("Recusa de negócio do Asaas (saldo, limite, chave/código inválido ou validação de saque). A mensagem acima é a do Asaas.");
   return hypothesis("Dados recusados pelo Asaas; a descrição do erro acima diz qual campo.");
 }

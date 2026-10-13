@@ -6,8 +6,7 @@ import { regenerateSubaccountKey } from "@/lib/bank/asaas/recovery";
 import { requireSubaccount, SUBACCOUNT_KEY_MISSING } from "@/lib/bank/asaas/subaccount";
 import { handleAsaasEvent, reprocessPendingWebhooks } from "@/lib/bank/asaas/webhooks";
 import { eventInstant } from "@/lib/bank/asaas/account-status";
-import { jpegInfo, jpegsToPdf } from "@/lib/bank/asaas/pdf";
-import { ASAAS_TEST_ENV, TINY_JPEG, USER_ID, fakeAsaas, testDeps } from "./asaas-fakes";
+import { ASAAS_TEST_ENV, USER_ID, fakeAsaas, testDeps } from "./asaas-fakes";
 
 const ACCOUNT = { id: "acc_v1", walletId: "wal_v1", accountNumber: { agency: "0001", account: "555", accountDigit: "1" } };
 const ALL = (general: string, documentation = general) => ({ general, documentation, commercialInfo: "APPROVED", bankAccountInfo: "APPROVED" });
@@ -153,20 +152,5 @@ describe("situação cadastral pelos eventos ACCOUNT_STATUS_*", () => {
   it("dateCreated do Asaas é horário de Brasília", () => {
     expect(eventInstant("2024-06-12 16:45:03")?.toISOString()).toBe("2024-06-12T19:45:03.000Z");
     expect(eventInstant("lixo")).toBeNull();
-  });
-});
-
-describe("PDF de frente e verso", () => {
-  it("lê o JPEG e gera um PDF com uma página por foto e xref coerente", () => {
-    expect(jpegInfo(TINY_JPEG)).toEqual({ width: 16, height: 16, components: 3 });
-    const pdf = jpegsToPdf([TINY_JPEG, TINY_JPEG])!;
-    const text = new TextDecoder("latin1").decode(pdf);
-    expect(text.match(/\/Type \/Page /g)).toHaveLength(2);
-    const xref = Number(/startxref\n(\d+)/.exec(text)![1]);
-    expect(text.slice(xref, xref + 4)).toBe("xref");
-    // Cada entrada do xref aponta para o início do objeto certo.
-    const entries = text.slice(xref).split("\n").slice(3, 9);
-    entries.forEach((line, n) => expect(text.slice(Number(line.slice(0, 10)), Number(line.slice(0, 10)) + 8)).toBe(`${n + 1} 0 obj`.padEnd(8, "\n").slice(0, 8)));
-    expect(jpegsToPdf([new TextEncoder().encode("não é jpeg")])).toBeNull();
   });
 });

@@ -38,7 +38,8 @@ export async function GET(req: NextRequest) {
  * POST /api/bank/accounts/documents
  *   JSON { action: "forward_kyc" }      envia o que o PRX já tem (frente e verso num PDF, certidão);
  *                                       responde wait (ms) se a subconta tem menos de 15 s
- *   multipart { groupId, file }         envia um documento pendente (JPG, PNG ou PDF, até 10 MB)
+ *   multipart { groupId, file[] }       envia um documento pendente: fotos (JPG, PNG, WebP, HEIC)
+ *                                       ou PDF, até 4 partes de 10 MB, juntas num arquivo só
  */
 export async function POST(req: NextRequest) {
   try {
@@ -50,9 +51,10 @@ export async function POST(req: NextRequest) {
     if ((req.headers.get("content-type") ?? "").startsWith("multipart/form-data")) {
       const form = await req.formData().catch(() => null);
       const groupId = form?.get("groupId");
-      const file = form?.get("file");
-      if (typeof groupId !== "string" || !(file instanceof File)) throw new PartnerError("Escolha o arquivo do documento.", 422);
-      await uploadSubaccountDocument(user.id, groupId, file, deps);
+      // Uma ou mais partes (frente e verso): o servidor junta tudo num arquivo só.
+      const files = (form?.getAll("file") ?? []).filter((f): f is File => f instanceof File);
+      if (typeof groupId !== "string" || files.length === 0) throw new PartnerError("Escolha o arquivo do documento.", 422);
+      await uploadSubaccountDocument(user.id, groupId, files, deps);
       return NextResponse.json({ success: true, ...(await subaccountDocuments(user.id, deps)) }, { headers: NO_STORE });
     }
 
@@ -60,8 +62,9 @@ export async function POST(req: NextRequest) {
     if (json?.action !== "forward_kyc") throw new PartnerError("Ação inválida.", 400);
     const result = await syncOnboardingDocuments(user.id, deps);
     const sent = result.state === "done" ? result.sent : 0;
+    const refused = result.state === "done" ? result.refused : 0;
     const wait = result.state === "wait" ? result.retryInMs : null;
-    return NextResponse.json({ success: true, sent, wait, ...(await subaccountDocuments(user.id, deps)) }, { headers: NO_STORE });
+    return NextResponse.json({ success: true, sent, refused, wait, ...(await subaccountDocuments(user.id, deps)) }, { headers: NO_STORE });
   } catch (error) {
     return familyErrorResponse(error, "Não foi possível enviar o documento.");
   }

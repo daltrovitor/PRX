@@ -3,6 +3,7 @@
 
 import { useEffect, useState, type ChangeEvent } from "react";
 import { Button, Notice, Tag } from "@/components/app/ui";
+import { compressImageFile } from "@/lib/media/compression";
 import type { BankProviderView } from "@/lib/prx/bank";
 
 /**
@@ -82,14 +83,19 @@ export function ProviderOnboarding({ provider, onChanged }: { provider: BankProv
 
   const post = (body: unknown): RequestInit => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
-  function upload(groupId: string, event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+  /** Foto ou PDF, uma ou mais partes (ex.: frente e verso): fotos viram JPEG aqui e o servidor junta tudo num arquivo só. */
+  async function upload(groupId: string, event: ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(event.target.files ?? []).slice(0, 4);
     event.target.value = "";
-    if (!file) return;
+    if (picked.length === 0) return;
+    setBusy(`upload-${groupId}`);
+    const files = await Promise.all(
+      picked.map((f) => (f.type.startsWith("image/") ? compressImageFile(f, { maxWidth: 2000, maxHeight: 2000, quality: 0.85, mimeType: "image/jpeg" }) : f))
+    );
     const form = new FormData();
     form.append("groupId", groupId);
-    form.append("file", file);
-    void run(`upload-${groupId}`, "/api/bank/accounts/documents", { method: "POST", body: form }, (json) => {
+    for (const file of files) form.append("file", file);
+    await run(`upload-${groupId}`, "/api/bank/accounts/documents", { method: "POST", body: form }, (json) => {
       setGroups(Array.isArray(json.groups) ? (json.groups as DocumentGroup[]) : groups);
       setInfo("Documento enviado ao PRX BANK.");
     });
@@ -142,7 +148,9 @@ export function ProviderOnboarding({ provider, onChanged }: { provider: BankProv
                   ? "Sua conta acabou de ser aberta. Aguarde alguns segundos e tente de novo."
                   : Number(json.sent) > 0
                     ? "Documentos do seu cadastro enviados ao PRX BANK."
-                    : "Nenhum documento do cadastro pôde ser enviado por aqui. Use o link seguro ou escolha o arquivo abaixo."
+                    : Number(json.refused) > 0
+                      ? "O PRX BANK não recebe este documento pelo app. Use o link seguro, se aparecer abaixo; se não, a equipe PRX já foi avisada e fala com você."
+                      : "Nenhum documento do cadastro pôde ser enviado por aqui. Use o link seguro ou escolha o arquivo abaixo."
               );
             })
           }
@@ -179,8 +187,16 @@ export function ProviderOnboarding({ provider, onChanged }: { provider: BankProv
                 </a>
               ) : g.canUpload ? (
                 <label className="inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-surface px-5 text-sm font-medium text-ink hover:bg-line">
-                  {busy === `upload-${g.id}` ? "Enviando…" : "Escolher arquivo"}
-                  <input type="file" accept="image/jpeg,image/png,application/pdf" className="sr-only" disabled={busy !== null} onChange={(e) => upload(g.id, e)} />
+                  {busy === `upload-${g.id}` ? "Enviando…" : "Escolher foto ou PDF"}
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
+                    aria-label={`Enviar ${g.title}: foto ou PDF, pode escolher frente e verso juntos`}
+                    className="sr-only"
+                    disabled={busy !== null}
+                    onChange={(e) => void upload(g.id, e)}
+                  />
                 </label>
               ) : null}
             </li>
