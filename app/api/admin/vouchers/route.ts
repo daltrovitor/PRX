@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminRequest } from "@/lib/auth";
 import { passStore } from "@/lib/pass-store";
 import { supabaseAdmin } from "@/lib/supabase/client";
-import { errorMessage } from "@/lib/errors";
 import type { VoucherRow } from "@/lib/db-rows";
+import { incidentResponse } from "@/lib/incidents";
 
 export async function GET(req: NextRequest) {
   try {
@@ -60,10 +60,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, vouchers });
   } catch (error) {
-    return NextResponse.json(
-      { error: errorMessage(error) || "Erro ao consultar vouchers." },
-      { status: 500 }
-    );
+    return incidentResponse(error, "Erro ao consultar vouchers.");
   }
 }
 
@@ -118,10 +115,7 @@ export async function PUT(req: NextRequest) {
       voucher: updated,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: errorMessage(error) || "Erro ao atualizar voucher." },
-      { status: 500 }
-    );
+    return incidentResponse(error, "Erro ao atualizar voucher.");
   }
 }
 
@@ -162,9 +156,6 @@ export async function DELETE(req: NextRequest) {
       message: "Voucher excluído com sucesso!",
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: errorMessage(error) || "Erro ao excluir voucher." },
-      { status: 500 }
-    );
+    return incidentResponse(error, "Erro ao excluir voucher.");
   }
 }

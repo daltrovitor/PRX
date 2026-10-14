@@ -4,7 +4,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { passStore, type SystemVoucher } from "@/lib/pass-store";
 import { supabaseAdmin } from "@/lib/supabase/client";
-import { errorMessage } from "@/lib/errors";
 import type { VoucherRow } from "@/lib/db-rows";
 import {
   availabilityIssue,
@@ -17,6 +16,7 @@ import {
 import { PartnerError } from "@/lib/partners/errors";
 import { getPartnerRepository } from "@/lib/partners/repository";
 import { assertCanAfford, chargeRedemption } from "@/lib/points/service";
+import { incidentResponse } from "@/lib/incidents";
 
 const SHORT_DATE: Intl.DateTimeFormatOptions = {
   timeZone: "America/Sao_Paulo",
@@ -205,10 +205,7 @@ export async function POST(req: NextRequest) {
       points,
     });
   } catch (error) {
-    if (error instanceof PartnerError) return NextResponse.json({ error: error.message }, { status: error.status });
-    return NextResponse.json(
-      { error: errorMessage(error) || "Erro ao resgatar benefício." },
-      { status: 500 }
-    );
+    if (error instanceof PartnerError && error.status < 500) return NextResponse.json({ error: error.message }, { status: error.status });
+    return incidentResponse(error, "Erro ao resgatar benefício.");
   }
 }

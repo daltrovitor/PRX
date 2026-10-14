@@ -39,7 +39,7 @@ async function post(body: unknown): Promise<{ ok: boolean; json: Record<string, 
     const res = await fetch("/api/bank/outgoing", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     return { ok: res.ok, json: (await res.json().catch(() => ({}))) as Record<string, unknown> };
   } catch {
-    return { ok: false, json: { error: "Sem conexão com o servidor." } };
+    return { ok: false, json: { error: "Sem internet agora. Confira sua conexão e tente de novo." } };
   }
 }
 

@@ -34,7 +34,7 @@ async function postJson<T>(url: string, body: unknown): Promise<{ ok: boolean; j
     const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     return { ok: res.ok, json: (await res.json().catch(() => ({}))) as T & { error?: string } };
   } catch {
-    return { ok: false, json: { error: "Sem conexão com o servidor." } as T & { error?: string } };
+    return { ok: false, json: { error: "Sem internet agora. Confira sua conexão e tente de novo." } as T & { error?: string } };
   }
 }
 

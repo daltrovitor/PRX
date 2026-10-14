@@ -9,6 +9,7 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { ThemeProvider, ThemeScript } from "@/components/theme-provider";
 import { ConfirmToastProvider } from "@/components/ui/confirm-toast";
 import { PwaRegister } from "@/components/pwa-register";
+import { ApiErrorGuard } from "@/components/api-error-guard";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -136,6 +137,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
         <ThemeProvider>
           <AuthProvider>
             <ConfirmToastProvider>{children}</ConfirmToastProvider>
+            <ApiErrorGuard />
           </AuthProvider>
         </ThemeProvider>
       </body>

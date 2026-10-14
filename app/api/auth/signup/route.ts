@@ -12,6 +12,7 @@ import { cpfSchema, onlyDigits } from "@/lib/family/types";
 import { assertCpfMatchesBirth } from "@/lib/cpf/verify";
 import { rememberBirthDate } from "@/lib/live/buyer";
 import { PASSWORD_MISMATCH, strongPasswordSchema } from "@/lib/password-policy";
+import { incidentResponse } from "@/lib/incidents";
 
 const phoneSchema = z
   .string()
@@ -64,8 +65,7 @@ export async function POST(req: NextRequest) {
     after(() => sendWelcomeEmail({ id: user.id, email: user.email, fullName: user.fullName }));
     return attachSession(NextResponse.json({ success: true, message: "Conta criada. Bem-vindo ao PRX!", user: publicUser(user) }), user);
   } catch (error) {
-    if (error instanceof PartnerError) return NextResponse.json({ error: error.message }, { status: error.status === 409 ? 400 : error.status });
-    console.warn("[signup] falha ao criar conta");
-    return NextResponse.json({ error: "Erro ao registrar a conta." }, { status: 400 });
+    if (error instanceof PartnerError && error.status < 500) return NextResponse.json({ error: error.message }, { status: error.status === 409 ? 400 : error.status });
+    return incidentResponse(error, "Erro ao registrar a conta.");
   }
 }

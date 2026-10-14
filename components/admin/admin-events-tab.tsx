@@ -49,7 +49,7 @@ async function api<T extends ApiResult>(url: string, init?: { method: string; bo
     const data = (await res.json().catch(() => ({}))) as T;
     return { ok: res.ok && data.success !== false, data };
   } catch {
-    return { ok: false, data: { error: "Sem conexão com o servidor." } as T };
+    return { ok: false, data: { error: "Sem internet agora. Confira sua conexão e tente de novo." } as T };
   }
 }
 

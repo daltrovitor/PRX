@@ -181,7 +181,7 @@ function AcceptForm({
       setDone({ certificateId: data.certificateId, acceptedAt: data.acceptedAt });
       await onAccepted();
     } catch {
-      setError("Sem conexão com o servidor.");
+      setError("Sem internet agora. Confira sua conexão e tente de novo.");
     } finally {
       setBusy(false);
     }

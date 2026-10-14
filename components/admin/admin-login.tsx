@@ -66,7 +66,7 @@ export function PanelLogin({
       }
       onSuccess();
     } catch {
-      setError("Sem conexão com o servidor. Tente de novo.");
+      setError("Sem internet agora. Confira sua conexão e tente de novo.");
     } finally {
       setLoading(false);
     }

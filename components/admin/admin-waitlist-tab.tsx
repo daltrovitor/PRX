@@ -74,7 +74,7 @@ export function AdminWaitlistTab({ onCount }: { onCount?: (count: number) => voi
       setError(null);
       onCount?.(json.signups.length);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sem conexão.");
+      setError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
       setSignups((s) => s ?? []);
     } finally {
       setLoading(false);

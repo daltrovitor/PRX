@@ -5,9 +5,9 @@ import { userStore, createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/l
 import { checkRateLimit, sanitizeInput } from "@/lib/security";
 import { isPublicSupabaseKey, supabaseAdmin } from "@/lib/supabase/client";
 import { createClient } from "@supabase/supabase-js";
-import { errorMessage } from "@/lib/errors";
 import { asMemberRole, type SessionCookieOptions } from "@/lib/db-rows";
 import { recordConsent } from "@/lib/legal";
+import { incidentResponse } from "@/lib/incidents";
 
 const LoginSchema = z.object({
   email: z.string().email("E-mail inválido"),
@@ -154,9 +154,6 @@ export async function POST(req: NextRequest) {
 
     return response;
   } catch (error) {
-    return NextResponse.json(
-      { error: errorMessage(error) || "Erro no processamento do login." },
-      { status: 500 }
-    );
+    return incidentResponse(error, "Erro no processamento do login.");
   }
 }

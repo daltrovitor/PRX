@@ -3,8 +3,8 @@ import { calculatePrxLevel } from "@/lib/pass-data";
 import { getCurrentUser } from "@/lib/auth";
 import { passStore } from "@/lib/pass-store";
 import { supabaseAdmin } from "@/lib/supabase/client";
-import { errorMessage } from "@/lib/errors";
 import type { ProfileRow } from "@/lib/db-rows";
+import { incidentResponse } from "@/lib/incidents";
 
 
 export async function GET(req: NextRequest) {
@@ -51,10 +51,7 @@ export async function GET(req: NextRequest) {
       })),
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: errorMessage(error) || "Erro ao carregar dados de indicação." },
-      { status: 500 }
-    );
+    return incidentResponse(error, "Erro ao carregar dados de indicação.");
   }
 }
 
@@ -337,9 +334,6 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: errorMessage(error) || "Erro ao processar código de indicação." },
-      { status: 500 }
-    );
+    return incidentResponse(error, "Erro ao processar código de indicação.");
   }
 }

@@ -57,7 +57,7 @@ export function ParentShell({ user, onLogout }: { user: User; onLogout: () => vo
       setOverview(json.overview);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sem conexão.");
+      setError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
     }
   }, []);
 
@@ -68,7 +68,7 @@ export function ParentShell({ user, onLogout }: { user: User; onLogout: () => vo
       if (!res.ok || !json.child) throw new Error(json.error || "Não foi possível carregar os dados do filho.");
       setDetail(json.child);
     } catch (err) {
-      showToast("error", err instanceof Error ? err.message : "Sem conexão.");
+      showToast("error", err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
     }
   }, [showToast]);
 

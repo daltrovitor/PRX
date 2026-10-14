@@ -9,6 +9,7 @@ import type { BenefitRow, MissionRow, VoucherRow } from "@/lib/db-rows";
 import type { Benefit, MissionVerificationType, PassMission } from "@/lib/pass-data";
 import { availabilityIssue, mapBenefitRow, partnerStatuses } from "@/lib/partners/catalog";
 import { planRank } from "@/lib/partners/plans";
+import { incidentResponse } from "@/lib/incidents";
 
 function isUuid(id?: string | null): boolean {
   if (!id) return false;
@@ -290,9 +291,6 @@ export async function GET(req: NextRequest) {
         : null,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: errorMessage(error) || "Erro ao consultar dados do PRX Pass." },
-      { status: 500 }
-    );
+    return incidentResponse(error, "Erro ao consultar dados do PRX Pass.");
   }
 }

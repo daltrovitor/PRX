@@ -47,7 +47,7 @@ async function post(code: string, action: "lookup" | "confirm", eventId: string 
     const res = await fetch("/api/validate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, action, eventId: eventId || undefined }) });
     return { ok: res.ok, data: (await res.json().catch(() => ({}))) as ValidateResponse };
   } catch {
-    return { ok: false, data: { error: "Sem conexão com o servidor." } };
+    return { ok: false, data: { error: "Sem internet agora. Confira sua conexão e tente de novo." } };
   }
 }
 

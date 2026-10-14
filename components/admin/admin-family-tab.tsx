@@ -37,7 +37,7 @@ export function AdminFamilyTab() {
       setData({ parents: json.parents, emancipations: json.emancipations, bankKyc: json.bankKyc ?? [] });
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sem conexão.");
+      setError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
       setData((d) => d ?? { parents: [], emancipations: [], bankKyc: [] });
     }
   }, []);
@@ -65,7 +65,7 @@ export function AdminFamilyTab() {
       showToast("success", decision === "approve" ? "Aprovado. A conta foi liberada." : "Recusado. A pessoa vê o motivo e pode reenviar.");
       await load(filter);
     } catch (err) {
-      showToast("error", err instanceof Error ? err.message : "Sem conexão.");
+      showToast("error", err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
     } finally {
       setBusy(null);
     }

@@ -7,6 +7,7 @@ import { asaasActiveFor, asaasDeps } from "@/lib/bank/asaas/deps";
 import { subaccountDocuments, syncOnboardingDocuments, uploadSubaccountDocument } from "@/lib/bank/asaas/documents";
 import { currentSubaccount } from "@/lib/bank/asaas/subaccount";
 import { logDeferred } from "@/lib/bank/asaas/provisioning-log";
+import { TechnicalError } from "@/lib/error-messages";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
@@ -53,18 +54,19 @@ export async function POST(req: NextRequest) {
       const groupId = form?.get("groupId");
       // Uma ou mais partes (frente e verso): o servidor junta tudo num arquivo só.
       const files = (form?.getAll("file") ?? []).filter((f): f is File => f instanceof File);
-      if (typeof groupId !== "string" || files.length === 0) throw new PartnerError("Escolha o arquivo do documento.", 422);
+      if (typeof groupId !== "string" || files.length === 0) throw new PartnerError("Escolha a foto ou o PDF do documento.", 422);
       await uploadSubaccountDocument(user.id, groupId, files, deps);
       return NextResponse.json({ success: true, ...(await subaccountDocuments(user.id, deps)) }, { headers: NO_STORE });
     }
 
     const json = (await req.json().catch(() => null)) as { action?: unknown } | null;
-    if (json?.action !== "forward_kyc") throw new PartnerError("Ação inválida.", 400);
+    if (json?.action !== "forward_kyc") throw new TechnicalError("Ação desconhecida em /api/bank/accounts/documents.", 400);
     const result = await syncOnboardingDocuments(user.id, deps);
     const sent = result.state === "done" ? result.sent : 0;
-    const refused = result.state === "done" ? result.refused : 0;
+    // O Asaas recusou e nada foi enviado: a pessoa não tem como resolver na tela (código para o suporte).
+    if (result.state === "done" && sent === 0 && result.refusals.length > 0) throw new TechnicalError(`Asaas recusou pela API: ${result.refusals.join(" | ")}`, 502);
     const wait = result.state === "wait" ? result.retryInMs : null;
-    return NextResponse.json({ success: true, sent, refused, wait, ...(await subaccountDocuments(user.id, deps)) }, { headers: NO_STORE });
+    return NextResponse.json({ success: true, sent, wait, ...(await subaccountDocuments(user.id, deps)) }, { headers: NO_STORE });
   } catch (error) {
     return familyErrorResponse(error, "Não foi possível enviar o documento.");
   }

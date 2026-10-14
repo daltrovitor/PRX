@@ -49,7 +49,7 @@ export function AdminPromosTab({ onPreview }: { onPreview: (eventId: string, cod
           setError(null);
         } else setError(json.error || "Não foi possível carregar os cupons.");
       })
-      .catch(() => active && setError("Sem conexão com o servidor."));
+      .catch(() => active && setError("Sem internet agora. Confira sua conexão e tente de novo."));
     return () => {
       active = false;
     };

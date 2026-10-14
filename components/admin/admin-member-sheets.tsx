@@ -31,7 +31,7 @@ export function EditMemberSheet({ member, onClose, onSaved }: { member: Director
       if (!res.ok || !data.success) return setError(data.error || "Não foi possível atualizar o membro.");
       onSaved(`${member.name} atualizado: nível ${form.level}, ${form.score.toLocaleString("pt-BR")} XP.`);
     } catch {
-      setError("Sem conexão com o servidor.");
+      setError("Sem internet agora. Confira sua conexão e tente de novo.");
     } finally {
       setSaving(false);
     }
@@ -122,7 +122,7 @@ export function MemberHistorySheet({ member, onClose }: { member: DirectoryMembe
         else setError(json.error || "Não foi possível carregar o histórico.");
       })
       .catch(() => {
-        if (active) setError("Sem conexão com o servidor.");
+        if (active) setError("Sem internet agora. Confira sua conexão e tente de novo.");
       });
     return () => {
       active = false;

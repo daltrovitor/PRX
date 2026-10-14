@@ -134,7 +134,7 @@ export function usePassData(user: User): PassData {
       ]);
       return { ok: true as const, voucher };
     } catch {
-      return { ok: false as const, error: "Sem conexão. Verifique a internet e tente de novo." };
+      return { ok: false as const, error: "Sem internet agora. Confira sua conexão e tente de novo." };
     }
   }, []);
 

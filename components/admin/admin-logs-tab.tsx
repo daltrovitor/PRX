@@ -44,7 +44,7 @@ export function AdminLogsTab({ log }: { log: Log }) {
           setError(null);
         } else setError(json.error || "Não foi possível carregar o registro.");
       })
-      .catch(() => active && setError("Sem conexão com o servidor."));
+      .catch(() => active && setError("Sem internet agora. Confira sua conexão e tente de novo."));
     return () => {
       active = false;
     };

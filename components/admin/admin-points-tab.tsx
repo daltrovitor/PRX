@@ -99,7 +99,7 @@ export function AdminPointsTab({ rules, onRefresh }: { rules: PointRule[]; onRef
       setOpen(false);
       await onRefresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sem conexão com o servidor.");
+      setError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
     } finally {
       setSaving(false);
     }

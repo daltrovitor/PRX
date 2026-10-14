@@ -1,9 +1,10 @@
 // Hello World
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { decryptSecret } from "@/lib/asaas/secrets";
-import { ACCOUNT_OPEN_RETRY, completeAsaasSandboxChecklist, currentSubaccount, ensureAsaasCustomerAndAccount, openSubaccount, subaccountView } from "@/lib/bank/asaas/onboarding";
+import { completeAsaasSandboxChecklist, currentSubaccount, ensureAsaasCustomerAndAccount, openSubaccount, subaccountView } from "@/lib/bank/asaas/onboarding";
 import { reconcileLegacyAccount } from "@/lib/bank/asaas/legacy";
-import { DOCUMENT_REFUSED, syncOnboardingDocuments, uploadSubaccountDocument } from "@/lib/bank/asaas/documents";
+import { syncOnboardingDocuments, uploadSubaccountDocument } from "@/lib/bank/asaas/documents";
+import { TechnicalError } from "@/lib/error-messages";
 import { handleAsaasEvent } from "@/lib/bank/asaas/webhooks";
 import { AsaasClient } from "@/lib/asaas/client";
 import { PDFDocument } from "pdf-lib";
@@ -92,7 +93,8 @@ describe("abertura da subconta no Asaas", () => {
       "POST /accounts": () => (++attempt === 1 ? { status: 400, body: { errors: [{ code: "invalid_email", description: "O e-mail informado já está em uso." }] } } : { body: CREATED }),
     });
     const { deps, store } = testDeps(client);
-    await expect(openSubaccount(USER_ID, deps)).rejects.toMatchObject({ status: 503, message: ACCOUNT_OPEN_RETRY });
+    // Técnico: a tela mostra só o código; o motivo fica no registro (nunca para o membro).
+    await expect(openSubaccount(USER_ID, deps)).rejects.toBeInstanceOf(TechnicalError);
     await expect(openSubaccount(USER_ID, deps)).resolves.toMatchObject({ state: "pending_activation" });
 
     expect(store.provisioningLog()).toMatchObject([
@@ -189,7 +191,7 @@ describe("menores de idade e emancipação", () => {
     const { deps } = testDeps(client, minorKyc("emancipated"));
     await openSubaccount(USER_ID, deps);
     later(deps);
-    await expect(syncOnboardingDocuments(USER_ID, deps)).resolves.toEqual({ state: "done", sent: 2, viaLink: 0, memberUpload: 0, refused: 0 });
+    await expect(syncOnboardingDocuments(USER_ID, deps)).resolves.toEqual({ state: "done", sent: 2, viaLink: 0, memberUpload: 0, refusals: [] });
     const uploads = calls.filter((c) => c.method === "POST" && c.path.startsWith("/myAccount/documents/"));
     // Um arquivo por grupo: frente e verso num PDF só; a certidão no grupo de emancipação.
     expect(uploads.map((c) => c.path)).toEqual(["/myAccount/documents/grp-id", "/myAccount/documents/grp-emancipation"]);
@@ -216,7 +218,7 @@ describe("documentos da subconta", () => {
     expect(calls.some((c) => c.path === "/myAccount/documents")).toBe(false);
 
     later(deps);
-    await expect(syncOnboardingDocuments(USER_ID, deps)).resolves.toEqual({ state: "done", sent: 1, viaLink: 1, memberUpload: 0, refused: 0 });
+    await expect(syncOnboardingDocuments(USER_ID, deps)).resolves.toEqual({ state: "done", sent: 1, viaLink: 1, memberUpload: 0, refusals: [] });
     const uploads = calls.filter((c) => c.method === "POST" && c.path.startsWith("/myAccount/documents/"));
     expect(uploads.map((c) => c.path)).toEqual(["/myAccount/documents/grp-id"]);
     expect(uploads[0].apiKey).toBe(CREATED.apiKey);
@@ -271,17 +273,18 @@ describe("documentos da subconta", () => {
     expect((await PDFDocument.load(new Uint8Array(await merged.arrayBuffer()))).getPageCount()).toBe(2);
   });
 
-  it("recusa do Asaas na API (\"não pode ser enviado via API\"): mensagem clara ao membro e motivo para o admin", async () => {
+  it("recusa do Asaas na API (\"não pode ser enviado via API\"): erro técnico com código e motivo para o admin", async () => {
     const refusal = { status: 400, body: { errors: [{ code: "invalid_action", description: "Esse tipo de documento não pode ser enviado via API. Por favor, entre em contato com o suporte." }] } };
     const { client } = fakeAsaas({ ...NONE, "POST /accounts": { body: CREATED }, "GET /myAccount/documents": { body: groups }, "POST /myAccount/documents/*": refusal });
     const { deps, store } = testDeps(client);
     await openSubaccount(USER_ID, deps);
     later(deps);
     // A sincronização segue com os outros grupos e registra a recusa.
-    await expect(syncOnboardingDocuments(USER_ID, deps)).resolves.toMatchObject({ state: "done", sent: 0, refused: 1 });
+    await expect(syncOnboardingDocuments(USER_ID, deps)).resolves.toMatchObject({ state: "done", sent: 0, refusals: [expect.stringContaining("IDENTIFICATION")] });
     expect(store.provisioningLog().at(-1)?.detail).toContain("IDENTIFICATION: Asaas 400 invalid_action");
     const jpg = new File([await photo("jpeg") as BlobPart], "rg.jpg", { type: "image/jpeg" });
-    await expect(uploadSubaccountDocument(USER_ID, "grp-id", [jpg], deps)).rejects.toMatchObject({ status: 409, message: DOCUMENT_REFUSED });
+    // Técnico (a pessoa não resolve na tela): erro com código para o suporte, o motivo só no registro.
+    await expect(uploadSubaccountDocument(USER_ID, "grp-id", [jpg], deps)).rejects.toBeInstanceOf(TechnicalError);
     expect(store.provisioningLog().at(-1)).toMatchObject({ outcome: "blocked", detail: expect.stringContaining("IDENTIFICATION") });
   });
 });

@@ -179,7 +179,7 @@ function PartnerDetail({ partner, benefits, onBack, onRefresh }: { partner: Part
       if (!res.ok) setError(data.error || "Não foi possível carregar as campanhas.");
       setCampaigns(data.campaigns ?? []);
     } catch {
-      setError("Sem conexão com o servidor.");
+      setError("Sem internet agora. Confira sua conexão e tente de novo.");
       setCampaigns([]);
     }
   }, [partner.id]);
@@ -231,7 +231,7 @@ function PartnerDetail({ partner, benefits, onBack, onRefresh }: { partner: Part
       await Promise.all([loadCampaigns(), onRefresh()]);
       return true;
     } catch {
-      setError("Sem conexão com o servidor.");
+      setError("Sem internet agora. Confira sua conexão e tente de novo.");
       return false;
     } finally {
       setBusyId(null);

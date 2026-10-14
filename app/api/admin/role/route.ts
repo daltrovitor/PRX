@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { userStore, verifyAdminRequest } from "@/lib/auth";
 import { recordAdminAction } from "@/lib/admin/audit";
 import { z } from "zod";
-import { errorMessage } from "@/lib/errors";
+import { incidentResponse } from "@/lib/incidents";
 
 const RoleUpdateSchema = z.object({
   emailOrId: z.string().min(1, "Identificador do usuário obrigatório"),
@@ -99,9 +99,6 @@ export async function POST(req: NextRequest) {
       user: targetUser,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: errorMessage(error) || "Erro ao atualizar papel." },
-      { status: 500 }
-    );
+    return incidentResponse(error, "Erro ao atualizar papel.");
   }
 }

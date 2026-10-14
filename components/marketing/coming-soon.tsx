@@ -60,7 +60,7 @@ export function ComingSoon() {
       setStatus({ kind: "done", message: json.message || "Você está na Lista VIP." });
       setEmail("");
     } catch {
-      setStatus({ kind: "error", message: "Sem conexão. Tente de novo em instantes." });
+      setStatus({ kind: "error", message: "Sem internet agora. Confira sua conexão e tente de novo." });
     }
   }
 

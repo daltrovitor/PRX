@@ -102,12 +102,13 @@ describe("execução e validação de saque", () => {
   it("recusa do Asaas falha o pedido; resultado incerto mantém o pedido em aberto", async () => {
     const refused = await activeAccount({ "POST /transfers": { status: 400, body: { errors: [{ code: "x", description: "Chave não encontrada." }] } } });
     const a = await preparePix(USER_ID, { method: "key", key: "ana@prx.dev", amount: 10, description: "" }, refused.deps, []);
-    await expect(executeOutgoing(USER_ID, a.requestId, refused.deps, [])).rejects.toMatchObject({ status: 422, message: "Chave não encontrada." });
+    await expect(executeOutgoing(USER_ID, a.requestId, refused.deps, [])).rejects.toMatchObject({ status: 422, message: "Não encontramos essa chave Pix. Confira e tente de novo." });
     expect((await refused.store.getOutgoing(a.requestId))?.status).toBe("failed");
 
     const unsure = await activeAccount({ "POST /transfers": { status: 504 } });
     const b = await preparePix(USER_ID, { method: "key", key: "ana@prx.dev", amount: 10, description: "" }, unsure.deps, []);
-    await expect(executeOutgoing(USER_ID, b.requestId, unsure.deps, [])).rejects.toMatchObject({ status: 503 });
+    // Resultado incerto: a pessoa confere o extrato antes de repetir (nunca paga duas vezes).
+    await expect(executeOutgoing(USER_ID, b.requestId, unsure.deps, [])).rejects.toMatchObject({ status: 409, message: expect.stringMatching(/Confira o extrato/) });
     expect((await unsure.store.getOutgoing(b.requestId))?.status).toBe("requested");
   });
 

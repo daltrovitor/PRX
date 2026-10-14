@@ -3,10 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { userStore, createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/lib/auth";
 import { isPublicSupabaseKey, supabaseAdmin } from "@/lib/supabase/client";
 import { createClient } from "@supabase/supabase-js";
-import { errorMessage } from "@/lib/errors";
 import { z } from "zod";
 import { checkRateLimit } from "@/lib/security";
 import { clientIp } from "@/lib/partners/http";
+import { incidentResponse } from "@/lib/incidents";
 
 const LoginSchema = z.object({ email: z.string().trim().email().max(160), password: z.string().min(1).max(128) });
 
@@ -165,9 +165,6 @@ export async function POST(req: NextRequest) {
 
     return response;
   } catch (error) {
-    return NextResponse.json(
-      { error: errorMessage(error) || "Erro no processamento do login de parceiro." },
-      { status: 500 }
-    );
+    return incidentResponse(error, "Erro no processamento do login de parceiro.");
   }
 }

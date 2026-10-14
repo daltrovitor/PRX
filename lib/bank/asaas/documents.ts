@@ -10,6 +10,7 @@ import { bankMessage } from "@/lib/bank/asaas/messages";
 import { buildDocumentFile, MAX_DOCUMENT_BYTES, type DocumentUpload } from "@/lib/bank/asaas/document-file";
 import { describeError, logProvisioning } from "@/lib/bank/asaas/provisioning-log";
 import { bankLog } from "@/lib/asaas/log";
+import { TechnicalError } from "@/lib/error-messages";
 import { requireSubaccount } from "@/lib/bank/asaas/subaccount";
 
 /**
@@ -47,10 +48,6 @@ const UPLOAD_TYPES = new Set(["", "image/jpeg", "image/png", "image/webp", "imag
 const MAX_PARTS = 4;
 /** Ordem das partes no PDF do documento de identificação. */
 const ID_KINDS: readonly DocumentKind[] = ["id_front", "id_back", "id_document", "cnh", "rg"];
-
-/** Mensagem ao membro quando o Asaas não aceita o documento pela API. */
-export const DOCUMENT_REFUSED =
-  "O PRX BANK não recebe este documento pelo app. Se aparecer o botão “Enviar pelo link seguro”, use-o; se não, a equipe PRX já foi avisada e fala com você.";
 
 /** Recusa de negócio do Asaas para o envio (4xx que não é credencial nem limite): o arquivo não vai por aqui. */
 function refusedByAsaas(err: unknown): err is AsaasError {
@@ -108,7 +105,8 @@ async function fileForGroup(userId: string, type: string, app: BankKycApplicatio
   }
 }
 
-export type DocumentSyncResult = { state: "wait"; retryInMs: number } | { state: "done"; sent: number; viaLink: number; memberUpload: number; refused: number };
+/** `refusals`: grupos que o Asaas recusou pela API, com o motivo (só para os logs). */
+export type DocumentSyncResult = { state: "wait"; retryInMs: number } | { state: "done"; sent: number; viaLink: number; memberUpload: number; refusals: string[] };
 
 /**
  * Consulta o que o Asaas pede e envia o que o PRX já tem (documento do
@@ -164,7 +162,7 @@ export async function syncOnboardingDocuments(userId: string, deps: AsaasDeps): 
     const recusas = refused.length ? ` Recusado(s) pelo Asaas na API: ${refused.join(" | ")}.` : "";
     const detail = `${sent} enviado(s) pela API; ${viaLink} pelo link seguro do Asaas; ${memberUpload} aguardando envio do membro.${recusas}${pendingForMember ? " Membro avisado no app." : ""}`;
     await logProvisioning(deps, { ...step, outcome: sent > 0 || !pendingForMember ? "sent" : "blocked", detail });
-    return { state: "done", sent, viaLink, memberUpload, refused: refused.length };
+    return { state: "done", sent, viaLink, memberUpload, refusals: refused };
   });
 }
 
@@ -174,25 +172,26 @@ export async function syncOnboardingDocuments(userId: string, deps: AsaasDeps): 
  * Asaas, nunca do cliente.
  */
 export async function uploadSubaccountDocument(userId: string, groupId: string, files: File[], deps: AsaasDeps): Promise<void> {
-  if (files.length === 0) throw new PartnerError("Escolha o arquivo do documento.", 422);
-  if (files.length > MAX_PARTS) throw new PartnerError(`Envie até ${MAX_PARTS} arquivos por documento.`, 422);
-  if (files.some((f) => !UPLOAD_TYPES.has(f.type))) throw new PartnerError("Envie foto (JPG, PNG, WebP ou HEIC) ou PDF.", 422);
-  if (files.some((f) => !(f.size > 0) || f.size > MAX_DOCUMENT_BYTES)) throw new PartnerError("Cada arquivo precisa ter até 10 MB.", 422);
+  if (files.length === 0) throw new PartnerError("Escolha a foto ou o PDF do documento.", 422);
+  if (files.length > MAX_PARTS) throw new PartnerError(`Escolha no máximo ${MAX_PARTS} arquivos por vez.`, 422);
+  if (files.some((f) => !UPLOAD_TYPES.has(f.type))) throw new PartnerError("Esse arquivo não é foto nem PDF. Envie uma foto do documento ou um PDF.", 422);
+  if (files.some((f) => !(f.size > 0) || f.size > MAX_DOCUMENT_BYTES)) throw new PartnerError("O arquivo é grande demais. Envie uma foto menor ou um PDF mais leve.", 422);
   await withAsaasAudit({ userId }, async () => {
     const { sub, apiKey } = await requireSubaccount(userId, deps);
     try {
       const docs = await listDocuments(deps.client, apiKey);
       const group = docs.data.find((g) => g.id === groupId);
-      if (!group) throw new PartnerError("Documento não encontrado. Atualize a lista e tente de novo.", 404);
-      if (group.onboardingUrl) throw new PartnerError("Este documento é enviado pelo link seguro do PRX BANK.", 409);
-      if (!needsUpload(group)) throw new PartnerError("Este documento já foi enviado.", 409);
+      if (!group) throw new PartnerError("Essa lista mudou. Feche e abra a tela de novo.", 404);
+      if (group.onboardingUrl) throw new PartnerError("Esse documento é enviado pelo botão “Enviar pelo link seguro”.", 409);
+      if (!needsUpload(group)) throw new PartnerError("Esse documento já foi enviado. Agora é só aguardar a análise.", 409);
       const file = await buildDocumentFile(await Promise.all(files.map(async (f) => new Uint8Array(await f.arrayBuffer()))), group.type.toLowerCase());
       try {
         await uploadDocument(deps.client, apiKey, group.id, group.type, file.blob, file.filename);
       } catch (err) {
         if (!refusedByAsaas(err)) throw err;
-        await logProvisioning(deps, { userId, step: "documents", outcome: "blocked", asaasAccountId: sub.asaasAccountId, detail: `Envio do membro recusado pelo Asaas na API (${group.type}): ${describeError(err)}` });
-        throw new PartnerError(DOCUMENT_REFUSED, 409);
+        const detail = `Envio do membro recusado pelo Asaas na API (${group.type}): ${describeError(err)}`;
+        await logProvisioning(deps, { userId, step: "documents", outcome: "blocked", asaasAccountId: sub.asaasAccountId, detail });
+        throw new TechnicalError(detail, 502);
       }
     } catch (err) {
       throw toPartnerError(err, "Não foi possível enviar o documento ao PRX BANK.");

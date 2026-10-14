@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getPasskeyRepository } from "@/lib/passkeys/repository";
+import { incidentResponse } from "@/lib/incidents";
 
 /** Biometrias cadastradas pelo membro (lista do perfil) e remoção de um aparelho. */
 export async function GET(req: NextRequest) {
@@ -10,8 +11,8 @@ export async function GET(req: NextRequest) {
   try {
     const passkeys = await getPasskeyRepository().listByUser(user.id);
     return NextResponse.json({ passkeys: passkeys.map(({ id, deviceName, createdAt, lastUsedAt }) => ({ id, deviceName, createdAt, lastUsedAt })) });
-  } catch {
-    return NextResponse.json({ error: "Não foi possível carregar suas biometrias." }, { status: 500 });
+  } catch (error) {
+    return incidentResponse(error, "Não foi possível carregar suas biometrias.");
   }
 }
 
@@ -23,7 +24,7 @@ export async function DELETE(req: NextRequest) {
   try {
     const removed = await getPasskeyRepository().remove(user.id, id);
     return removed ? NextResponse.json({ success: true }) : NextResponse.json({ error: "Biometria não encontrada." }, { status: 404 });
-  } catch {
-    return NextResponse.json({ error: "Não foi possível remover a biometria." }, { status: 500 });
+  } catch (error) {
+    return incidentResponse(error, "Não foi possível remover a biometria.");
   }
 }

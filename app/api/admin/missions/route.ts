@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminRequest } from "@/lib/auth";
 import { passStore } from "@/lib/pass-store";
 import { supabaseAdmin } from "@/lib/supabase/client";
-import { errorMessage } from "@/lib/errors";
 import type { MissionRow } from "@/lib/db-rows";
+import { incidentResponse } from "@/lib/incidents";
 
 export async function GET(req: NextRequest) {
   try {
@@ -52,10 +52,7 @@ export async function GET(req: NextRequest) {
     const missions = passStore.getMissions();
     return NextResponse.json({ success: true, missions });
   } catch (error) {
-    return NextResponse.json(
-      { error: errorMessage(error) || "Erro ao consultar missões." },
-      { status: 500 }
-    );
+    return incidentResponse(error, "Erro ao consultar missões.");
   }
 }
 
@@ -136,10 +133,7 @@ export async function POST(req: NextRequest) {
       mission: newMission,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: errorMessage(error) || "Erro ao criar missão." },
-      { status: 500 }
-    );
+    return incidentResponse(error, "Erro ao criar missão.");
   }
 }
 
@@ -213,10 +207,7 @@ export async function PUT(req: NextRequest) {
       mission: updated,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: errorMessage(error) || "Erro ao atualizar missão." },
-      { status: 500 }
-    );
+    return incidentResponse(error, "Erro ao atualizar missão.");
   }
 }
 
@@ -259,9 +250,6 @@ export async function DELETE(req: NextRequest) {
       message: "Missão removida com sucesso!",
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: errorMessage(error) || "Erro ao excluir missão." },
-      { status: 500 }
-    );
+    return incidentResponse(error, "Erro ao excluir missão.");
   }
 }

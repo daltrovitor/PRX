@@ -61,7 +61,7 @@ export function AdminBankStatus() {
       setStatus(json.status);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sem conexão.");
+      setError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
     } finally {
       setLoading(false);
     }

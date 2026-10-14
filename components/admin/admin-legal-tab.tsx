@@ -57,7 +57,7 @@ export function AdminLegalTab({ onMetrics }: { onMetrics?: (metrics: LegalMetric
       apply({ items: json.items, metrics: json.metrics, persistence: json.persistence });
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sem conexão.");
+      setError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
     }
   }, [apply]);
 
@@ -82,7 +82,7 @@ export function AdminLegalTab({ onMetrics }: { onMetrics?: (metrics: LegalMetric
         return true;
       } catch (err) {
         if (previous) setState(previous);
-        showToast("error", err instanceof Error ? err.message : "Sem conexão.");
+        showToast("error", err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
         return false;
       }
     },

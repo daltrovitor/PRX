@@ -52,7 +52,7 @@ export function PartnerCompany({ profile, missing, onSaved }: { profile: Partner
       showToast("success", "Cadastro atualizado.");
       onSaved({ partner: data.partner, missing: data.missing ?? [] });
     } catch {
-      setError("Sem conexão com o servidor.");
+      setError("Sem internet agora. Confira sua conexão e tente de novo.");
     } finally {
       setBusy(false);
     }

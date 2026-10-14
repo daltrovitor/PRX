@@ -50,7 +50,7 @@ export function AdminAsaasRequests({ initialUser }: { initialUser: string | null
       setData(await adminCall<ListResponse>(`/api/admin/bank/asaas/requests?${query(applied, page)}`));
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sem conexão.");
+      setError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
     } finally {
       setLoading(false);
     }
@@ -70,7 +70,7 @@ export function AdminAsaasRequests({ initialUser }: { initialUser: string | null
     try {
       setDetail((await adminCall<{ detail: RequestDetail }>(`/api/admin/bank/asaas/requests?id=${id}`)).detail);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sem conexão.");
+      setError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
     }
   }
 

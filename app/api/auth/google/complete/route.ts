@@ -15,6 +15,7 @@ import { rememberBirthDate } from "@/lib/live/buyer";
 import { PENDING_GOOGLE_COOKIE, pendingGoogleCookie, verifyPendingGoogleToken } from "@/lib/google-pending";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { getCurrentUser, userStore, type StoredUser } from "@/lib/auth";
+import { incidentResponse } from "@/lib/incidents";
 
 const phoneSchema = z
   .string()
@@ -166,8 +167,7 @@ export async function POST(req: NextRequest) {
     response.cookies.set(pendingGoogleCookie(""));
     return attachSession(response, finalUser);
   } catch (err) {
-    if (err instanceof PartnerError) return NextResponse.json({ error: err.message }, { status: err.status });
-    console.warn("[google/complete] falha ao concluir o cadastro");
-    return NextResponse.json({ error: "Erro ao concluir o cadastro com o Google." }, { status: 400 });
+    if (err instanceof PartnerError && err.status < 500) return NextResponse.json({ error: err.message }, { status: err.status });
+    return incidentResponse(err, "Erro ao concluir o cadastro com o Google.");
   }
 }

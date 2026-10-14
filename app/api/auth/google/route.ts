@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { userStore, createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { DEMO_ACCOUNTS_ENABLED } from "@/lib/server-secrets";
-import { errorMessage } from "@/lib/errors";
 import type { SessionCookieOptions } from "@/lib/db-rows";
 import { createPendingGoogleToken, pendingGoogleCookie } from "@/lib/google-pending";
+import { incidentResponse } from "@/lib/incidents";
 
 /**
  * Login Google simulado — SOMENTE para desenvolvimento local.
@@ -122,9 +122,6 @@ export async function POST(req: NextRequest) {
 
     return response;
   } catch (err) {
-    return NextResponse.json(
-      { error: errorMessage(err) || "Falha na autenticação com o Google." },
-      { status: 500 }
-    );
+    return incidentResponse(err, "Falha na autenticação com o Google.");
   }
 }

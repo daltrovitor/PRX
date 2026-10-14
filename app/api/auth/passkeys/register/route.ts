@@ -4,6 +4,7 @@ import type { RegistrationResponseJSON } from "@simplewebauthn/server";
 import { getCurrentUser } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/security";
 import { PASSKEY_CHALLENGE_COOKIE, PasskeyError, challengeCookie, registrationOptions, verifyRegistration } from "@/lib/passkeys/service";
+import { incidentResponse } from "@/lib/incidents";
 
 /**
  * Cadastro da biometria neste aparelho. Só com sessão ativa: quem cadastra
@@ -17,8 +18,8 @@ export async function GET(req: NextRequest) {
     const res = NextResponse.json({ options });
     res.cookies.set(challengeCookie(sealed));
     return res;
-  } catch {
-    return NextResponse.json({ error: "Não foi possível iniciar o cadastro da biometria." }, { status: 500 });
+  } catch (error) {
+    return incidentResponse(error, "Não foi possível iniciar o cadastro da biometria.");
   }
 }
 
@@ -35,9 +36,7 @@ export async function POST(req: NextRequest) {
     res.cookies.set(challengeCookie(""));
     return res;
   } catch (err) {
-    const status = err instanceof PasskeyError ? err.status : 500;
-    const message = err instanceof PasskeyError ? err.message : "Não foi possível ativar a biometria.";
-    const res = NextResponse.json({ error: message }, { status });
+    const res = err instanceof PasskeyError ? NextResponse.json({ error: err.message }, { status: err.status }) : await incidentResponse(err, "Não foi possível ativar a biometria.");
     res.cookies.set(challengeCookie(""));
     return res;
   }

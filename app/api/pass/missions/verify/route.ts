@@ -5,8 +5,8 @@ import { getWalletRepository } from "@/lib/points/repository";
 import { getCurrentUser, userStore } from "@/lib/auth";
 import { passStore } from "@/lib/pass-store";
 import { supabaseAdmin } from "@/lib/supabase/client";
-import { errorMessage } from "@/lib/errors";
 import { liveMissionCounts } from "@/lib/live/service";
+import { incidentResponse } from "@/lib/incidents";
 
 
 export async function POST(req: NextRequest) {
@@ -128,9 +128,6 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: errorMessage(error) || "Erro ao verificar missão." },
-      { status: 500 }
-    );
+    return incidentResponse(error, "Erro ao verificar missão.");
   }
 }

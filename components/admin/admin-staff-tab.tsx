@@ -28,7 +28,7 @@ async function call(method: "GET" | "POST" | "PUT", body?: unknown): Promise<{ o
     const data = (await res.json().catch(() => ({}))) as ApiResult;
     return { ok: res.ok && data.success !== false, data };
   } catch {
-    return { ok: false, data: { error: "Sem conexão com o servidor." } };
+    return { ok: false, data: { error: "Sem internet agora. Confira sua conexão e tente de novo." } };
   }
 }
 

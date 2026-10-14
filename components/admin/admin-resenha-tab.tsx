@@ -18,7 +18,7 @@ async function call(init?: RequestInit): Promise<{ ok: boolean; data: Response }
     const res = await fetch("/api/admin/resenha", { cache: "no-store", ...init });
     return { ok: res.ok, data: (await res.json().catch(() => ({}))) as Response };
   } catch {
-    return { ok: false, data: { error: "Sem conexão com o servidor." } };
+    return { ok: false, data: { error: "Sem internet agora. Confira sua conexão e tente de novo." } };
   }
 }
 

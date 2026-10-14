@@ -1,6 +1,7 @@
 // Hello World
 import { PartnerError } from "@/lib/partners/errors";
 import { AsaasError, toPartnerError } from "@/lib/asaas/errors";
+import { TechnicalError } from "@/lib/error-messages";
 import { recordNotSent, withAsaasAudit } from "@/lib/asaas/audit";
 import { webhookAuthToken, webhookUrls } from "@/lib/asaas/config";
 import { emailConfig } from "@/lib/notifications/config";
@@ -90,8 +91,11 @@ async function approvedKyc(userId: string, deps: AsaasDeps): Promise<BankKycAppl
   throw new PartnerError("Sua abertura de conta não foi aprovada. Revise os dados na aba PRX BANK e envie de novo.", 403);
 }
 
-/** O membro não vê o erro do Asaas: o detalhe fica em bank_provisioning_log e asaas_api_requests. */
-export const ACCOUNT_OPEN_RETRY = "Não foi possível abrir sua conta agora. Seus dados estão salvos: tente de novo em alguns minutos.";
+/*
+ * O membro não vê o erro do Asaas: falha técnica vira "Deu um erro ao fazer isso"
+ * com código (TechnicalError), e o detalhe fica em bank_provisioning_log,
+ * asaas_api_requests e app_incidents.
+ */
 
 export const MINOR_NEEDS_EMANCIPATION =
   "Contas de menores de 18 anos só podem ser abertas com emancipação (a partir dos 16 anos). Enquanto isso, sua conta fica em ativação.";
@@ -132,8 +136,9 @@ async function open(userId: string, deps: AsaasDeps): Promise<SubaccountView> {
     // Sem como cifrar a chave, nem chama o Asaas: a apiKey só vem uma vez.
     encryptSecret("probe");
   } catch (err) {
-    await notSent(`Configuração do servidor incompleta: ${describeError(err)}`);
-    throw new PartnerError(ACCOUNT_OPEN_RETRY, 503);
+    const detail = `Configuração do servidor incompleta: ${describeError(err)}`;
+    await notSent(detail);
+    throw new TechnicalError(`Abertura no Asaas: ${detail}`, 503);
   }
 
   const staleBefore = new Date(deps.now().getTime() - PROVISIONING_STALE_MS).toISOString();
@@ -148,8 +153,9 @@ async function open(userId: string, deps: AsaasDeps): Promise<SubaccountView> {
     if (adopted) return subaccountView(adopted.sub);
   } catch (err) {
     await deps.store.releaseSubaccount(userId);
-    await log("failed", `Não deu para conferir se a subconta já existia (nada foi criado): ${describeError(err)}`);
-    throw new PartnerError(ACCOUNT_OPEN_RETRY, 503);
+    const detail = `Não deu para conferir se a subconta já existia (nada foi criado): ${describeError(err)}`;
+    await log("failed", detail);
+    throw new TechnicalError(`Abertura no Asaas: ${detail}`, 503);
   }
 
   let created: CreatedSubaccount;
@@ -159,8 +165,9 @@ async function open(userId: string, deps: AsaasDeps): Promise<SubaccountView> {
     // Recusa clara libera para tentar de novo; resultado incerto mantém a trava e a próxima tentativa procura pelo CPF.
     const uncertain = err instanceof AsaasError && err.ambiguous;
     if (!uncertain) await deps.store.releaseSubaccount(userId);
-    await log(uncertain ? "uncertain" : "failed", `${describeError(err)}${uncertain ? " · A subconta pode ter sido criada: a próxima tentativa procura pelo CPF antes de criar outra." : ""}`);
-    throw new PartnerError(ACCOUNT_OPEN_RETRY, 503);
+    const detail = `${describeError(err)}${uncertain ? " · A subconta pode ter sido criada: a próxima tentativa procura pelo CPF antes de criar outra." : ""}`;
+    await log(uncertain ? "uncertain" : "failed", detail);
+    throw new TechnicalError(`Abertura no Asaas: ${detail}`, 503);
   }
 
   const { agency, accountNumber } = formatAccount(created.accountNumber);

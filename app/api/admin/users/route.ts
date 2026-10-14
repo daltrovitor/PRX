@@ -4,9 +4,9 @@ import { calculatePrxLevel, xpForLevel } from "@/lib/pass-data";
 import { userStore, verifyAdminRequest } from "@/lib/auth";
 import { passStore } from "@/lib/pass-store";
 import { isRegisteredMember } from "@/lib/members";
-import { errorMessage } from "@/lib/errors";
 import { recordAdminAction } from "@/lib/admin/audit";
 import type { AuthUserLike } from "@/lib/db-rows";
+import { incidentResponse } from "@/lib/incidents";
 
 export async function GET(req: NextRequest) {
   try {
@@ -123,10 +123,7 @@ export async function GET(req: NextRequest) {
         users,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: errorMessage(error) || "Erro ao consultar usuários." },
-      { status: 500 }
-    );
+    return incidentResponse(error, "Erro ao consultar usuários.");
   }
 }
 
@@ -282,9 +279,6 @@ export async function PUT(req: NextRequest) {
       user: returnUser,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: errorMessage(error) || "Erro ao atualizar dados do membro." },
-      { status: 500 }
-    );
+    return incidentResponse(error, "Erro ao atualizar dados do membro.");
   }
 }

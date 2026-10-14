@@ -93,7 +93,7 @@ export function AdminNotificationsTab() {
       setOverview({ channels: json.channels, siteUrl: json.siteUrl ?? "", deliveries: json.deliveries ?? [], logAvailable: json.logAvailable !== false });
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sem conexão.");
+      setError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
     } finally {
       setLoading(false);
     }
@@ -120,7 +120,7 @@ export function AdminNotificationsTab() {
       setError(null);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sem conexão.");
+      setError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
     } finally {
       setTesting(false);
     }

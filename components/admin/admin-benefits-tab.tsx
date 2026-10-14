@@ -181,7 +181,7 @@ export function AdminBenefitsTab({ benefits, partners, economy, onRefresh, draft
       setOpen(false);
       await onRefresh();
     } catch {
-      setError("Sem conexão com o servidor.");
+      setError("Sem internet agora. Confira sua conexão e tente de novo.");
     } finally {
       setSaving(false);
     }
@@ -205,7 +205,7 @@ export function AdminBenefitsTab({ benefits, partners, economy, onRefresh, draft
         showToast("error", data.error || "Não foi possível excluir.");
       }
     } catch {
-      showToast("error", "Sem conexão com o servidor.");
+      showToast("error", "Sem internet agora. Confira sua conexão e tente de novo.");
     }
   }
 

@@ -241,7 +241,7 @@ function CampaignForm({ partner, campaign, onSaved }: { partner: Partner; campai
       showToast("success", data.message || "Contrato salvo.");
       onSaved();
     } catch {
-      setServerError("Sem conexão com o servidor.");
+      setServerError("Sem internet agora. Confira sua conexão e tente de novo.");
     } finally {
       setSaving(null);
     }

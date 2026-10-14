@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { passStore } from "@/lib/pass-store";
 import { supabaseAdmin } from "@/lib/supabase/client";
-import { errorMessage } from "@/lib/errors";
+import { incidentResponse } from "@/lib/incidents";
 
 export async function POST(req: NextRequest) {
   try {
@@ -54,9 +54,6 @@ export async function POST(req: NextRequest) {
       mission: res.mission,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: errorMessage(error) || "Erro ao aceitar missão." },
-      { status: 500 }
-    );
+    return incidentResponse(error, "Erro ao aceitar missão.");
   }
 }

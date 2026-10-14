@@ -89,7 +89,7 @@ export function CompleteRegistration({ person, mode }: { person: PendingPerson; 
       markUnlocked();
       await refreshUser();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sem conexão. Tente de novo.");
+      setError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
       setBusy(null);
     }
   }

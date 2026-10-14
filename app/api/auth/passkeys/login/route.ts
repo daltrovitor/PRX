@@ -5,6 +5,7 @@ import type { AuthenticationResponseJSON } from "@simplewebauthn/server";
 import { AUTH_COOKIE_NAME, createSessionToken, loadSessionUser } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/security";
 import { PASSKEY_CHALLENGE_COOKIE, PasskeyError, authenticationOptions, challengeCookie, verifyAuthentication } from "@/lib/passkeys/service";
+import { incidentResponse } from "@/lib/incidents";
 
 const REMEMBER_SECONDS = 365 * 24 * 60 * 60;
 const optionsSchema = z.object({
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
     return res;
   } catch (err) {
     if (err instanceof PasskeyError) return NextResponse.json({ error: err.message }, { status: err.status });
-    return NextResponse.json({ error: "Não foi possível iniciar a biometria." }, { status: 500 });
+    return incidentResponse(err, "Não foi possível iniciar a biometria.");
   }
 }
 
@@ -82,9 +83,7 @@ export async function POST(req: NextRequest) {
     res.cookies.set(challengeCookie(""));
     return res;
   } catch (err) {
-    const status = err instanceof PasskeyError ? err.status : 500;
-    const message = err instanceof PasskeyError ? err.message : "Não foi possível entrar com a biometria.";
-    const res = NextResponse.json({ error: message }, { status });
+    const res = err instanceof PasskeyError ? NextResponse.json({ error: err.message }, { status: err.status }) : await incidentResponse(err, "Não foi possível entrar com a biometria.");
     res.cookies.set(challengeCookie(""));
     return res;
   }

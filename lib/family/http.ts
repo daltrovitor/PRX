@@ -4,10 +4,11 @@ import { getCurrentUser, type StoredUser } from "@/lib/auth";
 import { errorResponse } from "@/lib/partners/http";
 import { PartnerError } from "@/lib/partners/errors";
 import { FamilyError } from "@/lib/family/service";
+import { TechnicalError, userValidationMessage } from "@/lib/error-messages";
 
 /** Erro com o código que a tela usa para decidir o próximo passo (ex.: PARENT_REQUIRED → Conta Pai). */
-export function familyErrorResponse(error: unknown, fallback: string): NextResponse {
-  if (error instanceof FamilyError) return NextResponse.json({ error: error.message, code: error.code ?? null }, { status: error.status });
+export async function familyErrorResponse(error: unknown, fallback: string): Promise<NextResponse> {
+  if (error instanceof FamilyError && error.status < 500) return NextResponse.json({ error: error.message, code: error.code ?? null }, { status: error.status });
   return errorResponse(error, fallback);
 }
 
@@ -21,10 +22,11 @@ export async function body(req: NextRequest): Promise<unknown> {
   try {
     return await req.json();
   } catch {
-    throw new PartnerError("Corpo da requisição inválido.", 400);
+    throw new TechnicalError("Corpo da requisição não é JSON válido.", 400);
   }
 }
 
-export function invalid(issues: ReadonlyArray<{ message: string }>): never {
-  throw new PartnerError(issues[0]?.message || "Dados inválidos.", 422);
+/** Validação que a pessoa resolve (422); padrão do zod (o app mandou dado errado) vira erro técnico com código. */
+export function invalid(issues: ReadonlyArray<{ message: string; path?: ReadonlyArray<PropertyKey> }>): never {
+  throw new PartnerError(userValidationMessage(issues[0]), 422);
 }

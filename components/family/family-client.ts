@@ -41,7 +41,7 @@ export async function postJson<T>(url: string, payload: unknown, method = "POST"
     if (!res.ok) return { ok: false, error: json.error || "Não foi possível concluir.", code: json.code ?? null };
     return { ok: true, data: json };
   } catch {
-    return { ok: false, error: "Sem conexão. Tente de novo." };
+    return { ok: false, error: "Sem internet agora. Confira sua conexão e tente de novo." };
   }
 }
 
@@ -69,7 +69,7 @@ export function useFamilyState(userId: string | null) {
       setUnavailableFor(null);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sem conexão.");
+      setError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
       setUnavailableFor(userId);
     }
   }, [userId]);

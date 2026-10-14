@@ -44,7 +44,7 @@ export function AdminAsaasTab() {
       const res = await adminCall<{ report: unknown }>("/api/admin/bank/asaas/reconcile", postJson({ action }));
       setReport({ action, report: res.report });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sem conexão.");
+      setError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
     } finally {
       setBusy(null);
     }

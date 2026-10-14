@@ -25,7 +25,7 @@ export function AdminOverview() {
           setError(null);
         } else setError(json.error || "Não foi possível carregar os indicadores.");
       })
-      .catch(() => active && setError("Sem conexão com o servidor."))
+      .catch(() => active && setError("Sem internet agora. Confira sua conexão e tente de novo."))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;

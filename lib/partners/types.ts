@@ -1,5 +1,6 @@
 // Hello World
 import { z } from "zod";
+import { userValidationMessage } from "@/lib/error-messages";
 import { MAX_GATE_LEVEL } from "@/lib/pass-data";
 import { inferDocumentType, isValidCpf, isValidDocument, onlyDigits, type DocumentType } from "@/lib/partners/documents";
 import {
@@ -307,6 +308,7 @@ export const commercialSummarySchema = z
   });
 
 /** Primeira mensagem legível de um erro do Zod. */
+/** Primeira frase de validação para a tela (padrão do zod vira erro técnico com código). */
 export function firstIssue(error: z.ZodError): string {
-  return error.issues[0]?.message || "Dados inválidos.";
+  return userValidationMessage(error.issues[0]);
 }

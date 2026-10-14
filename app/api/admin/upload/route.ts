@@ -2,10 +2,10 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/client";
-import { errorMessage } from "@/lib/errors";
 import { requireAdmin } from "@/lib/partners/http";
 import { PartnerError } from "@/lib/partners/errors";
 import { compressImageDataUrl } from "@/lib/media/compression";
+import { incidentResponse } from "@/lib/incidents";
 
 /** Pasta do bucket para o tipo pedido; só estas três existem (o tipo vira caminho, então nada livre). */
 function uploadFolder(value: FormDataEntryValue | null): "benefits" | "logos" | "banners" | null {
@@ -98,13 +98,7 @@ export async function POST(req: NextRequest) {
           upsert: false,
         });
 
-      if (uploadError) {
-        console.error("Supabase storage upload error:", uploadError.message);
-        return NextResponse.json(
-          { error: `Erro no upload Supabase Storage: ${uploadError.message}` },
-          { status: 500 }
-        );
-      }
+      if (uploadError) return incidentResponse(new Error(`Supabase Storage: ${uploadError.message}`), "Erro no upload da imagem.");
 
       const { data: publicUrlData } = supabaseAdmin.storage
         .from("benefits")
@@ -127,10 +121,7 @@ export async function POST(req: NextRequest) {
       fileName: file.name,
     });
   } catch (error) {
-    if (error instanceof PartnerError) return NextResponse.json({ error: error.message }, { status: error.status });
-    return NextResponse.json(
-      { error: errorMessage(error) || "Erro inesperado ao fazer upload." },
-      { status: 500 }
-    );
+    if (error instanceof PartnerError && error.status < 500) return NextResponse.json({ error: error.message }, { status: error.status });
+    return incidentResponse(error, "Erro inesperado ao fazer upload.");
   }
 }

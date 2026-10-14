@@ -37,7 +37,7 @@ async function fetchProfile(): Promise<ProfileState> {
     if (!res.ok || !data.partner) return { partner: null, missing: [], error: data.error || "Não foi possível carregar o cadastro." };
     return { partner: data.partner, missing: data.missing ?? [], error: null };
   } catch {
-    return { partner: null, missing: [], error: "Sem conexão com o servidor." };
+    return { partner: null, missing: [], error: "Sem internet agora. Confira sua conexão e tente de novo." };
   }
 }
 

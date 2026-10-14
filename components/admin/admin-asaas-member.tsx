@@ -37,7 +37,7 @@ export function AdminAsaasMember({ onShowRequests }: { onShowRequests: (user: st
       setDiag((await adminCall<{ diagnostics: MemberDiagnostics }>(`/api/admin/bank/asaas/member?user=${encodeURIComponent(user.trim())}`)).diagnostics);
     } catch (err) {
       setDiag(null);
-      setError(err instanceof Error ? err.message : "Sem conexão.");
+      setError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
     } finally {
       setBusy(null);
     }
@@ -53,7 +53,7 @@ export function AdminAsaasMember({ onShowRequests }: { onShowRequests: (user: st
       setDiag(res.diagnostics);
       setInfo(`Concluído: ${ACTIONS.find((a) => a.action === action)?.label}. Resultado: ${JSON.stringify(res.result)}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sem conexão.");
+      setError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
     } finally {
       setBusy(null);
     }

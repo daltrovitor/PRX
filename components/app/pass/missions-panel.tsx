@@ -75,7 +75,7 @@ export function MissionsPanel({ missions, userId, referralCode, onChanged, onSco
       }
       await onChanged();
     } catch {
-      setNotice({ id: missionId, ok: false, text: "Sem conexão. Tente de novo em instantes." });
+      setNotice({ id: missionId, ok: false, text: "Sem internet agora. Confira sua conexão e tente de novo." });
     } finally {
       setBusy(null);
     }

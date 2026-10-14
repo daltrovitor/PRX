@@ -1,22 +1,28 @@
 // Hello World
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyAdminRequest, verifyPartnerRequest, type SessionPayload } from "@/lib/auth";
-import { errorMessage } from "@/lib/errors";
 import { PartnerError } from "@/lib/partners/errors";
+import { TechnicalError } from "@/lib/error-messages";
+import { incidentResponse } from "@/lib/incidents";
 import { requirePartnerForUser } from "@/lib/partners/service";
 import type { Partner } from "@/lib/partners/types";
 
-export function errorResponse(error: unknown, fallback: string): NextResponse {
-  if (error instanceof PartnerError) return NextResponse.json({ error: error.message }, { status: error.status });
-  console.warn(`[partners] ${fallback}:`, errorMessage(error));
-  return NextResponse.json({ error: fallback }, { status: 500 });
+/**
+ * Resposta de erro das rotas. Erro que a pessoa resolve (PartnerError 4xx):
+ * a frase do próprio erro. O resto é técnico: "Deu um erro ao fazer isso" com
+ * código, e o motivo vai para os logs (lib/incidents.ts). `fallback` descreve a
+ * ação para o registro, nunca vai para a tela.
+ */
+export async function errorResponse(error: unknown, fallback: string): Promise<NextResponse> {
+  if (error instanceof PartnerError && error.status < 500) return NextResponse.json({ error: error.message }, { status: error.status });
+  return incidentResponse(error, fallback, error instanceof PartnerError ? error.status : undefined);
 }
 
 export async function readJson(req: NextRequest): Promise<unknown> {
   try {
     return await req.json();
   } catch {
-    throw new PartnerError("Corpo da requisição inválido.", 400);
+    throw new TechnicalError("Corpo da requisição não é JSON válido.", 400);
   }
 }
 

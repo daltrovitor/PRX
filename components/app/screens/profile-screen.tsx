@@ -135,7 +135,7 @@ function BiometricsCard() {
       setPasskeys(json.passkeys);
       if (json.passkeys.length === 0 && readKnownAccount()?.passkey) updateKnownAccount({ passkey: false });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sem conexão.");
+      setError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
       setPasskeys([]);
     }
   }, []);
@@ -175,7 +175,7 @@ function BiometricsCard() {
       if (!res.ok) throw new Error(json.error || "Não foi possível remover.");
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sem conexão.");
+      setError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
     } finally {
       setBusy(null);
     }

@@ -30,7 +30,7 @@ interface ApiResult {
 async function call(url: string, init?: RequestInit): Promise<ApiResult> {
   const res = await fetch(url, { cache: "no-store", ...init, headers: { "Content-Type": "application/json", ...init?.headers } });
   const json = (await res.json().catch(() => ({}))) as ApiResult;
-  if (!res.ok) throw new Error(json.error || "Sem conexão. Tente de novo.");
+  if (!res.ok) throw new Error(json.error || "Sem internet agora. Confira sua conexão e tente de novo.");
   return json;
 }
 
@@ -63,7 +63,7 @@ export function PhoneVerifyCard() {
       const json = await call("/api/phone");
       if (json.phone) setState(json.phone);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sem conexão.");
+      setError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
     }
   }, []);
 

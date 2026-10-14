@@ -134,7 +134,7 @@ function PartnerForm({
       }
       onSaved(data.partner);
     } catch {
-      setError("Sem conexão com o servidor.");
+      setError("Sem internet agora. Confira sua conexão e tente de novo.");
     } finally {
       setSaving(false);
     }
@@ -310,7 +310,7 @@ function AccessForm({ partner, onSaved }: { partner: Partner; onSaved: () => voi
       if (data.temporaryPassword) setCredential({ email, password: data.temporaryPassword });
       else onSaved();
     } catch {
-      setError("Sem conexão com o servidor.");
+      setError("Sem internet agora. Confira sua conexão e tente de novo.");
     } finally {
       setBusy(false);
     }

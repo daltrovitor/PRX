@@ -75,7 +75,7 @@ export function InsiderDashboard({ editions, onChanged }: { editions: InsiderEdi
       setRequests(data.requests);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sem conexão.");
+      setError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
     }
   }, [linkId]);
 
@@ -103,7 +103,7 @@ export function InsiderDashboard({ editions, onChanged }: { editions: InsiderEdi
       const data = (await res.json().catch(() => ({}))) as ApiError;
       if (!res.ok) setError(data.error || "Não foi possível registrar a decisão.");
     } catch {
-      setError("Sem conexão. Tente de novo.");
+      setError("Sem internet agora. Confira sua conexão e tente de novo.");
     } finally {
       setBusyId(null);
       await Promise.all([load(), onChanged()]);

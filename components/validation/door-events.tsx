@@ -14,7 +14,7 @@ async function fetchEvents(endpoint: string): Promise<{ events?: DoorEventView[]
     const data = (await res.json()) as { events?: DoorEventView[]; error?: string };
     return res.ok ? data : { error: data.error || "Não foi possível carregar os eventos." };
   } catch {
-    return { error: "Sem conexão com o servidor." };
+    return { error: "Sem internet agora. Confira sua conexão e tente de novo." };
   }
 }
 

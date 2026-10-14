@@ -30,7 +30,7 @@ const PHOTO_FORMATS = new Set(["jpeg", "png", "webp", "heif"]);
 
 const isPdf = (bytes: Uint8Array) => bytes.length >= 4 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
 
-const UNREADABLE = "Não deu para ler uma das fotos. Envie em JPG, PNG ou PDF, com o documento inteiro e nítido.";
+const UNREADABLE = "Não conseguimos abrir essa foto. Tire outra foto do documento e envie de novo.";
 
 /** Foto em qualquer formato que o servidor lê → JPEG de pé, sem transparência. null = formato que não dá para ler (ex.: HEIC do iPhone fora do Safari). */
 export async function photoToJpeg(bytes: Uint8Array): Promise<Uint8Array | null> {
@@ -66,7 +66,7 @@ async function mergeToPdf(parts: Part[]): Promise<Uint8Array> {
       try {
         source = await PDFDocument.load(part.bytes);
       } catch {
-        throw new PartnerError("Um dos PDFs está protegido por senha ou danificado. Envie uma foto do documento ou outro PDF.", 422);
+        throw new PartnerError("Não conseguimos abrir esse PDF. Envie uma foto do documento.", 422);
       }
       for (const page of await doc.copyPages(source, source.getPageIndices())) doc.addPage(page);
       continue;
@@ -83,11 +83,11 @@ async function mergeToPdf(parts: Part[]): Promise<Uint8Array> {
 
 /** Junta as partes num arquivo que o Asaas aceita. `name` sem extensão. */
 export async function buildDocumentFile(parts: Uint8Array[], name: string): Promise<DocumentUpload> {
-  if (parts.length === 0) throw new PartnerError("Escolha o arquivo do documento.", 422);
+  if (parts.length === 0) throw new PartnerError("Escolha a foto ou o PDF do documento.", 422);
   const normalized = await Promise.all(parts.map(normalize));
   const single = normalized.length === 1 ? normalized[0] : null;
   const bytes = single ? single.bytes : await mergeToPdf(normalized);
   const pdf = !single || single.kind === "pdf";
-  if (bytes.length > MAX_DOCUMENT_BYTES) throw new PartnerError("O documento passou de 10 MB. Envie fotos menores ou um PDF mais leve.", 422);
+  if (bytes.length > MAX_DOCUMENT_BYTES) throw new PartnerError("O arquivo ficou grande demais. Envie fotos menores.", 422);
   return { blob: new Blob([bytes as BlobPart], { type: pdf ? "application/pdf" : "image/jpeg" }), filename: `${name}.${pdf ? "pdf" : "jpg"}` };
 }

@@ -1,5 +1,6 @@
 // Hello World
 import { describe, expect, it } from "vitest";
+import { TechnicalError } from "@/lib/error-messages";
 import { z } from "zod";
 import { AsaasClient, retryAfterMs } from "@/lib/asaas/client";
 import { hideProviderName } from "@/lib/asaas/errors";
@@ -174,9 +175,14 @@ describe("configuração do Asaas", () => {
 });
 
 describe("toPartnerError", () => {
-  it("expõe recusas de negócio e esconde falhas de credencial", () => {
-    expect(toPartnerError(new AsaasError(400, [{ code: "x", description: "Chave Pix não encontrada." }]))).toMatchObject({ status: 422, message: "Chave Pix não encontrada." });
-    expect(toPartnerError(new AsaasError(401, [{ code: "invalid_access_token", description: "A chave de API é inválida" }])).status).toBe(503);
+  it("recusa que a pessoa resolve vira frase simples; o resto é técnico e nunca mostra o motivo", () => {
+    expect(toPartnerError(new AsaasError(400, [{ code: "x", description: "Chave Pix não encontrada." }]))).toMatchObject({ status: 422, message: "Não encontramos essa chave Pix. Confira e tente de novo." });
+    expect(toPartnerError(new AsaasError(400, [{ code: "x", description: "Saldo insuficiente para realizar a transferência" }])).message).toBe("Saldo insuficiente para esta operação.");
+    // Técnico: TechnicalError (a rota responde "Deu um erro ao fazer isso" com código).
+    const refused = toPartnerError(new AsaasError(400, [{ code: "invalid_action", description: "Esse tipo de documento não pode ser enviado via API." }]));
+    expect(refused).toBeInstanceOf(TechnicalError);
+    expect(toPartnerError(new AsaasError(401, [{ code: "invalid_access_token", description: "A chave de API é inválida" }]))).toBeInstanceOf(TechnicalError);
+    expect(toPartnerError(new AsaasError(502, []))).toMatchObject({ status: 502 });
     expect(toPartnerError(new AsaasError(0, [], true)).message).toMatch(/Confira o extrato/);
   });
 });

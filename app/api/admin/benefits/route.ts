@@ -80,7 +80,7 @@ async function assertViable(economics: Economics): Promise<void> {
   throw new PartnerError(`Benefício bloqueado pela calculadora de viabilidade. ${result.message}${hint}`, 422);
 }
 
-function writeError(error: { code?: string; message?: string }, fallback: string): PartnerError {
+function writeError(error: { code?: string; message?: string }, fallback: string): ReturnType<typeof dbError> {
   if (isMissingColumn(error)) return new PartnerError(MIGRATION_HINT, 503);
   return dbError(error, fallback);
 }

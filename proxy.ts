@@ -40,13 +40,15 @@ export function proxy(req: NextRequest) {
   const host = (req.headers.get("host") || "").toLowerCase();
   const { pathname } = req.nextUrl;
 
-  // Assets estáticos, rotas internas, API e callback OAuth passam direto.
-  if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
-    pathname.startsWith("/auth/callback") ||
-    pathname.includes(".")
-  ) {
+  // API passa direto em qualquer host; a rota vai num header para o código das ocorrências (lib/incidents.ts).
+  if (pathname.startsWith("/api")) {
+    const forwarded = new Headers(req.headers);
+    forwarded.set("x-prx-path", pathname);
+    return NextResponse.next({ request: { headers: forwarded } });
+  }
+
+  // Assets estáticos, rotas internas e callback OAuth passam direto.
+  if (pathname.startsWith("/_next") || pathname.startsWith("/auth/callback") || pathname.includes(".")) {
     return NextResponse.next();
   }
 

@@ -60,7 +60,7 @@ function createResource<T>(url: string, pick: (json: Record<string, unknown>) =>
         emit({ loading: false, data: pick(json) });
       })
       .catch(() => {
-        if (state.owner === owner) emit({ loading: false, error: "Sem conexão com o servidor." });
+        if (state.owner === owner) emit({ loading: false, error: "Sem internet agora. Confira sua conexão e tente de novo." });
       })
       .finally(() => {
         inflight = null;
@@ -115,7 +115,7 @@ async function postJson(url: string, body: unknown): Promise<{ ok: boolean; json
     const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     return { ok: res.ok, json: (await res.json().catch(() => ({}))) as Record<string, unknown> };
   } catch {
-    return { ok: false, json: { error: "Sem conexão com o servidor." } };
+    return { ok: false, json: { error: "Sem internet agora. Confira sua conexão e tente de novo." } };
   }
 }
 
@@ -245,7 +245,7 @@ export function useLiveData(userId: string) {
         if (json.wallet) applyWallet(json.wallet as MemberWallet);
         return { ok: true };
       } catch {
-        return { ok: false, error: "Sem conexão com o servidor." };
+        return { ok: false, error: "Sem internet agora. Confira sua conexão e tente de novo." };
       }
     },
     [applyWallet]

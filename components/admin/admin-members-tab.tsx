@@ -68,7 +68,7 @@ export function AdminMembersTab() {
         setError(null);
       })
       .catch((e: unknown) => {
-        if (active) setError(e instanceof Error ? e.message : "Sem conexão com o servidor.");
+        if (active) setError(e instanceof Error ? e.message : "Sem internet agora. Confira sua conexão e tente de novo.");
       })
       .finally(() => {
         if (active) setLoading(false);

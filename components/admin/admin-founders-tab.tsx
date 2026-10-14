@@ -15,7 +15,7 @@ async function fetchSubmissions(): Promise<{ submissions?: FoundersSubmission[];
     const data = (await res.json()) as { submissions?: FoundersSubmission[]; error?: string };
     return res.ok ? data : { error: data.error || "Não foi possível carregar as submissões." };
   } catch {
-    return { error: "Sem conexão com o servidor." };
+    return { error: "Sem internet agora. Confira sua conexão e tente de novo." };
   }
 }
 
@@ -128,7 +128,7 @@ function SubmissionReview({ submission, onSaved }: { submission: FoundersSubmiss
       setFeedback({ ok: true, text: "Retorno salvo. O membro já vê a nova etapa." });
       await onSaved();
     } catch {
-      setFeedback({ ok: false, text: "Sem conexão com o servidor." });
+      setFeedback({ ok: false, text: "Sem internet agora. Confira sua conexão e tente de novo." });
     } finally {
       setBusy(false);
     }

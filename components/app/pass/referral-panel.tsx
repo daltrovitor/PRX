@@ -61,7 +61,7 @@ export function ReferralPanel({ referralInfo, onReferralSuccess }: ReferralPanel
       }
       if (data.currentUser) onReferralSuccess(data.currentUser.prxScore, data.currentUser.prxLevel);
     } catch {
-      setFeedback({ ok: false, text: "Sem conexão. Tente de novo." });
+      setFeedback({ ok: false, text: "Sem internet agora. Confira sua conexão e tente de novo." });
     } finally {
       setSubmitting(false);
     }

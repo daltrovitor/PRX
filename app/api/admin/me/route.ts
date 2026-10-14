@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getCurrentUser, verifySessionToken, AUTH_COOKIE_NAME } from "@/lib/auth";
-import { errorMessage } from "@/lib/errors";
+import { reportIncident } from "@/lib/incidents";
 
 export async function GET(req: NextRequest) {
   try {
@@ -71,9 +71,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
-    return NextResponse.json(
-      { authenticated: false, isAdmin: false, error: errorMessage(error) || "Erro ao consultar sessão administrativa." },
-      { status: 200 }
-    );
+    const { message, code } = await reportIncident(error, "Erro ao consultar sessão administrativa.");
+    return NextResponse.json({ authenticated: false, isAdmin: false, error: message, code }, { status: 200 });
   }
 }

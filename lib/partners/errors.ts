@@ -1,4 +1,5 @@
 // Hello World
+import { TechnicalError } from "@/lib/error-messages";
 
 /** Erro de regra de negócio do programa de parceiros, com o status HTTP adequado. */
 export class PartnerError extends Error {
@@ -29,9 +30,14 @@ export const MIGRATION_HINT =
  * Converte erro do PostgREST em PartnerError. Tabela ausente vira 503 com a
  * instrução de migração; o detalhe técnico dos demais fica só no log do servidor.
  */
-export function dbError(error: { code?: string; message?: string }, fallback: string): PartnerError {
+/**
+ * Erro do banco de dados. Duplicidade (409) e tabela ausente (503, usado por
+ * quem cai para a memória) seguem como PartnerError; o resto é técnico: a tela
+ * mostra "Deu um erro ao fazer isso" com código e o motivo do banco vai para o
+ * registro da ocorrência (antes ia para um console apagado no build).
+ */
+export function dbError(error: { code?: string; message?: string }, fallback: string): PartnerError | TechnicalError {
   if (isMissingTable(error)) return new PartnerError(MIGRATION_HINT, 503);
   if (error.code === "23505") return new PartnerError("Registro duplicado.", 409);
-  console.warn(`[partners] ${fallback}:`, error.code, error.message);
-  return new PartnerError(fallback, 500);
+  return new TechnicalError(`${fallback} (banco ${error.code ?? "?"}: ${error.message ?? "sem mensagem"})`, 500);
 }

@@ -37,7 +37,7 @@ async function call(url: string, init?: RequestInit): Promise<{ ok: boolean; jso
     const res = await fetch(url, { cache: "no-store", ...init });
     return { ok: res.ok, json: (await res.json().catch(() => ({}))) as Record<string, unknown> };
   } catch {
-    return { ok: false, json: { error: "Sem conexão com o servidor." } };
+    return { ok: false, json: { error: "Sem internet agora. Confira sua conexão e tente de novo." } };
   }
 }
 
@@ -148,9 +148,7 @@ export function ProviderOnboarding({ provider, onChanged }: { provider: BankProv
                   ? "Sua conta acabou de ser aberta. Aguarde alguns segundos e tente de novo."
                   : Number(json.sent) > 0
                     ? "Documentos do seu cadastro enviados ao PRX BANK."
-                    : Number(json.refused) > 0
-                      ? "O PRX BANK não recebe este documento pelo app. Use o link seguro, se aparecer abaixo; se não, a equipe PRX já foi avisada e fala com você."
-                      : "Nenhum documento do cadastro pôde ser enviado por aqui. Use o link seguro ou escolha o arquivo abaixo."
+                    : "Não achamos fotos do documento no seu cadastro. Use o botão de cada documento abaixo para enviar."
               );
             })
           }

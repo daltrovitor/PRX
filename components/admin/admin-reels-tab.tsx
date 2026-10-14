@@ -42,7 +42,7 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
       setReels(json.reels);
       setLoadError(null);
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : "Sem conexão.");
+      setLoadError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
       setReels((r) => r ?? []);
     }
   }, []);
@@ -116,7 +116,7 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
       setOpen(false);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sem conexão com o servidor.");
+      setError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
     } finally {
       setSaving(false);
     }

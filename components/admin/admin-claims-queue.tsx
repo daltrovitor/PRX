@@ -31,7 +31,7 @@ export function AdminClaimsQueue({ onDecided }: { onDecided?: () => void }) {
       setClaims(json.claims);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sem conexão.");
+      setError(err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
       setClaims((c) => c ?? []);
     }
   }, []);
@@ -60,7 +60,7 @@ export function AdminClaimsQueue({ onDecided }: { onDecided?: () => void }) {
       await load(filter);
       onDecided?.();
     } catch (err) {
-      showToast("error", err instanceof Error ? err.message : "Sem conexão.");
+      showToast("error", err instanceof Error ? err.message : "Sem internet agora. Confira sua conexão e tente de novo.");
     } finally {
       setBusy(null);
     }

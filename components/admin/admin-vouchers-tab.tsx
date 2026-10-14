@@ -49,7 +49,7 @@ export function AdminVouchersTab({ vouchers, onRefresh }: AdminVouchersTabProps)
       showToast("success", `${voucher.code} marcado como ${next === "used" ? "utilizado" : "válido"}.`);
       await onRefresh();
     } catch {
-      showToast("error", "Sem conexão com o servidor.");
+      showToast("error", "Sem internet agora. Confira sua conexão e tente de novo.");
     }
   }
 
@@ -71,7 +71,7 @@ export function AdminVouchersTab({ vouchers, onRefresh }: AdminVouchersTabProps)
         showToast("error", data.error || "Não foi possível revogar.");
       }
     } catch {
-      showToast("error", "Sem conexão com o servidor.");
+      showToast("error", "Sem internet agora. Confira sua conexão e tente de novo.");
     }
   }
 
