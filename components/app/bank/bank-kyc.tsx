@@ -1,7 +1,7 @@
 // Hello World
 "use client";
 
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { User } from "@/hooks/use-auth";
 import { Button, Checkbox, Field, Input, Notice, ProgressBar, RadioCards, Select, Tag } from "@/components/app/ui";
@@ -107,8 +107,8 @@ function KycPending({ kyc }: { kyc: BankKycState }) {
     <div className="mx-auto max-w-xl space-y-6 pb-32 sm:pb-36">
       <h1 className="ob-display text-[28px] text-ink sm:text-[40px]">PRX BANK</h1>
       <section className="glass space-y-4 rounded-[28px] p-6">
-        <Tag>Aguardando</Tag>
-        <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-ink">Recebemos sua abertura de conta</h2>
+        <Tag>Em análise</Tag>
+        <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-ink">Conta em análise</h2>
         <p className="text-[15px] leading-relaxed text-muted-foreground">
           {waitingPeople
             ? "Assim que a etapa abaixo for concluída, seus dados e documentos seguem direto para o PRX BANK, que aprova a conta. Você recebe o aviso aqui."
@@ -157,6 +157,9 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
   const [docs, setDocs] = useState<Partial<Record<DocumentKind, DocumentRef>>>({});
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showBiometricsStep, setShowBiometricsStep] = useState(false);
+  const [offerBiometrics, setOfferBiometrics] = useState(false);
+  // Trava síncrona: um segundo toque antes da tela atualizar não gera um segundo envio.
+  const sending = useRef(false);
   const [bioBusy, setBioBusy] = useState(false);
   const [bioError, setBioError] = useState<string | null>(null);
   // O que a conta já sabe (cadastro e última abertura): pedido uma vez só.
@@ -266,75 +269,76 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
       }
       return setError(msg);
     }
+    if (sending.current) return;
+    sending.current = true;
     setBusy(true);
     setError(null);
     const result = await postJson<{ providerError?: string | null }>("/api/bank/kyc", payload);
-    setBusy(false);
-    if (!result.ok) return setError(result.error);
-    const pending = result.data.providerError ?? null;
-    setProviderError(pending);
+    if (!result.ok) {
+      sending.current = false;
+      setBusy(false);
+      return setError(result.error);
+    }
+    setProviderError(result.data.providerError ?? null);
 
-    // Oferece biometria na hora do cadastro do banco se o dispositivo suportar
+    // Envio concluído na API: a tela confirma "Conta em análise" na hora (e oferece a biometria, se o aparelho tiver).
     const canBio = await canUseBiometrics();
     const already =
       readKnownAccount()?.passkey === true ||
       (typeof window !== "undefined" && localStorage.getItem("prx_bank_biometrics_accepted") === "true");
-
-    if (canBio && !already) {
-      setShowBiometricsStep(true);
-      return;
-    }
-
-    await onDone(pending);
+    setOfferBiometrics(canBio && !already);
+    setBusy(false);
+    setShowBiometricsStep(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   const setDoc = (kind: DocumentKind) => (ref: DocumentRef | null) => setDocs((d) => ({ ...d, [kind]: ref ?? undefined }));
 
   if (showBiometricsStep) {
     return (
-      <div className="mx-auto max-w-xl space-y-6">
+      <div className="mx-auto max-w-xl space-y-6 pb-32 sm:pb-36">
         <h1 className="ob-display text-[28px] text-ink sm:text-[40px]">PRX BANK</h1>
-        <section className="glass space-y-4 rounded-[28px] p-6 sm:p-8">
-          <div className="flex items-center gap-2 text-ink">
-            <IconLock size={22} className="text-primary" />
-            <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-ink">Ativar biometria bancária</h2>
-          </div>
+        <section role="status" aria-live="polite" className="glass space-y-4 rounded-[28px] p-6 sm:p-8">
+          <Tag>Em análise</Tag>
+          <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-ink">Conta em análise</h2>
           <p className="text-[15px] leading-relaxed text-muted-foreground">
-            Recebemos seus dados! Para maior segurança e agilidade em transações Pix e acessos futuros, ative o Face ID, Touch ID ou a digital do aparelho.
+            Recebemos seus dados e documentos. Agora o PRX BANK confere tudo e aprova a sua conta. Você não precisa enviar nada de novo: o aviso chega aqui.
           </p>
-          {bioError && <Notice tone="error">{bioError}</Notice>}
-          <div className="space-y-3 pt-4">
-            <Button
-              className="w-full min-h-12 cursor-pointer"
-              disabled={bioBusy}
-              onClick={async () => {
-                setBioBusy(true);
-                setBioError(null);
-                const res = await registerPasskey();
-                setBioBusy(false);
-                if (res.ok) {
-                  if (typeof window !== "undefined") {
-                    localStorage.setItem("prx_bank_biometrics_accepted", "true");
+          {offerBiometrics && (
+            <div className="space-y-3 rounded-2xl border border-line bg-surface p-4">
+              <div className="flex items-center gap-2 text-ink">
+                <IconLock size={18} className="text-primary" />
+                <p className="text-[14px] font-medium">Ativar biometria bancária</p>
+              </div>
+              <p className="text-[13px] leading-relaxed text-muted-foreground">
+                Ative o Face ID, Touch ID ou a digital do aparelho para aprovar Pix e entrar no banco com rapidez e proteção.
+              </p>
+              {bioError && <Notice tone="error">{bioError}</Notice>}
+              <Button
+                className="min-h-12 w-full cursor-pointer"
+                disabled={bioBusy}
+                onClick={async () => {
+                  setBioBusy(true);
+                  setBioError(null);
+                  const res = await registerPasskey();
+                  setBioBusy(false);
+                  if (res.ok) {
+                    if (typeof window !== "undefined") {
+                      localStorage.setItem("prx_bank_biometrics_accepted", "true");
+                    }
+                    await onDone(providerError);
+                  } else {
+                    setBioError(res.error || "Não foi possível ativar neste momento.");
                   }
-                  await onDone(providerError);
-                } else {
-                  setBioError(res.error || "Não foi possível ativar neste momento.");
-                }
-              }}
-            >
-              {bioBusy ? "Ativando…" : "Ativar biometria neste aparelho"}
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full min-h-12 cursor-pointer"
-              disabled={bioBusy}
-              onClick={async () => {
-                await onDone(providerError);
-              }}
-            >
-              Agora não, concluir abertura
-            </Button>
-          </div>
+                }}
+              >
+                {bioBusy ? "Ativando…" : "Ativar biometria neste aparelho"}
+              </Button>
+            </div>
+          )}
+          <Button variant={offerBiometrics ? "ghost" : "primary"} className="min-h-12 w-full cursor-pointer" disabled={bioBusy} onClick={() => void onDone(providerError)}>
+            {offerBiometrics ? "Agora não, ver minha conta" : "Ver minha conta"}
+          </Button>
         </section>
       </div>
     );

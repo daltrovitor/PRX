@@ -45,7 +45,7 @@ export function ActivationPanel({ account, member, onChanged }: { account: BankA
     return (
       <section aria-labelledby="activation-title" className="glass space-y-4 rounded-3xl p-5 sm:p-6">
         <h2 id="activation-title" className="text-xl font-semibold tracking-[-0.02em] text-ink">
-          Recebemos seus dados
+          Conta em análise
         </h2>
         <p className="text-[15px] leading-relaxed text-muted-foreground">
           Seus dados e documentos{sent ? `, enviados em ${sent},` : ""} estão salvos. A abertura da conta no PRX BANK ainda não foi concluída, e você não precisa enviar

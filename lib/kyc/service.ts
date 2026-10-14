@@ -5,7 +5,7 @@ import { getFamilyRepository } from "@/lib/family/repository";
 import { PARENT_NO_MONEY } from "@/lib/family/guards";
 import { FamilyError, assertEligibleAge, registerIdentity, submitEmancipation, type MemberRef } from "@/lib/family/service";
 import { ageGroup } from "@/lib/family/age";
-import { DOCUMENT_LABEL, type DocumentKind } from "@/lib/family/types";
+import { CPF_TAKEN_MESSAGE, DOCUMENT_LABEL, type DocumentKind } from "@/lib/family/types";
 import { getKycRepository } from "@/lib/kyc/repository";
 import type { BankKycApplication, BankKycInput, KycStatus, RiskFlag } from "@/lib/kyc/types";
 
@@ -50,7 +50,8 @@ export async function submitBankKyc(
   if (identity?.accountType === "parent") throw new FamilyError(PARENT_NO_MONEY, 403);
 
   const latest = await kycRepo().latestForUser(user.id);
-  if (latest?.status === "pending") throw new FamilyError("Sua abertura de conta já está em análise.", 409);
+  // Abertura já em análise: um novo envio é repetição (toque duplo, rede lenta), não erro. A tela mostra "Conta em análise".
+  if (latest?.status === "pending") return latest;
   if (latest?.status === "approved" && !options.allowRedo) throw new FamilyError("Sua conta PRX BANK já foi aberta.", 409);
 
   // Documentos: só da própria pasta, com frente e verso do documento com foto.
@@ -80,7 +81,13 @@ export async function submitBankKyc(
     }
   } else {
     // Primeira verificação da conta: registra CPF (único) e nascimento; menor gera o pedido de vínculo.
-    await registerIdentity(user, { cpf: input.cpf, birthDate: input.birthDate, teenPath: input.minorPath, parentEmail: input.parentEmail ?? "" }, now);
+    try {
+      await registerIdentity(user, { cpf: input.cpf, birthDate: input.birthDate, teenPath: input.minorPath, parentEmail: input.parentEmail ?? "" }, now);
+    } catch (err) {
+      // Envio repetido ao mesmo tempo: o outro já registrou exatamente estes dados nesta conta.
+      const same = err instanceof FamilyError && err.status === 409 && err.code !== "CPF_TAKEN" ? await familyRepo().getIdentity(user.id) : null;
+      if (!same || same.cpf !== input.cpf || same.birthDate !== input.birthDate) throw err;
+    }
   }
 
   if (isMinor && input.minorPath === "emancipated") {
@@ -101,7 +108,7 @@ export async function submitBankKyc(
   if (isMinor) riskFlags.push("minor");
   if (isMinor && input.minorPath === "emancipated") riskFlags.push("emancipation");
 
-  await kycRepo().insert({
+  const record = {
     userId: user.id,
     email: user.email.toLowerCase(),
     fullName: input.fullName,
@@ -118,10 +125,43 @@ export async function submitBankKyc(
     riskFlags,
     ip: meta.ip,
     userAgent: meta.userAgent.slice(0, 300),
-  });
+  };
+  try {
+    await kycRepo().insert(record);
+  } catch (err) {
+    // Um pedido em análise por pessoa (índice único): o envio repetido já foi gravado pela outra chamada.
+    if (!(err instanceof PartnerError && err.status === 409)) throw err;
+    const current = await kycRepo().latestForUser(user.id);
+    if (!current || current.status === "rejected") throw err;
+  }
   const app = options.forward === false ? await kycRepo().latestForUser(user.id) : await autoApproveBankKyc(user.id);
   if (!app) throw new FamilyError("Não foi possível registrar a abertura de conta.", 500);
   return app;
+}
+
+const SUPERSEDED_NOTE = "Substituída por um envio mais recente da mesma pessoa.";
+
+/**
+ * Um CPF aprovado por vez (índice único no Supabase). Ao aprovar um envio novo
+ * da mesma pessoa (reabertura ou envio repetido), o aprovado anterior é
+ * aposentado antes; CPF aprovado em outra conta continua barrado.
+ */
+async function retireOlderApprovals(app: BankKycApplication): Promise<void> {
+  const others = (await kycRepo().approvedForCpf(app.cpf)).filter((a) => a.id !== app.id);
+  if (others.some((a) => a.userId !== app.userId)) throw new FamilyError(CPF_TAKEN_MESSAGE, 409, "CPF_TAKEN");
+  for (const older of others) await kycRepo().decide(older.id, "rejected", SUPERSEDED_NOTE, AUTO_REVIEWER);
+}
+
+async function approve(app: BankKycApplication, note: string, reviewer: string): Promise<BankKycApplication | null> {
+  await retireOlderApprovals(app);
+  try {
+    return await kycRepo().decide(app.id, "approved", note, reviewer);
+  } catch (err) {
+    if (!(err instanceof PartnerError && err.status === 409)) throw err;
+    // Outra chamada aprovou um envio igual no mesmo instante: aposenta e tenta uma vez mais.
+    await retireOlderApprovals(app);
+    return kycRepo().decide(app.id, "approved", note, reviewer);
+  }
 }
 
 /**
@@ -134,7 +174,7 @@ export async function autoApproveBankKyc(userId: string): Promise<BankKycApplica
   if (app?.status !== "pending") return app;
   // Menor emancipado não espera o PRX: a certidão vai ao banco parceiro, que confere e aprova a conta.
   if (app.riskFlags.includes("minor") && app.minorPath !== "emancipated" && !(await guardianReady(app.userId, app.birthDate))) return app;
-  return (await kycRepo().decide(app.id, "approved", AUTO_NOTE, AUTO_REVIEWER)) ?? app;
+  return (await approve(app, AUTO_NOTE, AUTO_REVIEWER)) ?? app;
 }
 
 /** Menor só é aprovado com o responsável vinculado (ou emancipação aprovada, que vira conta comum). */
@@ -157,7 +197,7 @@ export async function reviewBankKyc(id: string, decision: "approve" | "reject", 
   if (decision === "approve" && app.riskFlags.includes("minor") && !(await guardianReady(app.userId, app.birthDate))) {
     throw new FamilyError("Menor de idade: aprove só depois que o responsável aceitar o vínculo na Conta Pai (ou a emancipação ser aprovada).", 409);
   }
-  const decided = await kycRepo().decide(id, targetStatus, note, reviewer);
+  const decided = targetStatus === "approved" ? await approve(app, note, reviewer) : await kycRepo().decide(id, targetStatus, note, reviewer);
   if (!decided) throw new FamilyError("Não foi possível atualizar a decisão do pedido.", 409);
 
   if (targetStatus === "approved") {

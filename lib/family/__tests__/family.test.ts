@@ -350,8 +350,8 @@ describe("abertura do PRX BANK (KYC bancário)", () => {
     const app = await submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW, { forward: false, allowRedo: true });
     // Pendente não é aprovação: nada foi conferido pelo banco.
     expect(app).toMatchObject({ status: "pending", reviewedBy: null });
-    // Reenviar os mesmos dados não cria outro pedido.
-    await expect(submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW, { forward: false, allowRedo: true })).rejects.toThrow(/já está em análise/);
+    // Reenviar (toque duplo, rede lenta) não cria outro pedido nem mostra erro: é a mesma abertura em análise.
+    await expect(submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW, { forward: false, allowRedo: true })).resolves.toMatchObject({ id: app.id, status: "pending" });
     // Com o banco de volta (accountView), a mesma abertura é aprovada pelas regras do PRX e segue ao banco.
     await expect(autoApproveBankKyc(u.id)).resolves.toMatchObject({ id: app.id, status: "approved", reviewedBy: "auto" });
   });

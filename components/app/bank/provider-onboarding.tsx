@@ -126,7 +126,7 @@ export function ProviderOnboarding({ provider, onChanged }: { provider: BankProv
   return (
     <div className="space-y-5 rounded-3xl glass p-5 sm:p-6">
       <div className="space-y-2">
-        <h2 className="text-xl font-semibold tracking-[-0.02em] text-ink">Documentos para o PRX BANK</h2>
+        <h2 className="text-xl font-semibold tracking-[-0.02em] text-ink">{provider.state === "rejected" ? "Documentos para o PRX BANK" : "Conta em análise"}</h2>
         <p className="text-[15px] leading-relaxed text-muted-foreground">
           {provider.state === "rejected"
             ? "O PRX BANK pediu um novo envio para liberar sua conta."

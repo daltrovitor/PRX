@@ -41,7 +41,7 @@ const render = (activation: BankActivation, provider: BankProviderView["state"] 
 describe("tela de ativação por etapa", () => {
   it("banco indisponível: dados salvos, sem formulário nem pedido de reenvio", () => {
     const html = render("unavailable", null);
-    expect(html).toContain("Recebemos seus dados");
+    expect(html).toContain("Conta em análise");
     expect(html).toContain("12/10/2026");
     expect(html).toContain("não precisa enviar");
     expect(html).not.toContain("Abrir minha conta");
@@ -58,13 +58,13 @@ describe("tela de ativação por etapa", () => {
 
   it("conta criada e em análise: documentos do banco, sem formulário", () => {
     const html = render("review", "pending_activation");
-    expect(html).toContain("Documentos para o PRX BANK");
+    expect(html).toContain("Conta em análise");
     expect(html).not.toContain("Corrigir meus dados");
   });
 
   it("abertura pendente mostra a espera, nunca o formulário nem aprovação", () => {
     const html = renderToStaticMarkup(createElement(BankKycPanel, { member, kyc: { ...approved, status: "pending" }, onDone: () => undefined }));
-    expect(html).toContain("Recebemos sua abertura de conta");
+    expect(html).toContain("Conta em análise");
     expect(html).toContain("não precisa enviar nada de novo");
     expect(html).not.toContain("Abrir minha conta");
     expect(html).not.toMatch(/aprovada/i);

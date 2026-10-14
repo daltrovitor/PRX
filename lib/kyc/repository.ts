@@ -1,7 +1,7 @@
 // Hello World
 import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase/client";
-import { dbError } from "@/lib/partners/errors";
+import { PartnerError, dbError } from "@/lib/partners/errors";
 import type { DocumentRef, IncomeRange, TeenPath } from "@/lib/family/types";
 import type { BankKycApplication, KycAddress, KycStatus, RiskFlag } from "@/lib/kyc/types";
 
@@ -14,6 +14,8 @@ export interface KycRepository {
   latestForUser(userId: string): Promise<BankKycApplication | null>;
   get(id: string): Promise<BankKycApplication | null>;
   list(status: KycStatus | "all"): Promise<BankKycApplication[]>;
+  /** Pedidos aprovados com este CPF (no máximo um, pelo índice único). */
+  approvedForCpf(cpf: string): Promise<BankKycApplication[]>;
   /** Decide só pedidos pendentes (null se outra pessoa decidiu antes). */
   decide(id: string, status: KycStatus, note: string, reviewer: string): Promise<BankKycApplication | null>;
 }
@@ -117,6 +119,11 @@ function supabaseRepository(): KycRepository {
       fail("listar aberturas de conta", error);
       return ((data ?? []) as KycRow[]).map(map);
     },
+    async approvedForCpf(cpf) {
+      const { data, error } = await table().select("*").eq("cpf", cpf).eq("status", "approved");
+      fail("ler a abertura de conta", error);
+      return ((data ?? []) as KycRow[]).map(map);
+    },
     async decide(id, status, note, reviewer) {
       const { data, error } = await table()
         .update({ status, review_note: note, reviewed_by: reviewer, reviewed_at: new Date().toISOString() })
@@ -160,6 +167,8 @@ const memory = () => (globalState.__prxKyc ??= [structuredClone(DEMO_KYC)]);
 
 const memoryRepository: KycRepository = {
   async insert(app) {
+    // Mesmas regras de unicidade do Supabase (bank_kyc_one_pending): um pedido em análise por pessoa.
+    if (memory().some((a) => a.userId === app.userId && a.status === "pending")) throw new PartnerError("Registro duplicado.", 409);
     const created: BankKycApplication = { ...app, id: `kyc-${crypto.randomUUID()}`, status: "pending", reviewNote: "", reviewedBy: null, reviewedAt: null, createdAt: new Date().toISOString() };
     memory().unshift(created);
     return structuredClone(created);
@@ -175,9 +184,14 @@ const memoryRepository: KycRepository = {
   async list(status) {
     return structuredClone(memory().filter((a) => status === "all" || a.status === status));
   },
+  async approvedForCpf(cpf) {
+    return structuredClone(memory().filter((a) => a.cpf === cpf && a.status === "approved"));
+  },
   async decide(id, status, note, reviewer) {
     const found = memory().find((a) => a.id === id);
     if (!found) return null;
+    // bank_kyc_cpf_approved: um CPF aprovado por vez.
+    if (status === "approved" && memory().some((a) => a.id !== id && a.cpf === found.cpf && a.status === "approved")) throw new PartnerError("Registro duplicado.", 409);
     Object.assign(found, { status, reviewNote: note, reviewedBy: reviewer, reviewedAt: new Date().toISOString() });
     return structuredClone(found);
   },
