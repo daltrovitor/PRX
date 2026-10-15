@@ -31,7 +31,7 @@ import { BankScreen } from "@/components/app/screens/bank-screen";
 import { LiveScreen } from "@/components/app/screens/live-screen";
 import { FoundersScreen } from "@/components/app/screens/founders-screen";
 import { ProfileScreen } from "@/components/app/screens/profile-screen";
-import { CRYSTAL_CORNER, CRYSTAL_HERO, ObsidianBell, ObsidianCrystal, ObsidianDock, type ObsidianDockItem } from "@/components/obsidian/obsidian-ui";
+import { CRYSTAL_CORNER, CRYSTAL_HERO, ObsidianCrystal, ObsidianDock, type ObsidianDockItem } from "@/components/obsidian/obsidian-ui";
 import { PwaInstallPrompt } from "@/components/app/pwa-install-prompt";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useThemeScope } from "@/components/theme-provider";
@@ -263,7 +263,7 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
       <div className="relative z-10 lg:pl-64">
         {/* Cabeçalho minimalista com as localizações originais:
             - Esquerda: Logo (mobile) / "Olá, [Nome]" (desktop)
-            - Direita: Vouchers (QR) · Notificações (Sino) · Perfil (Avatar + Nível) */}
+            - Direita: Vouchers (QR) · Tema (sol/lua) · Perfil (Avatar + Nível; avisos no Perfil) */}
         <header className="sticky top-0 z-30 px-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-4 lg:px-9 lg:pt-3">
           <div
             className={cn(
@@ -292,22 +292,22 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
               >
                 <IconQr size={19} />
               </button>
-              <ObsidianBell
-                count={notices.length}
-                onClick={() => setNoticesOpen(true)}
-                className="h-12 w-12"
-              />
+              {/* Tema claro/escuro no lugar do sino; os avisos ficam no Perfil. */}
+              <ThemeToggle variant="app" />
               <button
                 type="button"
                 onClick={() => go("profile")}
                 aria-current={tab === "profile" ? "page" : undefined}
-                aria-label={`Perfil de ${name}, nível ${level}`}
+                aria-label={`Perfil de ${name}, nível ${level}${notices.length > 0 ? `, ${notices.length} ${notices.length === 1 ? "aviso" : "avisos"}` : ""}`}
                 className={cn(
                   "glass-chip flex h-12 min-w-12 max-w-[200px] shrink cursor-pointer items-center gap-2.5 rounded-full p-1 text-left transition-[box-shadow,transform] hover:scale-[1.02] active:scale-95 min-[380px]:pr-4 lg:h-12",
                   tab === "profile" && "ring-2 ring-primary/60"
                 )}
               >
-                <Avatar name={name} src={member.avatarUrl} size={36} className="ring-1 ring-black/10 dark:ring-white/[0.18]" />
+                <span className="relative shrink-0">
+                  <Avatar name={name} src={member.avatarUrl} size={36} className="ring-1 ring-black/10 dark:ring-white/[0.18]" />
+                  {notices.length > 0 && <span aria-hidden className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-primary ring-2 ring-background" />}
+                </span>
                 <span className="hidden min-w-0 min-[380px]:block">
                   <span className="block truncate text-[13.5px] font-semibold leading-tight text-ink">{firstName(member)}</span>
                   <span className="block truncate text-[11px] leading-tight text-muted-foreground">Nível {level.toLocaleString("pt-BR")}</span>
@@ -350,6 +350,8 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
                       onLogout={onLogout}
                       onViewShowcase={onViewShowcase}
                       initials={initialsOf(name)}
+                      noticeCount={notices.length}
+                      onOpenNotices={() => setNoticesOpen(true)}
                     />
                   )}
                 </motion.div>

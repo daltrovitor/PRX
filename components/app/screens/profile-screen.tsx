@@ -9,7 +9,7 @@ import { Avatar, Button, Notice, ProgressBar } from "@/components/app/ui";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
 import { canUseBiometrics, registerPasskey } from "@/lib/passkeys/client";
 import { readKnownAccount, updateKnownAccount } from "@/lib/known-account";
-import { IconCard, IconChevronRight, IconExternal, IconPix, IconTicket, IconUsers } from "@/components/icons/prx-icons";
+import { IconBell, IconCard, IconChevronRight, IconExternal, IconPix, IconTicket, IconUsers } from "@/components/icons/prx-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { levelProgress } from "@/lib/pass-data";
 import { usePointsWallet } from "@/components/app/use-prx-stores";
@@ -21,6 +21,9 @@ interface ProfileScreenProps {
   initials: string;
   onLogout: () => void;
   onViewShowcase: () => void;
+  /** Avisos do app (saíram do cabeçalho e ficam aqui no Perfil). */
+  noticeCount: number;
+  onOpenNotices: () => void;
 }
 
 const ROLE_LABEL: Record<string, string> = {
@@ -30,7 +33,7 @@ const ROLE_LABEL: Record<string, string> = {
   admin: "Administrador",
 };
 
-export function ProfileScreen({ pass, onLogout, onViewShowcase }: ProfileScreenProps) {
+export function ProfileScreen({ pass, onLogout, onViewShowcase, noticeCount, onOpenNotices }: ProfileScreenProps) {
   const { go } = useAppNav();
   const { member, referralInfo } = pass;
   const { wallet } = usePointsWallet(member.id);
@@ -71,6 +74,9 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase }: ProfileScreenP
           Atalhos
         </h2>
         <ul className="mt-3 space-y-2">
+          <Row icon={<IconBell size={18} />} onClick={onOpenNotices} badge={noticeCount}>
+            Notificações
+          </Row>
           <Row icon={<IconUsers size={18} />} onClick={() => go("pass", "convidar")}>
             Convidar amigos
           </Row>
@@ -235,7 +241,7 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Row({ children, icon, onClick }: { children: ReactNode; icon: ReactNode; onClick: () => void }) {
+function Row({ children, icon, onClick, badge = 0 }: { children: ReactNode; icon: ReactNode; onClick: () => void; badge?: number }) {
   return (
     <li>
       <button
@@ -247,6 +253,11 @@ function Row({ children, icon, onClick }: { children: ReactNode; icon: ReactNode
           {icon}
         </span>
         <span className="flex-1">{children}</span>
+        {badge > 0 && (
+          <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-primary px-1.5 text-[12px] font-semibold text-white" aria-label={`${badge} ${badge === 1 ? "aviso" : "avisos"}`}>
+            {badge > 9 ? "9+" : badge}
+          </span>
+        )}
         <IconChevronRight size={18} className="text-muted-foreground" />
       </button>
     </li>
