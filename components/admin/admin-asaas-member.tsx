@@ -5,8 +5,9 @@ import { useState, type FormEvent } from "react";
 import { Button, Field, Input, Notice, Tag } from "@/components/app/ui";
 import type { MemberDiagnostics } from "@/lib/bank/asaas/admin";
 import { DimensionTag, Row, adminCall, postJson, when } from "@/components/admin/admin-asaas-shared";
+import { useConfirmToast } from "@/components/ui/confirm-toast";
 
-type Action = "refresh" | "documents" | "webhook" | "webhook_reactivate" | "regenerate_key" | "recover";
+type Action = "refresh" | "documents" | "webhook" | "webhook_reactivate" | "regenerate_key" | "recover" | "restart";
 
 const ACTIONS: ReadonlyArray<{ action: Action; label: string; hint: string }> = [
   { action: "refresh", label: "Consultar situação", hint: "GET /myAccount/status e aplica no PRX." },
@@ -15,6 +16,7 @@ const ACTIONS: ReadonlyArray<{ action: Action; label: string; hint: string }> = 
   { action: "webhook_reactivate", label: "Atualizar e reativar fila", hint: "Idem e religa a fila parada pelo Asaas." },
   { action: "regenerate_key", label: "Gerar chave da subconta", hint: "Só sem chave guardada. Exige liberação de 2 h no painel do Asaas e whitelist de IP." },
   { action: "recover", label: "Retomar abertura", hint: "Procura a subconta pelo CPF antes de criar outra." },
+  { action: "restart", label: "Recomeçar abertura", hint: "Membro volta ao formulário sem apagar o cadastro; a subconta e a chave são reaproveitadas." },
 ];
 
 const OUTCOME_TONE: Record<string, "success" | "warning" | "neutral"> = { sent: "success", recovered: "success", failed: "warning", uncertain: "warning", blocked: "neutral" };
@@ -26,6 +28,7 @@ export function AdminAsaasMember({ onShowRequests }: { onShowRequests: (user: st
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const { confirmDelete } = useConfirmToast();
 
   async function lookup(event?: FormEvent) {
     event?.preventDefault();
@@ -45,6 +48,18 @@ export function AdminAsaasMember({ onShowRequests }: { onShowRequests: (user: st
 
   async function run(action: Action) {
     if (!diag) return;
+    if (
+      action === "restart" &&
+      !(await confirmDelete({
+        title: "Recomeçar abertura",
+        message: "O membro volta ao formulário do PRX BANK até enviar de novo. O cadastro e a conta no Asaas (com a chave) continuam e são reaproveitados.",
+        confirmText: "Recomeçar",
+        cancelText: "Cancelar",
+        type: "warning",
+      }))
+    ) {
+      return;
+    }
     setBusy(action);
     setError(null);
     setInfo(null);

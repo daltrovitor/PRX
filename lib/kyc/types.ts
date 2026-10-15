@@ -139,4 +139,6 @@ export interface BankKycState {
 }
 
 export const KYC_REQUIRED_MESSAGE = "Abra sua conta PRX BANK primeiro: envie seus dados e documentos na aba PRX BANK.";
+/** Envio encerrado pelo suporte ("Recomeçar abertura"): o membro volta ao formulário sem aviso de recusa. */
+export const KYC_RESTART_NOTE = "Abertura recomeçada pelo suporte PRX.";
 export const KYC_PENDING_MESSAGE = "Sua abertura de conta ainda está em andamento (responsável, emancipação ou PRX BANK). Acompanhe na aba PRX BANK.";

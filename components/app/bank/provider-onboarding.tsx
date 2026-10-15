@@ -43,12 +43,16 @@ async function call(url: string, init?: RequestInit): Promise<{ ok: boolean; jso
 
 const errorOf = (json: Record<string, unknown>, fallback: string) => (typeof json.error === "string" ? json.error : fallback);
 
+/** O que só o membro consegue enviar (link seguro ou foto/PDF); o resto o PRX já mandou do cadastro. */
+export const memberDocuments = (groups: DocumentGroup[]): DocumentGroup[] => groups.filter((g) => g.onboardingUrl !== null || g.canUpload);
+
 export function ProviderOnboarding({ provider, onChanged }: { provider: BankProviderView; onChanged: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [groups, setGroups] = useState<DocumentGroup[] | null>(null);
   const hasAccount = provider.state === "pending_activation" || provider.state === "rejected";
+  const inReview = provider.state === "pending_activation";
 
   useEffect(() => {
     if (!hasAccount) return;
@@ -56,13 +60,14 @@ export function ProviderOnboarding({ provider, onChanged }: { provider: BankProv
     let cancelled = false;
     void call("/api/bank/accounts/documents").then(({ ok, json }) => {
       if (cancelled) return;
-      if (!ok) setError(errorOf(json, "Não foi possível consultar os documentos agora."));
-      else setGroups(Array.isArray(json.groups) ? (json.groups as DocumentGroup[]) : []);
+      // Em análise a consulta é de fundo: se falhar, a tela segue "Conta em análise" (o código fica no registro do suporte).
+      if (!ok) return inReview ? setGroups([]) : setError(errorOf(json, "Não foi possível consultar os documentos agora."));
+      setGroups(Array.isArray(json.groups) ? (json.groups as DocumentGroup[]) : []);
     });
     return () => {
       cancelled = true;
     };
-  }, [hasAccount]);
+  }, [hasAccount, inReview]);
 
   useEffect(() => {
     if (provider.state !== "pending_activation") return;
@@ -123,15 +128,77 @@ export function ProviderOnboarding({ provider, onChanged }: { provider: BankProv
 
   if (!hasAccount) return null;
 
+  const documentList = (items: DocumentGroup[]) => (
+    <ul className="space-y-2">
+      {items.map((g) => (
+        <li key={g.id} className="flex flex-col gap-3 rounded-2xl glass-soft px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="flex flex-wrap items-center gap-2 text-[15px] font-medium text-ink">
+              {g.title} <Tag tone={g.status === "APPROVED" ? "success" : g.status === "REJECTED" ? "warning" : "neutral"}>{STATUS_LABEL[g.status] ?? g.status}</Tag>
+            </p>
+            {g.description && <p className="mt-0.5 text-[13px] text-muted-foreground">{g.description}</p>}
+          </div>
+          {g.onboardingUrl ? (
+            <a
+              href={g.onboardingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-ink px-5 text-sm font-medium text-background"
+            >
+              Enviar pelo link seguro
+            </a>
+          ) : g.canUpload ? (
+            <label className="inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-surface px-5 text-sm font-medium text-ink hover:bg-line">
+              {busy === `upload-${g.id}` ? "Enviando…" : "Escolher foto ou PDF"}
+              <input
+                type="file"
+                multiple
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
+                aria-label={`Enviar ${g.title}: foto ou PDF, pode escolher frente e verso juntos`}
+                className="sr-only"
+                disabled={busy !== null}
+                onChange={(e) => void upload(g.id, e)}
+              />
+            </label>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
+
+  const verify = (
+    <Button variant="ghost" className="min-h-12" disabled={busy !== null} onClick={() => void run("refresh", "/api/bank/accounts", post({ action: "refresh" }), onChanged)}>
+      {busy === "refresh" ? "Verificando…" : "Verificar aprovação"}
+    </Button>
+  );
+
+  // Em análise: a mesma tela do fim do envio. Os documentos do cadastro já seguiram sozinhos; só aparece o que o banco pedir ao membro.
+  if (inReview) {
+    const pending = memberDocuments(groups ?? []);
+    return (
+      <section aria-labelledby="review-title" className="glass space-y-4 rounded-3xl p-5 sm:p-6">
+        <Tag>Em análise</Tag>
+        <h2 id="review-title" className="text-xl font-semibold tracking-[-0.02em] text-ink">
+          Conta em análise
+        </h2>
+        <p className="text-[15px] leading-relaxed text-muted-foreground">
+          {pending.length > 0
+            ? "Para aprovar a sua conta, o PRX BANK pediu o que está abaixo. Depois do envio, o aviso da aprovação chega aqui."
+            : "Recebemos seus dados e documentos. Agora o PRX BANK confere tudo e aprova a sua conta. Você não precisa enviar nada de novo: o aviso chega aqui."}
+        </p>
+        {pending.length > 0 && documentList(pending)}
+        {verify}
+        {info && <Notice tone="success">{info}</Notice>}
+        {error && <Notice tone="error">{error}</Notice>}
+      </section>
+    );
+  }
+
   return (
     <div className="space-y-5 rounded-3xl glass p-5 sm:p-6">
       <div className="space-y-2">
-        <h2 className="text-xl font-semibold tracking-[-0.02em] text-ink">{provider.state === "rejected" ? "Documentos para o PRX BANK" : "Conta em análise"}</h2>
-        <p className="text-[15px] leading-relaxed text-muted-foreground">
-          {provider.state === "rejected"
-            ? "O PRX BANK pediu um novo envio para liberar sua conta."
-            : "Sua conta foi aberta e está em análise. Envie o que ainda falta para liberar Pix e boletos."}
-        </p>
+        <h2 className="text-xl font-semibold tracking-[-0.02em] text-ink">Documentos para o PRX BANK</h2>
+        <p className="text-[15px] leading-relaxed text-muted-foreground">O PRX BANK pediu um novo envio para liberar sua conta.</p>
         {provider.rejectReason && <Notice tone="warning">{provider.rejectReason}</Notice>}
       </div>
 
@@ -155,9 +222,7 @@ export function ProviderOnboarding({ provider, onChanged }: { provider: BankProv
         >
           {busy === "forward" ? "Enviando…" : "Usar os documentos do meu cadastro"}
         </Button>
-        <Button variant="ghost" className="min-h-12" disabled={busy !== null} onClick={() => void run("refresh", "/api/bank/accounts", post({ action: "refresh" }), onChanged)}>
-          {busy === "refresh" ? "Verificando…" : "Verificar aprovação"}
-        </Button>
+        {verify}
       </div>
 
       {groups === null ? (
@@ -165,41 +230,7 @@ export function ProviderOnboarding({ provider, onChanged }: { provider: BankProv
       ) : groups.length === 0 ? (
         <p className="text-[13px] text-muted-foreground">Nenhum documento pendente. A análise do PRX BANK costuma levar até 2 dias úteis.</p>
       ) : (
-        <ul className="space-y-2">
-          {groups.map((g) => (
-            <li key={g.id} className="flex flex-col gap-3 rounded-2xl glass-soft px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="flex flex-wrap items-center gap-2 text-[15px] font-medium text-ink">
-                  {g.title} <Tag tone={g.status === "APPROVED" ? "success" : g.status === "REJECTED" ? "warning" : "neutral"}>{STATUS_LABEL[g.status] ?? g.status}</Tag>
-                </p>
-                {g.description && <p className="mt-0.5 text-[13px] text-muted-foreground">{g.description}</p>}
-              </div>
-              {g.onboardingUrl ? (
-                <a
-                  href={g.onboardingUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-ink px-5 text-sm font-medium text-background"
-                >
-                  Enviar pelo link seguro
-                </a>
-              ) : g.canUpload ? (
-                <label className="inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-surface px-5 text-sm font-medium text-ink hover:bg-line">
-                  {busy === `upload-${g.id}` ? "Enviando…" : "Escolher foto ou PDF"}
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
-                    aria-label={`Enviar ${g.title}: foto ou PDF, pode escolher frente e verso juntos`}
-                    className="sr-only"
-                    disabled={busy !== null}
-                    onChange={(e) => void upload(g.id, e)}
-                  />
-                </label>
-              ) : null}
-            </li>
-          ))}
-        </ul>
+        documentList(groups)
       )}
 
       {info && <Notice tone="success">{info}</Notice>}

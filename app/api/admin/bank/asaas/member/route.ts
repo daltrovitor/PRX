@@ -8,7 +8,7 @@ import { asaasDeps } from "@/lib/bank/asaas/deps";
 import { memberDiagnostics, resolveUserId } from "@/lib/bank/asaas/admin";
 import { syncOnboardingDocuments } from "@/lib/bank/asaas/documents";
 import { openSubaccount, refreshSubaccountStatus } from "@/lib/bank/asaas/onboarding";
-import { regenerateSubaccountKey } from "@/lib/bank/asaas/recovery";
+import { regenerateSubaccountKey, restartOpening } from "@/lib/bank/asaas/recovery";
 import { syncSubaccountWebhook } from "@/lib/bank/asaas/webhook-sync";
 
 const NO_STORE = { "Cache-Control": "no-store" };
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 
 const actionSchema = z.object({
   user: z.string().trim().min(1).max(200),
-  action: z.enum(["refresh", "documents", "webhook", "webhook_reactivate", "regenerate_key", "recover"]),
+  action: z.enum(["refresh", "documents", "webhook", "webhook_reactivate", "regenerate_key", "recover", "restart"]),
 });
 
 /**
@@ -47,6 +47,8 @@ const actionSchema = z.object({
  *   webhook_reactivate  idem e reativa a fila interrompida pelo Asaas
  *   regenerate_key      gera chave nova para subconta sem chave (exige liberação no painel do Asaas)
  *   recover             retoma a abertura: procura a subconta pelo CPF antes de criar
+ *   restart             recomeça a abertura sem apagar o cadastro: o membro volta ao formulário
+ *                       e a subconta (com a chave) é reaproveitada no próximo envio
  * Nenhuma ação movimenta dinheiro.
  */
 export async function POST(req: NextRequest) {
@@ -76,6 +78,9 @@ export async function POST(req: NextRequest) {
         break;
       case "recover":
         result = await openSubaccount(userId, deps);
+        break;
+      case "restart":
+        result = await restartOpening(userId, deps, admin.email || admin.sub);
         break;
     }
     console.info(`[prx-bank:admin] ${admin.email ?? admin.sub} → ${parsed.data.action} user=${userId}`);

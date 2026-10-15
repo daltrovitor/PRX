@@ -12,7 +12,7 @@ import { maskCpfInput } from "@/lib/cpf-mask";
 import { APP_HOST } from "@/lib/domains";
 import { ageGroup } from "@/lib/family/age";
 import { INCOME_LABEL, INCOME_RANGES, UNDER_AGE_MESSAGE, type DocumentKind, type DocumentRef, type IncomeRange, type TeenPath } from "@/lib/family/types";
-import { UFS, bankKycSchema, type BankKycState, type Uf } from "@/lib/kyc/types";
+import { KYC_RESTART_NOTE, UFS, bankKycSchema, type BankKycState, type Uf } from "@/lib/kyc/types";
 import { isValidCpf } from "@/lib/prx/pix";
 import { canUseBiometrics, registerPasskey } from "@/lib/passkeys/client";
 import { readKnownAccount } from "@/lib/known-account";
@@ -44,7 +44,9 @@ type KycDone = (providerError?: string | null) => Promise<void> | void;
 
 export function BankKycPanel({ member, kyc, onDone }: { member: User; kyc: BankKycState; onDone: KycDone }) {
   if (kyc.status === "pending") return <KycPending kyc={kyc} />;
-  return <KycForm member={member} rejectedNote={kyc.status === "rejected" ? kyc.reviewNote || "Revise os dados e os documentos." : null} onDone={onDone} />;
+  // Recomeçada pelo suporte não é recusa: formulário de novo, sem aviso.
+  const rejected = kyc.status === "rejected" && kyc.reviewNote !== KYC_RESTART_NOTE;
+  return <KycForm member={member} rejectedNote={rejected ? kyc.reviewNote || "Revise os dados e os documentos." : null} onDone={onDone} />;
 }
 
 /** Abertura salva e ainda não aprovada: nunca é mostrada como aprovada nem pede o mesmo envio de novo. */

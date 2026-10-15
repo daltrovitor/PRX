@@ -4,9 +4,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ActivationPanel } from "@/components/app/bank/activation-panel";
 import { BankKycPanel } from "@/components/app/bank/bank-kyc";
+import { memberDocuments } from "@/components/app/bank/provider-onboarding";
 import type { User } from "@/hooks/use-auth";
 import type { BankAccountView, BankActivation, BankProviderView } from "@/lib/prx/bank";
-import type { BankKycState } from "@/lib/kyc/types";
+import { KYC_RESTART_NOTE, type BankKycState } from "@/lib/kyc/types";
 
 /**
  * O que o membro vê em cada etapa da abertura (render no servidor, sem banco):
@@ -56,10 +57,37 @@ describe("tela de ativação por etapa", () => {
     expect(html).not.toContain("Abrir minha conta");
   });
 
-  it("conta criada e em análise: documentos do banco, sem formulário", () => {
+  it("conta criada e em análise: a mesma tela do fim do envio, sem pedir os documentos de novo", () => {
     const html = render("review", "pending_activation");
+    expect(html).toContain("Em análise");
     expect(html).toContain("Conta em análise");
+    expect(html).toContain("não precisa enviar nada de novo");
+    expect(html).not.toContain("Usar os documentos do meu cadastro");
+    expect(html).not.toContain("Envie o que ainda falta");
+    expect(html).not.toContain("Consultando documentos pendentes");
     expect(html).not.toContain("Corrigir meus dados");
+  });
+
+  it("recusada pelo banco: pede o novo envio", () => {
+    const html = render("rejected", "rejected");
+    expect(html).toContain("pediu um novo envio");
+    expect(html).toContain("Usar os documentos do meu cadastro");
+  });
+
+  it("em análise, só aparece o documento que o banco pediu ao membro", () => {
+    const group = { id: "g", title: "Doc", description: "", status: "NOT_SENT", onboardingUrl: null, canUpload: false };
+    const pending = memberDocuments([
+      { ...group, id: "enviado", status: "PENDING" },
+      { ...group, id: "link", onboardingUrl: "https://asaas.test/onboarding" },
+      { ...group, id: "upload", canUpload: true },
+    ]);
+    expect(pending.map((g) => g.id)).toEqual(["link", "upload"]);
+  });
+
+  it("abertura recomeçada pelo suporte: formulário de novo, sem aviso de recusa", () => {
+    const html = renderToStaticMarkup(createElement(BankKycPanel, { member, kyc: { ...approved, status: "rejected", reviewNote: KYC_RESTART_NOTE }, onDone: () => undefined }));
+    expect(html).toContain("Abrir minha conta");
+    expect(html).not.toContain("não foi aprovada");
   });
 
   it("abertura pendente mostra a espera, nunca o formulário nem aprovação", () => {

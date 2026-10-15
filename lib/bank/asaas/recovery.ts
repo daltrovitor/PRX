@@ -7,6 +7,8 @@ import type { AsaasDeps } from "@/lib/bank/asaas/deps";
 import { describeError, logProvisioning } from "@/lib/bank/asaas/provisioning-log";
 import { currentSubaccount } from "@/lib/bank/asaas/subaccount";
 import type { Subaccount } from "@/lib/bank/asaas/types";
+import { getKycRepository } from "@/lib/kyc/repository";
+import { KYC_RESTART_NOTE } from "@/lib/kyc/types";
 
 /**
  * Quando a resposta da criação se perde (timeout, queda, formato inesperado),
@@ -62,6 +64,33 @@ export async function adoptExistingSubaccount(userId: string, cpf: string, deps:
   });
   await deps.mirror.linkAccount(userId, { providerAccountId: chosen.id, agency, accountNumber });
   return { sub, duplicates };
+}
+
+/**
+ * Recomeça a abertura do PRX BANK sem apagar o cadastro (testes, abertura
+ * travada): o último envio é encerrado e o membro volta ao formulário. A
+ * subconta do Asaas, em análise ou aprovada, continua ligada com a chave e é
+ * reaproveitada no próximo envio (nada de conta nova); os documentos desse
+ * envio seguem de novo ao Asaas. Apagar o cadastro perde a chave da subconta,
+ * que pela Vercel não dá para gerar de novo (whitelist de IP).
+ */
+export async function restartOpening(userId: string, deps: AsaasDeps, reviewer: string): Promise<{ retiredKyc: boolean; asaasAccountId: string | null }> {
+  const app = await deps.latestKyc(userId);
+  const retiredKyc = Boolean(app && app.status !== "rejected");
+  if (app && retiredKyc) await getKycRepository().decide(app.id, "rejected", KYC_RESTART_NOTE, reviewer);
+
+  const sub = await currentSubaccount(userId, deps);
+  if (sub?.asaasAccountId) await deps.store.saveSubaccount(userId, { documentsSyncedAt: null, onboardingNotifiedAt: null });
+  else if (sub) await deps.store.releaseSubaccount(userId);
+  const asaasAccountId = sub?.asaasAccountId ?? null;
+  await logProvisioning(deps, {
+    userId,
+    step: "account",
+    outcome: "recovered",
+    asaasAccountId,
+    detail: `Abertura recomeçada pelo suporte (${reviewer}): membro volta ao formulário.${asaasAccountId ? ` Subconta ${asaasAccountId} mantida${sub?.apiKeySealed ? " com a chave" : " (sem chave guardada)"}; os documentos do próximo envio seguem ao Asaas.` : ""}`,
+  });
+  return { retiredKyc, asaasAccountId };
 }
 
 /**
