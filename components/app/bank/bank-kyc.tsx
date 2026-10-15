@@ -7,7 +7,8 @@ import type { User } from "@/hooks/use-auth";
 import { Button, Checkbox, Field, Input, Notice, ProgressBar, RadioCards, Select, Tag } from "@/components/app/ui";
 import { DocumentPicker } from "@/components/family/document-picker";
 import { ProviderDisclosure } from "@/components/app/bank/provider-disclosure";
-import { postJson } from "@/components/family/family-client";
+import { postJson, uploadFamilyDocument } from "@/components/family/family-client";
+import { SelfieCapture } from "@/components/app/bank/selfie-capture";
 import { maskCpfInput } from "@/lib/cpf-mask";
 import { APP_HOST } from "@/lib/domains";
 import { ageGroup } from "@/lib/family/age";
@@ -246,6 +247,7 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
     const path: TeenPath | undefined = minor ? (group === "child" ? "linked" : minorPath || undefined) : undefined;
     if (!docs.id_front) return setError("Envie a foto da frente do seu documento com foto (RG ou CNH).");
     if (!docs.id_back) return setError("Envie a foto do verso do seu documento com foto (RG ou CNH).");
+    if (!docs.selfie) return setError("Tire a foto do seu rosto (selfie) pela câmera.");
     if (minor && minorPath === "emancipated" && !docs.emancipation_certificate) {
       return setError("Envie a certidão de emancipação inteira.");
     }
@@ -354,7 +356,7 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
         <section className="prx-holo space-y-4 rounded-[28px] p-6 sm:p-8">
           <h2 className="font-[family-name:var(--font-light),var(--font-sans)] text-[26px] font-light leading-tight tracking-[-0.03em] text-white">Abra sua conta digital</h2>
           <p className="text-[15px] leading-relaxed text-white/85">
-            Pix, cartão e PRX Coins em cada compra em parceiro. Leva uns 3 minutos: seus dados, endereço para o cartão e uma foto do documento.
+            Pix, cartão e PRX Coins em cada compra em parceiro. Leva uns 3 minutos: seus dados, endereço para o cartão, uma foto do documento e uma selfie.
           </p>
           <Button variant="secondary" onClick={start}>
             Abrir minha conta
@@ -514,6 +516,7 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
               <div className="space-y-3">
                 <DocumentPicker kind="id_front" value={docs.id_front ?? null} onChange={setDoc("id_front")} hint="RG ou CNH, frente" />
                 <DocumentPicker kind="id_back" value={docs.id_back ?? null} onChange={setDoc("id_back")} hint="RG ou CNH, verso" />
+                <SelfieCapture taken={Boolean(docs.selfie)} onCapture={async (photo) => setDoc("selfie")(await uploadFamilyDocument("selfie", photo))} />
                 {minor && minorPath === "emancipated" && (
                   <DocumentPicker kind="emancipation_certificate" value={docs.emancipation_certificate ?? null} onChange={setDoc("emancipation_certificate")} hint="Certidão de emancipação inteira" />
                 )}

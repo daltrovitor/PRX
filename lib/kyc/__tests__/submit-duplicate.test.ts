@@ -44,6 +44,7 @@ const input = (userId: string, cpfDigits: string): BankKycInput =>
     documents: [
       { kind: "id_front", path: `${userId}/f.jpg`, name: "frente.jpg" },
       { kind: "id_back", path: `${userId}/b.jpg`, name: "verso.jpg" },
+      { kind: "selfie", path: `${userId}/s.jpg`, name: "selfie.jpg" },
     ],
     termsAccepted: true,
   });

@@ -101,7 +101,7 @@ export type IdentityInput = z.output<typeof identityInputSchema>;
 /* Documentos                                                                 */
 /* -------------------------------------------------------------------------- */
 
-export const DOCUMENT_KINDS = ["rg", "cpf", "cnh", "child_certificate", "emancipation_certificate", "id_document", "id_front", "id_back", "guardianship_proof"] as const;
+export const DOCUMENT_KINDS = ["rg", "cpf", "cnh", "child_certificate", "emancipation_certificate", "id_document", "id_front", "id_back", "guardianship_proof", "selfie"] as const;
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
 
 export const DOCUMENT_LABEL: Record<DocumentKind, string> = {
@@ -114,6 +114,7 @@ export const DOCUMENT_LABEL: Record<DocumentKind, string> = {
   id_front: "Documento com foto (frente)",
   id_back: "Documento com foto (verso)",
   guardianship_proof: "Termo de guarda ou tutela",
+  selfie: "Foto do rosto (selfie)",
 };
 
 export const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;

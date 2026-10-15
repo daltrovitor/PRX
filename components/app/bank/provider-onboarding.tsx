@@ -4,6 +4,7 @@
 import { useEffect, useState, type ChangeEvent } from "react";
 import { Button, Notice, Tag } from "@/components/app/ui";
 import { compressImageFile } from "@/lib/media/compression";
+import { SelfieCapture } from "@/components/app/bank/selfie-capture";
 import type { BankProviderView } from "@/lib/prx/bank";
 
 /**
@@ -15,6 +16,7 @@ import type { BankProviderView } from "@/lib/prx/bank";
 
 interface DocumentGroup {
   id: string;
+  type: string;
   title: string;
   description: string;
   status: string;
@@ -45,6 +47,9 @@ const errorOf = (json: Record<string, unknown>, fallback: string) => (typeof jso
 
 /** O que só o membro consegue enviar (link seguro ou foto/PDF); o resto o PRX já mandou do cadastro. */
 export const memberDocuments = (groups: DocumentGroup[]): DocumentGroup[] => groups.filter((g) => g.onboardingUrl !== null || g.canUpload);
+
+/** Foto do rosto: só pela câmera (ou pela prova de vida no link do banco), nunca da galeria. */
+export const isSelfieGroup = (group: Pick<DocumentGroup, "type">): boolean => group.type === "IDENTIFICATION_SELFIE";
 
 export function ProviderOnboarding({ provider, onChanged }: { provider: BankProviderView; onChanged: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
@@ -97,6 +102,11 @@ export function ProviderOnboarding({ provider, onChanged }: { provider: BankProv
     const files = await Promise.all(
       picked.map((f) => (f.type.startsWith("image/") ? compressImageFile(f, { maxWidth: 2000, maxHeight: 2000, quality: 0.85, mimeType: "image/jpeg" }) : f))
     );
+    await send(groupId, files);
+  }
+
+  /** Envia ao grupo as partes já prontas; o servidor junta tudo num arquivo só. */
+  async function send(groupId: string, files: File[]) {
     const form = new FormData();
     form.append("groupId", groupId);
     for (const file of files) form.append("file", file);
@@ -130,39 +140,45 @@ export function ProviderOnboarding({ provider, onChanged }: { provider: BankProv
 
   const documentList = (items: DocumentGroup[]) => (
     <ul className="space-y-2">
-      {items.map((g) => (
-        <li key={g.id} className="flex flex-col gap-3 rounded-2xl glass-soft px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="flex flex-wrap items-center gap-2 text-[15px] font-medium text-ink">
-              {g.title} <Tag tone={g.status === "APPROVED" ? "success" : g.status === "REJECTED" ? "warning" : "neutral"}>{STATUS_LABEL[g.status] ?? g.status}</Tag>
-            </p>
-            {g.description && <p className="mt-0.5 text-[13px] text-muted-foreground">{g.description}</p>}
-          </div>
-          {g.onboardingUrl ? (
-            <a
-              href={g.onboardingUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-ink px-5 text-sm font-medium text-background"
-            >
-              Enviar pelo link seguro
-            </a>
-          ) : g.canUpload ? (
-            <label className="inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-surface px-5 text-sm font-medium text-ink hover:bg-line">
-              {busy === `upload-${g.id}` ? "Enviando…" : "Escolher foto ou PDF"}
-              <input
-                type="file"
-                multiple
-                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
-                aria-label={`Enviar ${g.title}: foto ou PDF, pode escolher frente e verso juntos`}
-                className="sr-only"
-                disabled={busy !== null}
-                onChange={(e) => void upload(g.id, e)}
-              />
-            </label>
-          ) : null}
-        </li>
-      ))}
+      {items.map((g) =>
+        isSelfieGroup(g) && !g.onboardingUrl && g.canUpload ? (
+          <li key={g.id}>
+            <SelfieCapture taken={false} label={g.title} onCapture={(photo) => send(g.id, [photo])} />
+          </li>
+        ) : (
+          <li key={g.id} className="flex flex-col gap-3 rounded-2xl glass-soft px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="flex flex-wrap items-center gap-2 text-[15px] font-medium text-ink">
+                {g.title} <Tag tone={g.status === "APPROVED" ? "success" : g.status === "REJECTED" ? "warning" : "neutral"}>{STATUS_LABEL[g.status] ?? g.status}</Tag>
+              </p>
+              {g.description && <p className="mt-0.5 text-[13px] text-muted-foreground">{g.description}</p>}
+            </div>
+            {g.onboardingUrl ? (
+              <a
+                href={g.onboardingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-ink px-5 text-sm font-medium text-background"
+              >
+                {isSelfieGroup(g) ? "Tirar foto do rosto" : "Enviar pelo link seguro"}
+              </a>
+            ) : g.canUpload ? (
+              <label className="inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center rounded-full bg-surface px-5 text-sm font-medium text-ink hover:bg-line">
+                {busy === `upload-${g.id}` ? "Enviando…" : "Escolher foto ou PDF"}
+                <input
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
+                  aria-label={`Enviar ${g.title}: foto ou PDF, pode escolher frente e verso juntos`}
+                  className="sr-only"
+                  disabled={busy !== null}
+                  onChange={(e) => void upload(g.id, e)}
+                />
+              </label>
+            ) : null}
+          </li>
+        )
+      )}
     </ul>
   );
 

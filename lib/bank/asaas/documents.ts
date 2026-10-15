@@ -18,7 +18,8 @@ import { requireSubaccount } from "@/lib/bank/asaas/subaccount";
  * de-documentos-via-link). Regras da documentação seguidas aqui:
  *   - consultar só 15 s depois da criação (antes, vêm pedidos que deixam de valer);
  *   - grupo com onboardingUrl: o titular envia pelo link do Asaas (documento e
- *     selfie); nunca pela API;
+ *     selfie, com prova de vida); nunca pela API. Sem link, a selfie que o membro
+ *     tirou na câmera do cadastro vai pela API (IDENTIFICATION_SELFIE);
  *   - um arquivo por grupo: frente e verso vão juntos num PDF (um segundo envio
  *     substituiria o primeiro); qualquer foto (JPG, PNG, WebP, HEIF) ou PDF do
  *     cadastro é convertida para o que o Asaas aceita (document-file.ts).
@@ -46,6 +47,8 @@ const SETTLED = new Set(["PENDING", "APPROVED", "IGNORED", "AWAITING_APPROVAL"])
 /** Foto (qualquer formato que o servidor converte) ou PDF; tipo vazio acontece com HEIC em alguns aparelhos. */
 const UPLOAD_TYPES = new Set(["", "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "application/pdf"]);
 const MAX_PARTS = 4;
+/** Nome do arquivo enviado a cada grupo do Asaas. */
+const FILE_NAME: Record<string, string> = { IDENTIFICATION: "documento-de-identificacao", EMANCIPATION_OF_MINORS: "certidao-de-emancipacao", IDENTIFICATION_SELFIE: "selfie" };
 /** Ordem das partes no PDF do documento de identificação. */
 const ID_KINDS: readonly DocumentKind[] = ["id_front", "id_back", "id_document", "cnh", "rg"];
 
@@ -93,12 +96,14 @@ async function fileForGroup(userId: string, type: string, app: BankKycApplicatio
       ? ID_KINDS.flatMap((kind) => docs.filter((d) => d.kind === kind))
       : type === "EMANCIPATION_OF_MINORS"
         ? docs.filter((d) => d.kind === "emancipation_certificate")
-        : [];
+        : type === "IDENTIFICATION_SELFIE"
+          ? docs.filter((d) => d.kind === "selfie").slice(0, 1)
+          : [];
   if (wanted.length === 0) return null;
   const parts = await Promise.all(wanted.slice(0, MAX_PARTS).map((d) => readBytes(d.path, deps)));
   if (parts.some((p) => p === null)) return null;
   try {
-    return await buildDocumentFile(parts as Uint8Array[], type === "IDENTIFICATION" ? "documento-de-identificacao" : "certidao-de-emancipacao");
+    return await buildDocumentFile(parts as Uint8Array[], FILE_NAME[type] ?? "documento");
   } catch (err) {
     bankLog("warn", "bank.documents", { step: "documentos.converter", userId, outcome: "unreadable", detail: `${type}: ${describeError(err)}` });
     return null;

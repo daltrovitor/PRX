@@ -21,7 +21,8 @@ import type { BankKycApplication, BankKycInput, KycStatus, RiskFlag } from "@/li
  * hora e segue para o Asaas, que confere os documentos e aprova a conta.
  */
 
-const REQUIRED_DOCS: DocumentKind[] = ["id_front", "id_back"];
+/** Frente e verso do documento com foto e a foto do rosto (selfie da câmera): o Asaas exige do titular pessoa física. */
+const REQUIRED_DOCS: DocumentKind[] = ["id_front", "id_back", "selfie"];
 const kycRepo = () => getKycRepository();
 const familyRepo = () => getFamilyRepository();
 

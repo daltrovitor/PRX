@@ -45,6 +45,7 @@ function kycInput(userId: string, cpf: string, birthDate: string, extra: Partial
     documents: [
       { kind: "id_front", path: `${userId}/f.jpg`, name: "" },
       { kind: "id_back", path: `${userId}/b.jpg`, name: "" },
+      { kind: "selfie", path: `${userId}/s.jpg`, name: "" },
     ],
     termsAccepted: true,
     ...extra,
@@ -325,6 +326,15 @@ describe("abertura do PRX BANK (KYC bancário)", () => {
     ).rejects.toThrow(/inválido/);
   });
 
+  it("exige a foto do rosto (selfie) tirada na câmera do cadastro", async () => {
+    const u = person();
+    const docs = [
+      { kind: "id_front" as const, path: `${u.id}/f.jpg`, name: "" },
+      { kind: "id_back" as const, path: `${u.id}/b.jpg`, name: "" },
+    ];
+    await expect(submitBankKyc(u, kycInput(u.id, nextCpf(), "2000-01-01", { documents: docs }), { ip: IP, userAgent: "" }, NOW)).rejects.toThrow(/Foto do rosto/);
+  });
+
   it("aprova adulto, registra CPF único e trilha antifraude; recusa segundo pedido e CPF divergente", async () => {
     const u = person();
     const cpf = nextCpf();
@@ -384,6 +394,7 @@ describe("abertura do PRX BANK (KYC bancário)", () => {
       documents: [
         { kind: "id_front", path: `${teen.id}/f.jpg`, name: "" },
         { kind: "id_back", path: `${teen.id}/b.jpg`, name: "" },
+        { kind: "selfie", path: `${teen.id}/s.jpg`, name: "" },
         { kind: "emancipation_certificate", path: `${teen.id}/e.pdf`, name: "" },
       ],
     });

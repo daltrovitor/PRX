@@ -4,7 +4,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ActivationPanel } from "@/components/app/bank/activation-panel";
 import { BankKycPanel } from "@/components/app/bank/bank-kyc";
-import { memberDocuments } from "@/components/app/bank/provider-onboarding";
+import { isSelfieGroup, memberDocuments } from "@/components/app/bank/provider-onboarding";
+import { SelfieCapture, cameraErrorMessage } from "@/components/app/bank/selfie-capture";
 import type { User } from "@/hooks/use-auth";
 import type { BankAccountView, BankActivation, BankProviderView } from "@/lib/prx/bank";
 import { KYC_RESTART_NOTE, type BankKycState } from "@/lib/kyc/types";
@@ -75,13 +76,22 @@ describe("tela de ativação por etapa", () => {
   });
 
   it("em análise, só aparece o documento que o banco pediu ao membro", () => {
-    const group = { id: "g", title: "Doc", description: "", status: "NOT_SENT", onboardingUrl: null, canUpload: false };
+    const group = { id: "g", type: "IDENTIFICATION", title: "Doc", description: "", status: "NOT_SENT", onboardingUrl: null, canUpload: false };
     const pending = memberDocuments([
       { ...group, id: "enviado", status: "PENDING" },
       { ...group, id: "link", onboardingUrl: "https://asaas.test/onboarding" },
       { ...group, id: "upload", canUpload: true },
     ]);
     expect(pending.map((g) => g.id)).toEqual(["link", "upload"]);
+  });
+
+  it("foto do rosto só pela câmera: nenhum campo de arquivo (a galeria nunca abre)", () => {
+    const html = renderToStaticMarkup(createElement(SelfieCapture, { taken: false, onCapture: async () => undefined }));
+    expect(html).toContain("Tirar foto do rosto");
+    expect(html).not.toContain('type="file"');
+    expect(isSelfieGroup({ type: "IDENTIFICATION_SELFIE" })).toBe(true);
+    expect(isSelfieGroup({ type: "IDENTIFICATION" })).toBe(false);
+    expect(cameraErrorMessage({ name: "NotAllowedError" })).toMatch(/Libere o acesso à câmera/);
   });
 
   it("abertura recomeçada pelo suporte: formulário de novo, sem aviso de recusa", () => {

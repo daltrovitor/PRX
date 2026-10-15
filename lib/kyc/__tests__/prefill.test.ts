@@ -40,6 +40,7 @@ const input = (userId: string, cpfDigits: string, birthDate: string): BankKycInp
     documents: [
       { kind: "id_front", path: `${userId}/f.jpg`, name: "frente.jpg" },
       { kind: "id_back", path: `${userId}/b.jpg`, name: "verso.jpg" },
+      { kind: "selfie", path: `${userId}/s.jpg`, name: "selfie.jpg" },
     ],
     termsAccepted: true,
   });
@@ -73,7 +74,7 @@ describe("abertura do PRX BANK pede cada dado uma vez só", () => {
     const prefill = await kycPrefill(u);
     expect(prefill).toMatchObject({ cpf: doc, birthDate: "2000-01-01", cpfLocked: true, birthDateLocked: true, occupation: "Estudante", incomeRange: "ate_3k", pep: false });
     expect(prefill.address).toMatchObject({ cep: "01310100", city: "São Paulo" });
-    expect(prefill.documents.map((d) => d.kind)).toEqual(["id_front", "id_back"]);
+    expect(prefill.documents.map((d) => d.kind)).toEqual(["id_front", "id_back", "selfie"]);
   });
 
   it("a tela recebe tudo já formatado: CPF, celular, CEP, perfil e documentos por tipo", async () => {
@@ -84,7 +85,7 @@ describe("abertura do PRX BANK pede cada dado uma vez só", () => {
     expect(seed.dados).toEqual({ fullName: "Pessoa Teste Silva", cpf: "111.444.777-35", birthDate: "2000-01-01", phone: "(11) 98888-7777" });
     expect(seed.address).toMatchObject({ cep: "01310-100", state: "SP" });
     expect(seed.perfil).toEqual({ occupation: "Estudante", incomeRange: "ate_3k", pep: "no" });
-    expect(Object.keys(seed.docs).sort()).toEqual(["id_back", "id_front"]);
+    expect(Object.keys(seed.docs).sort()).toEqual(["id_back", "id_front", "selfie"]);
   });
 
   it("o servidor usa o CPF e o nascimento da conta, não os digitados na tela", async () => {
