@@ -45,7 +45,7 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase, noticeCount, onO
       <header className="flex flex-col items-center gap-4 pt-2 text-center">
         <Avatar name={member.name || "Membro PRX"} src={member.avatarUrl} size={88} />
         <div className="min-w-0">
-          <h1 className="truncate font-[family-name:var(--font-light),var(--font-sans)] font-light text-2xl tracking-[-0.02em] text-ink sm:text-3xl">{member.name || "Membro PRX"}</h1>
+          <h1 className="ob-display truncate text-2xl text-ink sm:text-3xl">{member.name || "Membro PRX"}</h1>
           <p className="mt-1 truncate text-sm text-muted-foreground">
             {member.email} · {ROLE_LABEL[member.role] ?? "Membro"}
           </p>
