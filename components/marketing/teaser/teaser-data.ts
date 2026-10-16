@@ -2,19 +2,21 @@
 import type { StaticImageData } from "next/image";
 import crystalImg from "@/public/brand/showcase/prx-3d-crystal.png";
 import cardMetalImg from "@/public/brand/showcase/prx-card-metal.png";
-import appMockupImg from "@/public/brand/showcase/prx-app-mobile-mockup.jpg";
 import liveConcertImg from "@/public/brand/showcase/prx-live-concert.png";
 import investCopperImg from "@/public/brand/showcase/prx-invest-copper.jpg";
 import meHorizonImg from "@/public/brand/showcase/prx-me-horizon.jpg";
-import levelWaveImg from "@/public/brand/showcase/prx-level-wave.jpg";
-import carCurveImg from "@/public/brand/showcase/prx-car-curve.jpg";
-import homeHorizonImg from "@/public/brand/showcase/prx-home-horizon.jpg";
-import circleJunctionImg from "@/public/brand/showcase/prx-circle-junction.jpg";
+import foundersImg from "@/public/brand/showcase/prx-founders.jpg";
+import levelImg from "@/public/brand/showcase/prx-level.jpg";
+import circleImg from "@/public/brand/showcase/prx-circle.jpg";
+import carImg from "@/public/brand/showcase/prx-car.jpg";
+import homeImg from "@/public/brand/showcase/prx-home.jpg";
 
 /*
  * Textos do teaser do prx.app.br. Os módulos e as frases vêm da apresentação
  * oficial do ecossistema (show.prx.app.br, components/show/show-slides.tsx);
- * nada aqui promete data de lançamento. Para mudar um módulo, edite só esta lista.
+ * PRX CAR e PRX HOME seguem os media kits de 2026. Cada módulo usa a sua
+ * imagem oficial (BANK e PASS são recortes do mesmo cartão de metal, como nos
+ * pilares do app e dos e-mails). Nada aqui promete data de lançamento.
  */
 
 export const TEASER_IMAGES = { crystal: crystalImg } as const;
@@ -46,8 +48,8 @@ export const TEASER_MODULES: readonly TeaserModule[] = [
     lead: "Uma experiência financeira pensada para a Geração Z, construída por meio de parceiros regulados e infraestrutura BaaS. Na PRX, comportamento financeiro positivo pode virar vantagem.",
     points: ["Conta", "Pix", "Cartão", "Pagamentos", "Benefícios", "Educação financeira"],
     image: cardMetalImg,
-    alt: "Cartões de metal PRX com chip",
-    focus: "object-[50%_80%]",
+    alt: "Cartão de metal PRX com chip",
+    focus: "object-[50%_88%]",
   },
   {
     id: "pass",
@@ -57,9 +59,9 @@ export const TEASER_MODULES: readonly TeaserModule[] = [
     lead: "O clube de benefícios da PRX conecta membros a marcas, produtos, serviços e experiências com condições exclusivas dentro do app.",
     points: ["Descontos", "Cashback", "Condições especiais", "Acesso antecipado", "Experiências members only"],
     signature: "The future pays more.",
-    image: appMockupImg,
-    alt: "O app da PRX no celular, com os pilares PASS, LIVE, INVEST e ME",
-    focus: "object-[50%_30%]",
+    image: cardMetalImg,
+    alt: "Cartão de metal com o símbolo da PRX",
+    focus: "object-[50%_32%]",
   },
   {
     id: "live",
@@ -102,9 +104,9 @@ export const TEASER_MODULES: readonly TeaserModule[] = [
     title: ["Where the next", "generation builds."],
     lead: "O ambiente PRX para jovens que não querem apenas encontrar oportunidades: querem criá-las. Empreendedores, futuros fundadores, investidores e novas lideranças conectados.",
     points: ["Cadastre sua ideia", "Apresente seu negócio", "Encontre pessoas", "Construa conexões"],
-    image: crystalImg,
-    alt: "Escultura de cristal PRX em obsidiana com luz violeta",
-    focus: "object-[50%_40%]",
+    image: foundersImg,
+    alt: "Escultura do X da PRX em obsidiana com luz violeta e azul",
+    focus: "object-[50%_45%]",
   },
   {
     id: "level",
@@ -114,31 +116,32 @@ export const TEASER_MODULES: readonly TeaserModule[] = [
     lead: "A frente de desenvolvimento de jovens empreendedores da PRX.",
     points: ["Mentorias", "Preparação de pitch", "Modelo de negócio", "Posicionamento", "Conexões", "Acesso ao ecossistema"],
     signature: "Build. Pitch. Grow.",
-    image: levelWaveImg,
-    alt: "Onda de luz violeta e azul subindo",
+    image: levelImg,
+    alt: "Escada de obsidiana com um feixe de luz violeta subindo os degraus",
     focus: "object-[50%_50%]",
   },
   {
     id: "car",
     name: "CAR",
     moment: "primeiro carro",
-    title: ["Meu primeiro carro.", "Minha primeira grande escolha."],
-    lead: "Uma jornada dentro da PRX para ajudar o jovem a conquistar o primeiro carro com mais inteligência, com parceiros automotivos.",
-    points: ["Condições para membros", "Descontos e bônus", "Entrada facilitada", "Financiamento especial"],
-    image: carCurveImg,
-    alt: "Curva escura de metal com reflexo violeta",
-    focus: "object-[60%_50%]",
+    title: ["Meu primeiro carro.", "Minha primeira liberdade."],
+    lead: "O PRX CAR conecta a nova geração a montadoras, concessionárias e grupos automotivos com condições exclusivas para membros comprarem o primeiro carro, com o custo real na ponta do lápis.",
+    points: ["PRX PRICE: preço ou bônus exclusivo", "PRX ENTRY: entrada facilitada", "PRX FLOW: parcelas para quem começa", "PRX UPGRADE: acessórios e upgrades"],
+    signature: "Your first car starts here.",
+    image: carImg,
+    alt: "Jovem com a chave na mão ao lado do carro, com a cidade ao fundo",
+    focus: "object-[50%_40%]",
   },
   {
     id: "home",
     name: "HOME",
     moment: "primeiro apê",
-    title: ["Meu primeiro apê", "começa antes da chave."],
-    lead: "A PRX conecta jovens a incorporadoras e construtoras parceiras com condições pensadas para a primeira aquisição.",
-    points: ["Compactos", "Condições exclusivas", "Entrada diferenciada", "Benefícios para membros"],
+    title: ["Meu primeiro apê.", "Seu primeiro patrimônio começa aqui."],
+    lead: "A PRX seleciona compactos, studios e apartamentos pensados para o primeiro imóvel e negocia com as construtoras uma Condição PRX exclusiva para membros.",
+    points: ["PRX ENTRY: entrada reduzida ou parcelada", "PRX FLOW: parcelas iniciais menores", "PRX START: sinal reduzido", "PRX UPGRADE: acabamento ou mobiliário"],
     signature: "First home. Next chapter.",
-    image: homeHorizonImg,
-    alt: "Horizonte violeta sobre a água ao entardecer",
+    image: homeImg,
+    alt: "Jovem caminhando por um caminho de luz até um prédio residencial",
     focus: "object-[50%_50%]",
   },
   {
@@ -148,9 +151,9 @@ export const TEASER_MODULES: readonly TeaserModule[] = [
     title: ["Social, without", "the swipe."],
     lead: "Uma nova proposta de conexão dentro da PRX: menos aparência, mais conversa.",
     points: ["Texto antes da foto", "Conversa antes do match", "Conexão antes da performance"],
-    image: circleJunctionImg,
-    alt: "Peças de cristal PRX se cruzando sob luz violeta e azul",
-    focus: "object-[55%_40%]",
+    image: circleImg,
+    alt: "Anel de metal com luz violeta e azul",
+    focus: "object-[50%_50%]",
   },
 ];
 

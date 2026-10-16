@@ -18,9 +18,10 @@ import { IconQr, IconSearch } from "@/components/icons/prx-icons";
 import { PRX_CATEGORIES, levelProgress, type Benefit, type UserVoucher } from "@/lib/pass-data";
 import { cn } from "@/lib/utils";
 import { RafflesPanel } from "@/components/app/raffles/raffles-panel";
+import { CarHomePanel } from "@/components/app/pass/car-home-panel";
 
-type PassSection = "catalogo" | "vouchers" | "missions" | "sorteios" | "convidar";
-const SECTIONS: ReadonlyArray<PassSection> = ["catalogo", "vouchers", "missions", "sorteios", "convidar"];
+type PassSection = "catalogo" | "car-home" | "vouchers" | "missions" | "sorteios" | "convidar";
+const SECTIONS: ReadonlyArray<PassSection> = ["catalogo", "car-home", "vouchers", "missions", "sorteios", "convidar"];
 
 export function PassScreen({ pass }: { pass: PassData }) {
   const { sub, go } = useAppNav();
@@ -124,6 +125,7 @@ export function PassScreen({ pass }: { pass: PassData }) {
         onChange={(value) => go("pass", value === "catalogo" ? null : value)}
         options={[
           { value: "catalogo", label: "Catálogo", count: benefits.length },
+          { value: "car-home", label: "Car & Home" },
           { value: "vouchers", label: "Meus vouchers", count: activeVouchers.length },
           { value: "missions", label: "Missões", count: missions.filter((m) => !m.isCompleted).length },
           { value: "sorteios", label: "Sorteios" },
@@ -240,6 +242,8 @@ export function PassScreen({ pass }: { pass: PassData }) {
           onScoreChange={pass.applyScore}
         />
       )}
+
+      {section === "car-home" && <CarHomePanel />}
 
       {section === "sorteios" && <RafflesPanel />}
 
