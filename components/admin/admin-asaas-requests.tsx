@@ -216,7 +216,7 @@ function RequestDetailView({ detail }: { detail: RequestDetail }) {
   return (
     <div className="space-y-5">
       <dl className="divide-y divide-line">
-        <Row label="O que o PRX tentou">{diagnosis.attempt}</Row>
+        <Row label="O que a PRX tentou">{diagnosis.attempt}</Row>
         <Row label="Endpoint">
           <span className="font-mono text-[13px]">{diagnosis.endpoint}</span> · chave {record.auth === "subaccount" ? "da subconta" : record.auth === "master" ? "da conta-pai" : "—"}
         </Row>
@@ -251,10 +251,10 @@ function RequestDetailView({ detail }: { detail: RequestDetail }) {
 
       <div className="space-y-2 rounded-2xl border border-line p-4">
         <p className="text-[14px] font-semibold text-ink">Estado de negócio agora (separado do HTTP)</p>
-        {!sub && !business.outgoing && <p className="text-[13px] text-muted-foreground">Sem subconta ou operação do PRX ligada a esta chamada.</p>}
+        {!sub && !business.outgoing && <p className="text-[13px] text-muted-foreground">Sem subconta ou operação da PRX ligada a esta chamada.</p>}
         {sub && (
           <p className="flex flex-wrap items-center gap-2 text-[13px] text-ink">
-            Conta no PRX: <Tag>{sub.status}</Tag> · aprovação geral <DimensionTag value={sub.generalStatus} /> · documentação <DimensionTag value={sub.documentationStatus} /> · chave guardada{" "}
+            Conta na PRX: <Tag>{sub.status}</Tag> · aprovação geral <DimensionTag value={sub.generalStatus} /> · documentação <DimensionTag value={sub.documentationStatus} /> · chave guardada{" "}
             <Tag tone={sub.hasApiKey ? "success" : "warning"}>{sub.hasApiKey ? "sim" : "não"}</Tag>
           </p>
         )}

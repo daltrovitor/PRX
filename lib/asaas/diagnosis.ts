@@ -3,10 +3,10 @@ import type { AuditRecord } from "@/lib/asaas/audit";
 import { operationByName } from "@/lib/asaas/operations";
 
 /**
- * Leitura de uma chamada ao Asaas para o painel admin: o que o PRX tentou, o
+ * Leitura de uma chamada ao Asaas para o painel admin: o que a PRX tentou, o
  * que o Asaas respondeu, o que isso quer dizer pela documentação e o que fazer.
  * A causa vem marcada: "confirmado" quando é o próprio registro que diz (ex.:
- * o PRX nem enviou, o Asaas não respondeu); "hipótese" quando é uma leitura
+ * a PRX nem enviou, o Asaas não respondeu); "hipótese" quando é uma leitura
  * provável do código ou da mensagem de erro.
  */
 
@@ -48,7 +48,7 @@ function causeOf400(record: AuditRecord): Diagnosis["cause"] {
   }
   if (record.operation === "pix.keys.create") return hypothesis("Chave Pix só com a conta aprovada e a prova de vida feita; 1 minuto entre criações; até 5 chaves (pessoa física).");
   if (record.operation === "documents.upload") {
-    // "Esse tipo de documento não pode ser enviado via API": o canal, não o arquivo (o PRX já manda JPEG ou PDF).
+    // "Esse tipo de documento não pode ser enviado via API": o canal, não o arquivo (a PRX já manda JPEG ou PDF).
     if (/via api/.test(text)) {
       return hypothesis(
         "O Asaas não aceita este tipo de documento pela API nesta conta. Se o grupo não traz onboardingUrl, o envio de documentos por API (BaaS) provavelmente não está liberado na conta-pai: confirme com o gerente de contas do Asaas."
@@ -67,14 +67,14 @@ function causeOf(record: AuditRecord): Diagnosis["cause"] {
     case "pending":
       return null;
     case "not_sent":
-      return confirmed(`O PRX não chamou o Asaas: ${record.errorDescription ?? "regra ou configuração"}`);
+      return confirmed(`A PRX não chamou o Asaas: ${record.errorDescription ?? "regra ou configuração"}`);
     case "timeout":
     case "network_error":
       return op?.sensitive && record.method !== "GET"
         ? confirmed("O Asaas não respondeu. A operação PODE ter sido processada do lado dele: o resultado é desconhecido até a conciliação.")
         : confirmed("O Asaas não respondeu (tempo esgotado ou rede).");
     case "invalid_response":
-      return confirmed(`O Asaas respondeu ${record.httpStatus ?? "2xx"}, mas num formato que o PRX não reconheceu (${record.errorDescription ?? "formato"}).${record.method !== "GET" ? " A operação provavelmente aconteceu no Asaas." : ""}`);
+      return confirmed(`O Asaas respondeu ${record.httpStatus ?? "2xx"}, mas num formato que a PRX não reconheceu (${record.errorDescription ?? "formato"}).${record.method !== "GET" ? " A operação provavelmente aconteceu no Asaas." : ""}`);
     case "rate_limited":
       return confirmed("Limite de requisições do Asaas atingido (429), mesmo depois das novas tentativas.");
     case "http_error":
@@ -99,7 +99,7 @@ function nextStep(record: AuditRecord): string | null {
     if (record.outcome === "success") return "Aguardar o desfecho (webhook) ou usar Conciliar, que consulta o estado no Asaas.";
     if (unanswered) return "Nunca repetir a operação: usar Conciliar, que procura pelo id ou pelo externalReference antes de qualquer decisão.";
   }
-  if (record.operation === "documents.list" && record.outcome === "success") return "Grupos com link seguro: o membro envia pelo link (documento e selfie). Sem link: o PRX envia pela API.";
+  if (record.operation === "documents.list" && record.outcome === "success") return "Grupos com link seguro: o membro envia pelo link (documento e selfie). Sem link: a PRX envia pela API.";
   if (record.outcome === "http_error" && record.httpStatus === 401 && record.auth === "subaccount") return "Gerar nova chave da subconta (Admin → Asaas → membro).";
   return null;
 }

@@ -20,7 +20,7 @@ afterEach(() => {
 const base: ActivationInput = { kyc: "approved", bankOnline: true, sandbox: false, provider: "none", accountStatus: "pending_activation" };
 
 describe("etapa da abertura (máquina de estados do servidor)", () => {
-  it("formulário só sem abertura ou com a abertura recusada pelo PRX", () => {
+  it("formulário só sem abertura ou com a abertura recusada pela PRX", () => {
     expect(bankActivation({ ...base, kyc: "none", provider: null })).toBe("form");
     expect(bankActivation({ ...base, kyc: "rejected", provider: null })).toBe("form");
   });
@@ -28,7 +28,7 @@ describe("etapa da abertura (máquina de estados do servidor)", () => {
   it("abertura enviada nunca volta ao formulário vazio", () => {
     // Pendente (responsável, emancipação ou banco desligado) aguarda, sem pedir reenvio.
     expect(bankActivation({ ...base, kyc: "pending", bankOnline: false, provider: null })).toBe("waiting");
-    // Aprovada pelo PRX com o banco desligado neste deploy: dados salvos, nada a reenviar.
+    // Aprovada pela PRX com o banco desligado neste deploy: dados salvos, nada a reenviar.
     expect(bankActivation({ ...base, bankOnline: false, provider: null })).toBe("unavailable");
     // Banco ligado mas sem resposta agora: idem.
     expect(bankActivation({ ...base, provider: null })).toBe("unavailable");
@@ -76,11 +76,11 @@ describe("webhook com o Asaas desligado no deploy", () => {
     await expect(handleAsaasEvent(event, deps)).resolves.toBe("duplicate");
   });
 
-  it("validação de saque só lê os pedidos do PRX: funciona sem o cliente do Asaas", async () => {
+  it("validação de saque só lê os pedidos da PRX: funciona sem o cliente do Asaas", async () => {
     const store = new MemoryAsaasBankStore();
     await expect(validateWithdraw({ type: "TRANSFER", transfer: { id: "tra_x", value: 10 } }, { store, now: () => new Date() }, async () => undefined)).resolves.toEqual({
       status: "REFUSED",
-      refuseReason: "Operação não encontrada no PRX.",
+      refuseReason: "Operação não encontrada na PRX.",
     });
   });
 });

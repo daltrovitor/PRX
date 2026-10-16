@@ -5,7 +5,7 @@ import { getSessionSecret } from "@/lib/server-secrets";
 /*
  * Entrar com o Google direto pelo app (OAuth 2.0 com PKCE), sem a tela do Supabase no meio.
  * O Google mostra o endereço de quem pede o login: com o Supabase era o do projeto
- * (xxxx.supabase.co); agora é o do PRX. Precisa de GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET (o
+ * (xxxx.supabase.co); agora é o da PRX. Precisa de GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET (o
  * mesmo cliente OAuth que o Supabase usava) e de <endereço do app>/auth/callback nas "URIs de
  * redirecionamento autorizadas" do cliente. Sem as chaves, o app segue com o Supabase.
  * Passo a passo em docs/LOGIN_GOOGLE.md.

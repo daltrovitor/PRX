@@ -1,6 +1,6 @@
 // Hello World
 
-/** Canais de notificação do PRX. Push e SMS entram aqui quando existirem. */
+/** Canais de notificação da PRX. Push e SMS entram aqui quando existirem. */
 export const NOTIFICATION_CHANNELS = ["email", "whatsapp"] as const;
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 

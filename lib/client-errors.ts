@@ -44,7 +44,7 @@ declare global {
 }
 
 /**
- * Quando a API do PRX cai sem responder JSON (ex.: tempo esgotado na Vercel),
+ * Quando a API da PRX cai sem responder JSON (ex.: tempo esgotado na Vercel),
  * cada tela mostraria o próprio texto genérico, sem código. Este guarda troca
  * essa resposta por { error: "Deu um erro… código X" }, que as telas já
  * mostram. Só mexe em /api/ do próprio site com status 5xx sem JSON.

@@ -120,7 +120,7 @@ export function AdminLogin({ onSuccess }: PanelLoginProps) {
     <PanelLogin
       endpoint="/api/admin/login"
       title="Painel administrativo"
-      description="Membros, níveis, benefícios, missões e vouchers do PRX."
+      description="Membros, níveis, benefícios, missões e vouchers da PRX."
       sideTitle="Acesso restrito à equipe PRX."
       sideBody="Use apenas a sua conta de administrador e não compartilhe o acesso."
       emailPlaceholder="voce@empresa.com"

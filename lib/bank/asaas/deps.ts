@@ -19,7 +19,7 @@ export interface AsaasDeps {
   store: AsaasBankStore;
   mirror: BankMirror;
   latestKyc(userId: string): Promise<BankKycApplication | null>;
-  /** Arquivo de documento do KYC guardado pelo PRX (bucket privado). */
+  /** Arquivo de documento do KYC guardado pela PRX (bucket privado). */
   readDocument(path: string): Promise<{ blob: Blob; filename: string } | null>;
   now(): Date;
 }

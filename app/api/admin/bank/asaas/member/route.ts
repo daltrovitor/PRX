@@ -42,7 +42,7 @@ const actionSchema = z.object({
 /**
  * POST /api/admin/bank/asaas/member — ações do suporte para um membro:
  *   refresh             consulta GET /myAccount/status e aplica
- *   documents           envia ao Asaas o que o PRX tem (15 s após a criação)
+ *   documents           envia ao Asaas o que a PRX tem (15 s após a criação)
  *   webhook             grava URL, eventos e token atuais no webhook da subconta
  *   webhook_reactivate  idem e reativa a fila interrompida pelo Asaas
  *   regenerate_key      gera chave nova para subconta sem chave (exige liberação no painel do Asaas)

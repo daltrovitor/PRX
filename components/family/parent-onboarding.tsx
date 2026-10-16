@@ -29,7 +29,7 @@ import {
 type Step = "intro" | "dados" | "renda" | "filho" | "documentos" | "enviado";
 const FLOW: Step[] = ["dados", "renda", "filho", "documentos"];
 const STEP_TITLE: Record<Exclude<Step, "intro" | "enviado">, { title: string; body: string }> = {
-  dados: { title: "Seus dados", body: "Quem é o responsável. O CPF abre uma única conta no PRX." },
+  dados: { title: "Seus dados", body: "Quem é o responsável. O CPF abre uma única conta na PRX." },
   renda: { title: "Profissão e renda", body: "Usamos para a análise de segurança exigida para contas de menores." },
   filho: { title: "Seu filho", body: "Depois da aprovação, você cria o acesso dele ou aceita o pedido que ele enviar." },
   documentos: { title: "Documentos", body: "RG e CPF (ou só a CNH) e a certidão de nascimento do seu filho — ou o termo de guarda/tutela." },
@@ -44,7 +44,7 @@ const maskPhone = (raw: string) => {
 
 const PROMISES: ReadonlyArray<{ title: string; body: string }> = [
   { title: "Pix e mesada automática", body: "Envie quando quiser ou programe a mesada semanal ou mensal. Cai direto na conta do seu filho." },
-  { title: "Limites do cartão", body: "Defina quanto ele pode gastar por compra, por dia e por mês. O PRX bloqueia o que passar." },
+  { title: "Limites do cartão", body: "Defina quanto ele pode gastar por compra, por dia e por mês. A PRX bloqueia o que passar." },
   { title: "Acompanhe tudo", body: "Saldo, extrato, benefícios resgatados, nível, XP, PRX Coins, eventos, ingressos e projetos." },
 ];
 
@@ -138,7 +138,7 @@ export function ParentOnboarding() {
                   Conta Pai
                 </h1>
                 <p className="mt-5 max-w-lg text-[17px] leading-relaxed text-muted-foreground sm:text-[19px]">
-                  A conta digital do seu filho, com você no controle: mesada, limites e tudo o que ele faz no PRX, num só lugar.
+                  A conta digital do seu filho, com você no controle: mesada, limites e tudo o que ele faz na PRX, num só lugar.
                 </p>
                 <div className="mt-8 flex flex-wrap gap-3">
                   {memberLoggedIn ? null : (

@@ -37,7 +37,7 @@ function groupOf(birthDate: string) {
 }
 
 /**
- * Abertura do PRX BANK (KYC bancário). Só aqui — e na Conta Pai — o PRX pede
+ * Abertura do PRX BANK (KYC bancário). Só aqui — e na Conta Pai — a PRX pede
  * documentos. Menores de 18 abrem a conta com o responsável vinculado (ou
  * emancipação, a partir dos 16). Tudo é revalidado no servidor.
  */
@@ -285,7 +285,7 @@ function KycForm({ member, rejectedNote, onDone }: { member: User; rejectedNote:
           </Button>
         </section>
         <p className="text-[13px] leading-relaxed text-muted-foreground">
-          Seus documentos ficam em área privada e são usados só para abrir a conta e prevenir fraudes, como exige o Banco Central. O resto do PRX continua liberado sem nada disso.
+          Seus documentos ficam em área privada e são usados só para abrir a conta e prevenir fraudes, como exige o Banco Central. O resto da PRX continua liberado sem nada disso.
         </p>
       </div>
     );

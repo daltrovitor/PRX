@@ -36,7 +36,7 @@ export function TermsConsent({ checked, onChange, className }: { checked: boolea
           <a href="/privacidade" target="_blank" rel="noopener" className="cursor-pointer font-semibold text-[#6c0cf0] underline underline-offset-2 dark:text-[#b288f7]">
             Política de Privacidade (LGPD)
           </a>{" "}
-          do PRX e autorizo o tratamento dos meus dados cadastrais.
+          da PRX e autorizo o tratamento dos meus dados cadastrais.
         </label>
         {!checked && (
           <p id={`${id}-hint`} className="mt-1 text-[12px] text-muted-foreground">

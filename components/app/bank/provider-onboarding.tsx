@@ -8,9 +8,9 @@ import { SelfieCapture } from "@/components/app/bank/selfie-capture";
 import type { BankProviderView } from "@/lib/prx/bank";
 
 /**
- * Abertura da conta no banco parceiro (Asaas) depois do KYC aprovado pelo PRX:
+ * Abertura da conta no banco parceiro (Asaas) depois do KYC aprovado pela PRX:
  * cria a subconta, reaproveita os documentos já enviados e lista o que o
- * parceiro ainda pede. Tudo passa pelas rotas do PRX; o navegador nunca fala
+ * parceiro ainda pede. Tudo passa pelas rotas da PRX; o navegador nunca fala
  * com o Asaas.
  */
 
@@ -45,7 +45,7 @@ async function call(url: string, init?: RequestInit): Promise<{ ok: boolean; jso
 
 const errorOf = (json: Record<string, unknown>, fallback: string) => (typeof json.error === "string" ? json.error : fallback);
 
-/** O que só o membro consegue enviar (link seguro ou foto/PDF); o resto o PRX já mandou do cadastro. */
+/** O que só o membro consegue enviar (link seguro ou foto/PDF); o resto a PRX já mandou do cadastro. */
 export const memberDocuments = (groups: DocumentGroup[]): DocumentGroup[] => groups.filter((g) => g.onboardingUrl !== null || g.canUpload);
 
 /** Foto do rosto: só pela câmera (ou pela prova de vida no link do banco), nunca da galeria. */

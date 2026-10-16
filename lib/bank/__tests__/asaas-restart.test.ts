@@ -17,7 +17,7 @@ const CREATED = { id: "acc_123", walletId: "wal_123", apiKey: "$aact_hmlg_subcon
 const GROUPS = { rejectReasons: null, data: [{ id: "grp-id", status: "NOT_SENT", type: "IDENTIFICATION", title: "Documento com foto", documents: [] }] };
 const ROUTES = { "POST /accounts": { body: CREATED }, "GET /myAccount/documents": { body: GROUPS }, "POST /myAccount/documents/*": { body: {} }, "POST /sandbox/myAccount/approve": { body: {} } };
 
-/** Envio do membro gravado no repositório (memória) e aprovado pelas regras do PRX. */
+/** Envio do membro gravado no repositório (memória) e aprovado pelas regras da PRX. */
 async function submitted(version: string) {
   const app = await getKycRepository().insert(
     approvedKyc({ documents: [{ kind: "id_front", path: `${USER_ID}/id_front-${version}.jpg`, name: "frente.jpg" }, { kind: "id_back", path: `${USER_ID}/id_back-${version}.jpg`, name: "verso.jpg" }] })

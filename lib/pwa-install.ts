@@ -4,7 +4,7 @@
 import { useSyncExternalStore } from "react";
 
 /*
- * Instalação do PRX como app (PWA). O navegador dispara `beforeinstallprompt`
+ * Instalação da PRX como app (PWA). O navegador dispara `beforeinstallprompt`
  * uma única vez por carregamento; guardamos o evento aqui (módulo global) para o
  * card da Home usar quando o membro tocar em "Instalar". Sem o evento (Firefox,
  * Safari, prompt já consumido), a tela mostra o passo a passo do sistema.

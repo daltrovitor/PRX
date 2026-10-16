@@ -28,7 +28,7 @@ export async function createAccount(input: { email: string; fullName: string; pa
   if (supabaseAdmin) {
     if (cpfDigits) {
       const { data: existingCpf } = await supabaseAdmin.from("profiles").select("id").eq("cpf", cpfDigits).maybeSingle();
-      if (existingCpf) throw new PartnerError("Este CPF já está cadastrado no PRX.", 409);
+      if (existingCpf) throw new PartnerError("Este CPF já está cadastrado na PRX.", 409);
     }
 
     const { data, error } = await supabaseAdmin.auth.admin.createUser({

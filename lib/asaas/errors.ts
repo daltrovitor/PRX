@@ -60,7 +60,7 @@ const USER_FIXABLE: ReadonlyArray<readonly [RegExp, string]> = [
 ];
 
 /**
- * Converte um erro do Asaas no erro que as rotas do PRX respondem. Recusa que a
+ * Converte um erro do Asaas no erro que as rotas da PRX respondem. Recusa que a
  * pessoa resolve vira frase simples (PartnerError); resultado incerto pede para
  * conferir o extrato antes de repetir (dinheiro); o resto é técnico: a tela
  * mostra "Deu um erro ao fazer isso" com código e o motivo fica nos logs.

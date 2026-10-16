@@ -40,9 +40,9 @@ describe("respostas de erro das rotas", () => {
       status: 422,
       body: { error: "Saldo insuficiente para esta operação." },
     });
-    await expect(read(await familyErrorResponse(new FamilyError("Este CPF já está cadastrado no PRX.", 409, "CPF_TAKEN"), "Abrir conta"))).resolves.toEqual({
+    await expect(read(await familyErrorResponse(new FamilyError("Este CPF já está cadastrado na PRX.", 409, "CPF_TAKEN"), "Abrir conta"))).resolves.toEqual({
       status: 409,
-      body: { error: "Este CPF já está cadastrado no PRX.", code: "CPF_TAKEN" },
+      body: { error: "Este CPF já está cadastrado na PRX.", code: "CPF_TAKEN" },
     });
   });
 

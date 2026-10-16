@@ -12,7 +12,7 @@ import { KYC_RESTART_NOTE } from "@/lib/kyc/types";
 
 /**
  * Quando a resposta da criação se perde (timeout, queda, formato inesperado),
- * a subconta pode existir no Asaas sem o PRX saber. Antes de criar outra, o
+ * a subconta pode existir no Asaas sem a PRX saber. Antes de criar outra, o
  * PRX procura pelo CPF (GET /v3/accounts?cpfCnpj=) e religa a que achar: nada
  * de segunda conta. A chave da subconta, se não veio, é gerada depois pelo
  * admin (POST /v3/accounts/{id}/accessTokens).
@@ -116,7 +116,7 @@ export async function regenerateSubaccountKey(userId: string, deps: AsaasDeps): 
   return withAsaasAudit({ userId }, async () => {
     const sub = await currentSubaccount(userId, deps);
     if (!sub?.asaasAccountId) throw new PartnerError("Este membro ainda não tem subconta no Asaas.", 409);
-    if (sub.apiKeySealed) throw new PartnerError("A subconta já tem chave guardada no PRX.", 409);
+    if (sub.apiKeySealed) throw new PartnerError("A subconta já tem chave guardada na PRX.", 409);
     encryptSecret("probe");
     try {
       const apiKey = await createSubaccountApiKey(deps.client, sub.asaasAccountId, "PRX BANK");

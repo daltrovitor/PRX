@@ -7,7 +7,7 @@ import { ASAAS_TEST_ENV, USER_ID, approvedKyc, fakeAsaas, testDeps } from "./asa
 
 /**
  * Foto do rosto (selfie) tirada na câmera do cadastro: o Asaas exige do titular
- * pessoa física. Sem link seguro, o PRX manda a foto pela API (IDENTIFICATION_SELFIE);
+ * pessoa física. Sem link seguro, a PRX manda a foto pela API (IDENTIFICATION_SELFIE);
  * com link, é prova de vida no link do Asaas e nunca vai pela API.
  */
 
@@ -46,7 +46,7 @@ afterEach(() => {
 });
 
 describe("foto do rosto do cadastro", () => {
-  it("sem link seguro: o PRX manda a selfie ao Asaas como foto JPEG, no grupo dela", async () => {
+  it("sem link seguro: a PRX manda a selfie ao Asaas como foto JPEG, no grupo dela", async () => {
     const { deps, calls } = await opened(null);
     await expect(syncOnboardingDocuments(USER_ID, deps)).resolves.toEqual({ state: "done", sent: 2, viaLink: 0, memberUpload: 0, refusals: [] });
     const upload = calls.find((c) => c.method === "POST" && c.path === "/myAccount/documents/grp-selfie");

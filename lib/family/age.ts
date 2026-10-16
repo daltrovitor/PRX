@@ -28,7 +28,7 @@ export function ageGroup(birthDate: string, now = new Date()): AgeGroup {
   return "over";
 }
 
-/** Data de nascimento de quem se cadastra: real, no passado e com a idade mínima do PRX (12 anos). */
+/** Data de nascimento de quem se cadastra: real, no passado e com a idade mínima da PRX (12 anos). */
 export const signupBirthDateSchema = birthDateSchema.refine((value) => ageOn(value) >= MIN_ACCOUNT_AGE, UNDER_AGE_MESSAGE);
 
 /**

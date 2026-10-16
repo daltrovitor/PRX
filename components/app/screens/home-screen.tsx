@@ -35,7 +35,7 @@ const reveal = {
 };
 
 const SOON: Record<Extract<PillarId, "invest" | "me">, string> = {
-  invest: "Caixinhas e metas para os seus planos chegam em breve ao PRX.",
+  invest: "Caixinhas e metas para os seus planos chegam em breve à PRX.",
   me: "Saúde mental pra ir mais longe: o PRX ME chega em breve.",
 };
 

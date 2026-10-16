@@ -9,7 +9,7 @@ const NO_STORE = { "Cache-Control": "no-store" };
 
 /**
  * POST /api/auth/google/start — começa o login com o Google pelo próprio app, para o Google
- * mostrar o endereço do PRX e não o do Supabase. Responde { direct: true, url } quando o servidor
+ * mostrar o endereço da PRX e não o do Supabase. Responde { direct: true, url } quando o servidor
  * tem GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET; sem eles, { direct: false } e o app segue com o
  * Supabase. O cookie assinado guarda state, nonce e PKCE até a volta em /auth/callback.
  */

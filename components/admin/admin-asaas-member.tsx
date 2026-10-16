@@ -10,8 +10,8 @@ import { useConfirmToast } from "@/components/ui/confirm-toast";
 type Action = "refresh" | "documents" | "webhook" | "webhook_reactivate" | "regenerate_key" | "recover" | "restart";
 
 const ACTIONS: ReadonlyArray<{ action: Action; label: string; hint: string }> = [
-  { action: "refresh", label: "Consultar situação", hint: "GET /myAccount/status e aplica no PRX." },
-  { action: "documents", label: "Enviar documentos", hint: "Manda o que o PRX tem; o resto fica para o link do membro." },
+  { action: "refresh", label: "Consultar situação", hint: "GET /myAccount/status e aplica na PRX." },
+  { action: "documents", label: "Enviar documentos", hint: "Manda o que a PRX tem; o resto fica para o link do membro." },
   { action: "webhook", label: "Atualizar webhook", hint: "Grava URL, eventos e o token atual." },
   { action: "webhook_reactivate", label: "Atualizar e reativar fila", hint: "Idem e religa a fila parada pelo Asaas." },
   { action: "regenerate_key", label: "Gerar chave da subconta", hint: "Só sem chave guardada. Exige liberação de 2 h no painel do Asaas e whitelist de IP." },
@@ -21,7 +21,7 @@ const ACTIONS: ReadonlyArray<{ action: Action; label: string; hint: string }> = 
 
 const OUTCOME_TONE: Record<string, "success" | "warning" | "neutral"> = { sent: "success", recovered: "success", failed: "warning", uncertain: "warning", blocked: "neutral" };
 
-/** Situação de um membro no Asaas: o que o PRX sabe, o que o Asaas diz agora e as ações do suporte. */
+/** Situação de um membro no Asaas: o que a PRX sabe, o que o Asaas diz agora e as ações do suporte. */
 export function AdminAsaasMember({ onShowRequests }: { onShowRequests: (user: string) => void }) {
   const [user, setUser] = useState("");
   const [diag, setDiag] = useState<MemberDiagnostics | null>(null);
@@ -97,10 +97,10 @@ export function AdminAsaasMember({ onShowRequests }: { onShowRequests: (user: st
 
       {diag && (
         <div className="space-y-4">
-          {!sub && <Notice>Este membro ainda não tem registro de subconta no PRX (não enviou a abertura ou ela não foi aprovada).</Notice>}
+          {!sub && <Notice>Este membro ainda não tem registro de subconta na PRX (não enviou a abertura ou ela não foi aprovada).</Notice>}
           {sub && (
             <dl className="divide-y divide-line">
-              <Row label="Conta no PRX">
+              <Row label="Conta na PRX">
                 <Tag tone={sub.status === "active" ? "success" : sub.status === "rejected" ? "warning" : "neutral"}>{sub.status}</Tag> · {sub.environment === "production" ? "produção" : "sandbox"}
                 {sub.rejectReason ? ` · motivo: ${sub.rejectReason}` : ""}
               </Row>
@@ -113,7 +113,7 @@ export function AdminAsaasMember({ onShowRequests }: { onShowRequests: (user: st
                   </>
                 )}
               </Row>
-              <Row label="Situação aplicada no PRX">
+              <Row label="Situação aplicada na PRX">
                 <span className="flex flex-wrap items-center gap-1.5">
                   geral <DimensionTag value={sub.generalStatus} /> documentos <DimensionTag value={sub.documentationStatus} /> comercial <DimensionTag value={sub.commercialInfoStatus} /> bancária{" "}
                   <DimensionTag value={sub.bankAccountInfoStatus} />
@@ -149,7 +149,7 @@ export function AdminAsaasMember({ onShowRequests }: { onShowRequests: (user: st
               {webhook.ok ? (
                 <ul className="mt-2 space-y-1 text-[13px] text-ink">
                   <li>
-                    {webhook.value.configured ? "Configurado" : "Não existe webhook do PRX nesta subconta"} {webhook.value.configured && (webhook.value.urlMatches ? "· URL certa" : `· URL diferente: ${webhook.value.url}`)}
+                    {webhook.value.configured ? "Configurado" : "Não existe webhook da PRX nesta subconta"} {webhook.value.configured && (webhook.value.urlMatches ? "· URL certa" : `· URL diferente: ${webhook.value.url}`)}
                   </li>
                   {webhook.value.configured && (
                     <li>

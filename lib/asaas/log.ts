@@ -20,7 +20,7 @@ export interface BankLogFields {
   /** Etapa executada (ex.: account.create, kyc.submit, webhook.events). */
   step?: string | null;
   method?: string | null;
-  /** Caminho da API do Asaas ou rota do PRX (sem query). */
+  /** Caminho da API do Asaas ou rota da PRX (sem query). */
   endpoint?: string | null;
   httpStatus?: number | null;
   durationMs?: number | null;

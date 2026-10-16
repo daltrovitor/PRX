@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
 
     if (supabaseAdmin) {
       const { data: cpfOwner } = await supabaseAdmin.from("profiles").select("id").eq("cpf", cpf).maybeSingle();
-      if (cpfOwner && cpfOwner.id !== person.authUserId) throw new PartnerError("Este CPF já está cadastrado no PRX. Entre na sua conta existente.", 409);
+      if (cpfOwner && cpfOwner.id !== person.authUserId) throw new PartnerError("Este CPF já está cadastrado na PRX. Entre na sua conta existente.", 409);
 
       let userId = person.authUserId;
       if (!userId) {
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
         });
         if (error || !created?.user) {
           const msg = (error?.message || "").toLowerCase();
-          if (msg.includes("already") || msg.includes("exists")) throw new PartnerError("Este e-mail já tem conta no PRX. Entre com a senha ou com o Google.", 409);
+          if (msg.includes("already") || msg.includes("exists")) throw new PartnerError("Este e-mail já tem conta na PRX. Entre com a senha ou com o Google.", 409);
           throw new PartnerError("Falha ao registrar a conta com o Google.", 500);
         }
         userId = created.user.id;
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
       const { data: profile, error: profileError } = await write.select("*").maybeSingle();
       if (profileError || !profile) {
         if (person.isNew) await supabaseAdmin.auth.admin.deleteUser(userId).catch(() => undefined);
-        throw new PartnerError(profileError?.code === "23505" ? "Este CPF já está cadastrado no PRX." : "Não foi possível salvar o cadastro.", profileError?.code === "23505" ? 409 : 500);
+        throw new PartnerError(profileError?.code === "23505" ? "Este CPF já está cadastrado na PRX." : "Não foi possível salvar o cadastro.", profileError?.code === "23505" ? 409 : 500);
       }
 
       await recordConsent(userId);
@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
     } else {
       // Desenvolvimento local (contas em memória).
       const taken = userStore.getAllUsers().find((u) => u.cpf === cpf && u.email !== email);
-      if (taken) throw new PartnerError("Este CPF já está cadastrado no PRX. Entre na sua conta existente.", 409);
+      if (taken) throw new PartnerError("Este CPF já está cadastrado na PRX. Entre na sua conta existente.", 409);
       finalUser = userStore.findOrCreateGoogleUser(email, fullName, person.avatarUrl, cpf, phone);
     }
     // Base da idade mínima dos eventos do PRX LIVE (nunca sobrescreve uma data já gravada).
@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
       after(() => sendWelcomeEmail(recipient));
     }
 
-    const response = NextResponse.json({ success: true, message: "Cadastro concluído. Bem-vindo ao PRX!", user: publicUser(finalUser) });
+    const response = NextResponse.json({ success: true, message: "Cadastro concluído. Bem-vindo à PRX!", user: publicUser(finalUser) });
     response.cookies.set(pendingGoogleCookie(""));
     return attachSession(response, finalUser);
   } catch (err) {

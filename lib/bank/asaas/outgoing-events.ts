@@ -17,7 +17,7 @@ const str = (value: unknown): string | null => (typeof value === "string" && val
 const num = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) ? value : null);
 const E2E = /^E[0-9A-Za-z]{31}$/;
 
-/** Pedido do PRX ligado ao evento: pelo externalReference (id do pedido) ou pelo id do Asaas. */
+/** Pedido da PRX ligado ao evento: pelo externalReference (id do pedido) ou pelo id do Asaas. */
 async function findRequest(object: Record<string, unknown>, sub: Subaccount, deps: AsaasDeps): Promise<OutgoingRequest | null> {
   const ref = str(object.externalReference);
   const byRef = ref && isUuid(ref) ? await deps.store.getOutgoing(ref) : null;

@@ -1,7 +1,7 @@
 // Hello World
 
 /**
- * Catálogo das chamadas que o PRX faz ao Asaas: nome lógico, o que a chamada
+ * Catálogo das chamadas que a PRX faz ao Asaas: nome lógico, o que a chamada
  * pede e o que um sucesso HTTP significa (e não significa) para o negócio.
  * Fonte: https://docs.asaas.com (referências citadas em `doc`). Sem dependência
  * de servidor: o painel admin usa o mesmo texto.
@@ -13,7 +13,7 @@ export interface AsaasOperation {
   /** Caminho relativo a /v3, com {id} no lugar dos identificadores. */
   template: string;
   label: string;
-  /** O que o PRX tentou fazer. */
+  /** O que a PRX tentou fazer. */
   intent: string;
   /** O que uma resposta 200 quer dizer segundo a documentação. */
   successMeaning: string;
@@ -25,15 +25,15 @@ export interface AsaasOperation {
 const REF = "https://docs.asaas.com/reference/";
 
 export const ASAAS_OPERATIONS: readonly AsaasOperation[] = [
-  { name: "account.create", method: "POST", template: "/accounts", label: "Criar subconta", intent: "Abrir a conta de pagamento do membro (subconta BaaS) com os dados do cadastro e o webhook do PRX.", successMeaning: "A subconta foi criada. Ela ainda NÃO está aprovada: falta o envio dos documentos e a análise do Asaas (até 48 h). A aprovação chega pelo evento ACCOUNT_STATUS_GENERAL_APPROVAL_APPROVED.", sensitive: true, doc: `${REF}criar-subconta` },
+  { name: "account.create", method: "POST", template: "/accounts", label: "Criar subconta", intent: "Abrir a conta de pagamento do membro (subconta BaaS) com os dados do cadastro e o webhook da PRX.", successMeaning: "A subconta foi criada. Ela ainda NÃO está aprovada: falta o envio dos documentos e a análise do Asaas (até 48 h). A aprovação chega pelo evento ACCOUNT_STATUS_GENERAL_APPROVAL_APPROVED.", sensitive: true, doc: `${REF}criar-subconta` },
   { name: "account.find", method: "GET", template: "/accounts", label: "Procurar subconta", intent: "Procurar, pelo CPF, uma subconta já criada (para não abrir outra quando uma resposta anterior se perdeu).", successMeaning: "Lista das subcontas da conta-pai com o filtro informado. Lista vazia: nenhuma subconta com esse CPF.", sensitive: false, doc: `${REF}listar-subcontas` },
   { name: "account.accessToken.create", method: "POST", template: "/accounts/{id}/accessTokens", label: "Gerar chave da subconta", intent: "Gerar uma nova chave de API para uma subconta cuja chave se perdeu.", successMeaning: "Nova chave criada (ela só aparece nesta resposta). Exige o gerenciamento de chaves liberado no painel do Asaas por 2 h e o IP do servidor na whitelist.", sensitive: true, doc: `${REF}criar-chave-de-api-para-uma-subconta` },
   { name: "account.status", method: "GET", template: "/myAccount/status", label: "Situação cadastral", intent: "Consultar a situação da subconta: dados comerciais, conta bancária, documentação e aprovação geral.", successMeaning: "A conta só está aprovada quando general = APPROVED. PENDING ou AWAITING_APPROVAL: ainda em análise ou com pendência.", sensitive: false, doc: `${REF}consultar-situacao-cadastral-da-conta` },
-  { name: "documents.list", method: "GET", template: "/myAccount/documents", label: "Documentos pendentes", intent: "Listar os documentos que o Asaas pede para aprovar a subconta e como enviar cada um.", successMeaning: "Grupo com onboardingUrl: o titular envia pelo link do Asaas (documento e selfie). Sem link: o PRX envia pela API. Consultar antes de 15 s da criação pode trazer pedidos que deixam de valer.", sensitive: false, doc: `${REF}verificar-documentos-pendentes` },
+  { name: "documents.list", method: "GET", template: "/myAccount/documents", label: "Documentos pendentes", intent: "Listar os documentos que o Asaas pede para aprovar a subconta e como enviar cada um.", successMeaning: "Grupo com onboardingUrl: o titular envia pelo link do Asaas (documento e selfie). Sem link: a PRX envia pela API. Consultar antes de 15 s da criação pode trazer pedidos que deixam de valer.", sensitive: false, doc: `${REF}verificar-documentos-pendentes` },
   { name: "documents.upload", method: "POST", template: "/myAccount/documents/{id}", label: "Enviar documento", intent: "Enviar um arquivo para um grupo de documentos da subconta.", successMeaning: "Arquivo recebido para análise. Cada grupo aceita um arquivo por vez: um novo envio substitui o anterior.", sensitive: false, doc: `${REF}enviar-documentos` },
   { name: "sandbox.approve", method: "POST", template: "/sandbox/myAccount/approve", label: "Aprovar conta (sandbox)", intent: "Simular a aprovação cadastral no sandbox.", successMeaning: "Só existe no sandbox; não representa aprovação em produção.", sensitive: false, doc: `${REF}aprovar-conta` },
   { name: "webhooks.list", method: "GET", template: "/webhooks", label: "Webhooks da subconta", intent: "Ler a configuração do webhook da subconta (eventos, fila interrompida, penalizações).", successMeaning: "Configuração atual. interrupted = true: o Asaas parou de enviar eventos até a fila ser reativada.", sensitive: false, doc: `${REF}listar-webhooks` },
-  { name: "webhooks.create", method: "POST", template: "/webhooks", label: "Criar webhook", intent: "Registrar o webhook do PRX na subconta.", successMeaning: "Webhook criado; os próximos eventos seguem para a URL informada.", sensitive: false, doc: `${REF}criar-novo-webhook` },
+  { name: "webhooks.create", method: "POST", template: "/webhooks", label: "Criar webhook", intent: "Registrar o webhook da PRX na subconta.", successMeaning: "Webhook criado; os próximos eventos seguem para a URL informada.", sensitive: false, doc: `${REF}criar-novo-webhook` },
   { name: "webhooks.update", method: "PUT", template: "/webhooks/{id}", label: "Atualizar webhook", intent: "Atualizar eventos, token e fila do webhook da subconta.", successMeaning: "Configuração salva. Com interrupted = false, os eventos parados voltam a ser enviados.", sensitive: false, doc: `${REF}atualizar-webhook-existente` },
   { name: "pix.keys.list", method: "GET", template: "/pix/addressKeys", label: "Listar chaves Pix", intent: "Listar as chaves Pix da subconta e o estado de cada uma.", successMeaning: "Só a chave ACTIVE recebe Pix. AWAITING_ACTIVATION ainda está sendo registrada no DICT.", sensitive: false, doc: `${REF}listar-chaves` },
   { name: "pix.keys.create", method: "POST", template: "/pix/addressKeys", label: "Criar chave Pix", intent: "Criar uma chave aleatória (EVP) na subconta.", successMeaning: "Pedido aceito; a chave pode nascer AWAITING_ACTIVATION. Exige conta aprovada e prova de vida; 1 min entre criações; até 5 chaves (PF).", sensitive: false, doc: `${REF}criar-uma-chave` },

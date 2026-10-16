@@ -52,7 +52,7 @@ describe("o que o deploy lê de fato", () => {
 describe("URL do webhook chamada como o Asaas chamaria", () => {
   const reply = (status: number, headers: Record<string, string> = {}) => async () => new Response(null, { status, headers });
 
-  it("401 sem token = chegou direto ao PRX", async () => {
+  it("401 sem token = chegou direto à PRX", async () => {
     await expect(probeWebhookUrl("eventos", "https://www.prx.app.br/api/bank/webhooks/asaas", reply(401))).resolves.toEqual({ label: "eventos", ok: true, hint: null });
   });
 

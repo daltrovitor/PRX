@@ -92,7 +92,7 @@ export function BankScreen({ member }: { member: User }) {
     );
   }
 
-  // Primeira visita ao PRX BANK: abertura de conta (KYC), ou a abertura salva aguardando. O resto do PRX nunca pede documentos.
+  // Primeira visita ao PRX BANK: abertura de conta (KYC), ou a abertura salva aguardando. O resto da PRX nunca pede documentos.
   if (account.activation === "form" || account.activation === "waiting") return <BankKycPanel member={member} kyc={account.kyc} onDone={reload} />;
 
   const active = account.status === "active";

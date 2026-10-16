@@ -5,7 +5,7 @@ import { verifyAdminRequest } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "Painel administrativo",
-  description: "Gestão de membros, benefícios, missões e vouchers do PRX.",
+  description: "Gestão de membros, benefícios, missões e vouchers da PRX.",
   robots: { index: false, follow: false },
 };
 

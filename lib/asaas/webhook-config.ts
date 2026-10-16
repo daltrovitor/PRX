@@ -51,9 +51,9 @@ export function createWebhook(client: AsaasClient, apiKey: string, config: Subac
 }
 
 /**
- * Atualiza só o que o PRX controla: URL, eventos, token e ativo. `reactivate`
+ * Atualiza só o que a PRX controla: URL, eventos, token e ativo. `reactivate`
  * manda interrupted = false, o que faz o Asaas reenviar a fila parada: só usar
- * depois de corrigir a causa (token, URL ou erro no PRX).
+ * depois de corrigir a causa (token, URL ou erro na PRX).
  */
 export function updateWebhook(client: AsaasClient, apiKey: string, id: string, config: SubaccountWebhook, reactivate: boolean): Promise<WebhookConfig> {
   if (!SAFE_ID.test(id)) throw new Error("[asaas] webhook inválido.");

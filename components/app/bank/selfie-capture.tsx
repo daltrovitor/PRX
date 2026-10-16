@@ -14,10 +14,10 @@ import { cn } from "@/lib/utils";
 type CameraState = "closed" | "starting" | "live" | "saving";
 
 const CAMERA_ERROR: Record<string, string> = {
-  NotAllowedError: "Libere o acesso à câmera para o PRX nas configurações do navegador e tente de novo.",
-  SecurityError: "Libere o acesso à câmera para o PRX nas configurações do navegador e tente de novo.",
-  NotFoundError: "Não encontramos uma câmera neste aparelho. Abra o PRX no celular para tirar a selfie.",
-  OverconstrainedError: "Não encontramos a câmera frontal. Abra o PRX no celular para tirar a selfie.",
+  NotAllowedError: "Libere o acesso à câmera para a PRX nas configurações do navegador e tente de novo.",
+  SecurityError: "Libere o acesso à câmera para a PRX nas configurações do navegador e tente de novo.",
+  NotFoundError: "Não encontramos uma câmera neste aparelho. Abra a PRX no celular para tirar a selfie.",
+  OverconstrainedError: "Não encontramos a câmera frontal. Abra a PRX no celular para tirar a selfie.",
   NotReadableError: "A câmera está em uso por outro app. Feche o outro app e tente de novo.",
 };
 const CAMERA_FALLBACK = "Não foi possível abrir a câmera. Tente de novo.";

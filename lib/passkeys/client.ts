@@ -18,7 +18,7 @@ function ceremonyError(err: unknown, fallback: string): string {
   if (err instanceof Error) {
     if (err.name === "NotAllowedError" || err.name === "AbortError") return "Biometria cancelada. Tente de novo ou use a senha.";
     if (err.name === "InvalidStateError") return "Este aparelho já tem a biometria ativada para a sua conta.";
-    if (err.name === "SecurityError") return "A biometria só funciona no endereço oficial do PRX, com conexão segura.";
+    if (err.name === "SecurityError") return "A biometria só funciona no endereço oficial da PRX, com conexão segura.";
   }
   return fallback;
 }

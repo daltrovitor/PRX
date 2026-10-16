@@ -8,8 +8,8 @@
  *   http_error: o Asaas respondeu 4xx/5xx
  *   rate_limited: 429 depois das novas tentativas
  *   timeout / network_error: sem resposta (num POST, resultado desconhecido)
- *   invalid_response: 2xx num formato que o PRX não reconheceu (num POST, a operação pode ter acontecido)
- *   not_sent: o PRX nem chamou o Asaas (regra, configuração ou caminho inválido)
+ *   invalid_response: 2xx num formato que a PRX não reconheceu (num POST, a operação pode ter acontecido)
+ *   not_sent: a PRX nem chamou o Asaas (regra, configuração ou caminho inválido)
  */
 export const AUDIT_OUTCOMES = ["pending", "success", "http_error", "rate_limited", "timeout", "network_error", "invalid_response", "not_sent"] as const;
 export type AuditOutcome = (typeof AUDIT_OUTCOMES)[number];

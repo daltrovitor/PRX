@@ -7,7 +7,7 @@ import type { AsaasBankStore } from "@/lib/bank/asaas/types";
 /**
  * Espelho do Asaas no Supabase (migração 20261001_prx_asaas_baas.sql):
  * subcontas, log de webhooks, avisos do banco e pedidos de saída. O saldo
- * oficial vem sempre do Asaas; aqui fica o que o PRX precisa para conciliar.
+ * oficial vem sempre do Asaas; aqui fica o que a PRX precisa para conciliar.
  */
 
 export type * from "@/lib/bank/asaas/types";

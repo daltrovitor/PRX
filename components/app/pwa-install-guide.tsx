@@ -6,7 +6,7 @@ import { Button, Notice, Sheet } from "@/components/app/ui";
 import type { InstallBrowser, InstallPlatform } from "@/lib/pwa-install";
 
 /**
- * Passo a passo para colocar o PRX na tela inicial quando o navegador não tem
+ * Passo a passo para colocar o app da PRX na tela inicial quando o navegador não tem
  * o botão de instalação de um toque (iPhone, Firefox, prompt já usado…).
  * Cada aparelho/navegador vê só os passos dele. Animação leve, desligada para
  * quem prefere menos movimento.
@@ -32,7 +32,7 @@ export function installGuideFor(platform: InstallPlatform, browser: InstallBrows
       steps: [
         { title: "Toque em Compartilhar", detail: `O ícone de quadrado com a seta para cima, ${share}.`, glyph: "share" },
         { title: "Adicionar à Tela de Início", detail: "Role a lista de opções até encontrar este item.", glyph: "plus" },
-        { title: "Toque em Adicionar", detail: "O ícone do PRX aparece na tela inicial e abre como app.", glyph: "check" },
+        { title: "Toque em Adicionar", detail: "O ícone da PRX aparece na tela inicial e abre como app.", glyph: "check" },
       ],
       note: browser === "safari" ? undefined : "Não achou a opção? Ela exige iOS 16.4 ou mais novo. Abra este endereço no Safari e siga os mesmos passos.",
     };
@@ -44,26 +44,26 @@ export function installGuideFor(platform: InstallPlatform, browser: InstallBrows
         steps: [
           { title: "Abra o menu ⋮", detail: "Os três pontos ao lado da barra de endereço.", glyph: "menu" },
           { title: "Instalar ou Adicionar à tela inicial", detail: "O nome muda conforme a versão do Firefox.", glyph: "plus" },
-          { title: "Confirme", detail: "O PRX aparece junto com os seus apps.", glyph: "check" },
+          { title: "Confirme", detail: "A PRX aparece junto com os seus apps.", glyph: "check" },
         ],
       };
     }
     return {
-      intro: "No Android, o navegador instala o PRX como um app.",
+      intro: "No Android, o navegador instala o app da PRX.",
       steps: [
         { title: "Abra o menu ⋮", detail: "Os três pontos no canto da tela do navegador.", glyph: "menu" },
         { title: "Instalar app", detail: "Pode aparecer como “Adicionar à tela inicial”.", glyph: "install" },
-        { title: "Confirme em Instalar", detail: "O PRX vai para a gaveta de apps e a tela inicial.", glyph: "check" },
+        { title: "Confirme em Instalar", detail: "A PRX vai para a gaveta de apps e a tela inicial.", glyph: "check" },
       ],
     };
   }
   if (platform === "macos" && browser === "safari") {
     return {
-      intro: "No Mac, o Safari 17 ou mais novo coloca o PRX no Dock.",
+      intro: "No Mac, o Safari 17 ou mais novo coloca o app da PRX no Dock.",
       steps: [
         { title: "Menu Arquivo", detail: "Na barra de menus do Safari.", glyph: "menu" },
         { title: "Adicionar ao Dock", detail: "Confirme o nome PRX.", glyph: "dock" },
-        { title: "Pronto", detail: "O PRX abre em uma janela própria.", glyph: "check" },
+        { title: "Pronto", detail: "A PRX abre em uma janela própria.", glyph: "check" },
       ],
     };
   }
@@ -77,7 +77,7 @@ export function installGuideFor(platform: InstallPlatform, browser: InstallBrows
     intro: "No Chrome e no Edge do computador, a instalação fica na barra de endereço.",
     steps: [
       { title: "Ícone de instalar", detail: "Na ponta direita da barra de endereço (um monitor com seta) ou no menu ⋮ → Instalar PRX.", glyph: "install" },
-      { title: "Confirme em Instalar", detail: "O PRX abre em uma janela própria, como app.", glyph: "check" },
+      { title: "Confirme em Instalar", detail: "A PRX abre em uma janela própria, como app.", glyph: "check" },
     ],
   };
 }
@@ -135,7 +135,7 @@ export function PwaInstallGuide({ open, onClose, platform, browser }: { open: bo
     <Sheet
       open={open}
       onClose={onClose}
-      title="Instalar o PRX"
+      title="Instalar o app da PRX"
       description={guide.intro}
       footer={
         <Button block variant="secondary" onClick={onClose}>

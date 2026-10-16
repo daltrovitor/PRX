@@ -103,7 +103,7 @@ describe("abertura da subconta no Asaas", () => {
     ]);
   });
 
-  it("registra para o admin quando o PRX nem envia (cadastro não aprovado)", async () => {
+  it("registra para o admin quando a PRX nem envia (cadastro não aprovado)", async () => {
     const { client } = fakeAsaas({ ...NONE, "POST /accounts": { body: CREATED } });
     const { deps, store } = testDeps(client, approvedKyc({ status: "pending" }));
     await expect(openSubaccount(USER_ID, deps)).rejects.toMatchObject({ status: 403 });
@@ -152,7 +152,7 @@ describe("webhook de aprovação da conta", () => {
     expect(notice.body).toContain("Selfie ilegível");
   });
 
-  it("ignora eventos de contas que o PRX não conhece", async () => {
+  it("ignora eventos de contas que a PRX não conhece", async () => {
     const { deps, store } = await opened();
     await expect(handleAsaasEvent({ id: "evt_x", event: "ACCOUNT_STATUS_GENERAL_APPROVAL_APPROVED", account: { id: "acc_outra" } }, deps)).resolves.toBe("ignored");
     expect((await store.getSubaccount(USER_ID))?.status).toBe("pending_activation");

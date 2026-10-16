@@ -96,7 +96,7 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase, noticeCount, onO
             Assinaturas
           </Row>
           <Row icon={<IconExternal size={18} />} onClick={onViewShowcase}>
-            Conhecer o PRX
+            Conhecer a PRX
           </Row>
         </ul>
       </section>
@@ -219,7 +219,7 @@ function BiometricsCard() {
           </Button>
         )}
       </div>
-      {supported === false && <Notice>Este navegador não oferece biometria. No celular, abra o PRX pelo navegador padrão ou pelo app instalado.</Notice>}
+      {supported === false && <Notice>Este navegador não oferece biometria. No celular, abra a PRX pelo navegador padrão ou pelo app instalado.</Notice>}
       {passkeys && passkeys.length > 0 && (
         <ul className="divide-y divide-line rounded-2xl bg-surface px-4">
           {passkeys.map((p) => (
@@ -272,7 +272,7 @@ function Row({ children, icon, onClick, badge = 0 }: { children: ReactNode; icon
   );
 }
 
-/** Instalar o PRX na tela inicial: botão nativo quando existe; senão, o passo a passo do aparelho. */
+/** Instalar o app da PRX na tela inicial: botão nativo quando existe; senão, o passo a passo do aparelho. */
 function InstallAppCard() {
   const { installed, canPrompt, platform, browser } = usePwaInstall();
   const [guide, setGuide] = useState(false);
@@ -283,7 +283,7 @@ function InstallAppCard() {
         <h2 id="profile-install" className="text-[15px] font-medium text-ink">
           App na tela inicial
         </h2>
-        <p className="text-[13px] text-muted-foreground">Abra o PRX como um app, sem a barra do navegador.</p>
+        <p className="text-[13px] text-muted-foreground">Abra a PRX como um app, sem a barra do navegador.</p>
       </div>
       <Button
         size="sm"

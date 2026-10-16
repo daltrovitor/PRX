@@ -148,7 +148,7 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
           ? await login(email, password, rememberMe, termsAccepted)
           : await signup(name, email, password, confirmPassword, cleanCpf, cleanPhone, birthDate, termsAccepted);
       if (res.success) {
-        setFeedback({ kind: "success", text: mode === "login" ? "Login realizado. Bem-vindo de volta!" : "Conta criada. Bem-vindo ao PRX!" });
+        setFeedback({ kind: "success", text: mode === "login" ? "Login realizado. Bem-vindo de volta!" : "Conta criada. Bem-vindo à PRX!" });
         window.setTimeout(() => onAuthenticated?.(), 400);
       } else {
         setFeedback({ kind: "error", text: res.error || (mode === "login" ? "Credenciais incorretas. Verifique seu e-mail e senha." : "Não foi possível criar a conta.") });
@@ -188,7 +188,7 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
           <SectionHeading
             id="acesso-title"
             align="left"
-            title="Entre no PRX."
+            title="Entre na PRX."
             accent="Ou crie sua conta agora."
             lead="Acesse sua carteira de benefícios, seu saldo e seus ingressos. Ainda não tem conta? Bastam nome, e-mail e senha; documentos só quando você ativar o PRX Bank."
           />
@@ -313,7 +313,7 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
                         />
                       </Field>
                       <p id={ids.birthHint} className="px-1 text-[12px] leading-relaxed text-[var(--rv-muted)]">
-                        Data de nascimento. O PRX é para quem tem 12 anos ou mais; quem tem menos de 18 precisa do responsável para abrir o PRX Bank.
+                        Data de nascimento. A PRX é para quem tem 12 anos ou mais; quem tem menos de 18 precisa do responsável para abrir o PRX Bank.
                       </p>
 
                       <p
@@ -507,7 +507,7 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
                           </>
                         ) : (
                           <>
-                            {mode === "login" ? "Entrar no PRX" : "Continuar"}
+                            {mode === "login" ? "Entrar na PRX" : "Continuar"}
                             <ArrowRight className="h-4 w-4 transition-transform group-hover/lux:translate-x-0.5" />
                           </>
                         )}

@@ -7,7 +7,7 @@ import type { PixKeyType } from "@/lib/prx/pix";
  * Saída de dinheiro da subconta: Pix por chave (POST /v3/transfers), leitura e
  * pagamento de QR Code Pix (POST /v3/pix/qrCodes/decode e /pay) e pagamento de
  * contas (POST /v3/bill/simulate e /v3/bill). Toda saída leva externalReference
- * = id do pedido no PRX, que o webhook de validação de saque confere.
+ * = id do pedido na PRX, que o webhook de validação de saque confere.
  */
 
 const ASAAS_KEY_TYPE: Record<PixKeyType, string> = { cpf: "CPF", cnpj: "CNPJ", email: "EMAIL", phone: "PHONE", random: "EVP" };

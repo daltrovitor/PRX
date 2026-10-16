@@ -23,7 +23,7 @@ import { requireSubaccount } from "@/lib/bank/asaas/subaccount";
  *   - um arquivo por grupo: frente e verso vão juntos num PDF (um segundo envio
  *     substituiria o primeiro); qualquer foto (JPG, PNG, WebP, HEIF) ou PDF do
  *     cadastro é convertida para o que o Asaas aceita (document-file.ts).
- * O que o PRX não consegue enviar sozinho, o membro envia pela aba PRX BANK.
+ * O que a PRX não consegue enviar sozinho, o membro envia pela aba PRX BANK.
  * Se o Asaas recusar o envio pela API (ex.: "Esse tipo de documento não pode
  * ser enviado via API"), o grupo segue pelo link seguro ou pelo suporte, e o
  * motivo fica para o admin.
@@ -88,7 +88,7 @@ async function readBytes(path: string, deps: AsaasDeps): Promise<Uint8Array | nu
   return file ? new Uint8Array(await file.blob.arrayBuffer()) : null;
 }
 
-/** O arquivo único que o PRX manda para o grupo, ou null quando só o membro consegue enviar. */
+/** O arquivo único que a PRX manda para o grupo, ou null quando só o membro consegue enviar. */
 async function fileForGroup(userId: string, type: string, app: BankKycApplication | null, deps: AsaasDeps): Promise<DocumentUpload | null> {
   const docs = app?.documents ?? [];
   const wanted =
@@ -114,7 +114,7 @@ async function fileForGroup(userId: string, type: string, app: BankKycApplicatio
 export type DocumentSyncResult = { state: "wait"; retryInMs: number } | { state: "done"; sent: number; viaLink: number; memberUpload: number; refusals: string[] };
 
 /**
- * Consulta o que o Asaas pede e envia o que o PRX já tem (documento do
+ * Consulta o que o Asaas pede e envia o que a PRX já tem (documento do
  * cadastro, certidão de emancipação). Grupos do link seguro e os que só o
  * membro tem ficam para ele, que é avisado uma vez no sino do app.
  */

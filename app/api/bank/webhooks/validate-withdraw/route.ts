@@ -16,7 +16,7 @@ const text = (value: unknown): string | null => (typeof value === "string" && va
  * membro no app; o resto recebe { status: "REFUSED", refuseReason }. Pela
  * documentação, resposta sem APPROVED/REFUSED ou 3 falhas seguidas cancelam a
  * saída. Autenticado pelo header asaas-access-token (ASAAS_WEBHOOK_AUTH_TOKEN).
- * Só lê os pedidos do PRX: não depende da chave do Asaas estar ligada.
+ * Só lê os pedidos da PRX: não depende da chave do Asaas estar ligada.
  */
 // nosemgrep: prx-mutation-route-without-auth — webhook do Asaas autenticado pelo token asaas-access-token, não por sessão
 export async function POST(req: NextRequest) {

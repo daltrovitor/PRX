@@ -39,7 +39,7 @@ import { cn } from "@/lib/utils";
 import { calculatePrxLevel } from "@/lib/pass-data";
 
 /**
- * 6 destinos oficiais do PRX (Início, PRX Pass, Destaques, PRX Bank, PRX Live, Founders).
+ * 6 destinos oficiais da PRX (Início, PRX Pass, Destaques, PRX Bank, PRX Live, Founders).
  * Perfil, notificações e vouchers ficam fixos no topo do cabeçalho.
  */
 const NAV_ITEMS: ReadonlyArray<ObsidianDockItem<AppTab>> = [

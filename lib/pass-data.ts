@@ -258,7 +258,7 @@ export interface ReferralRecord {
 // Modelos Oficiais de Missões extraídos dos PDFs (Escopo do app.pdf & Proposta PRX.pdf)
 export const PDF_MISSION_TEMPLATES: Omit<PassMission, "id">[] = [
   {
-    title: "Convidar 1 Amigo para o PRX",
+    title: "Convidar 1 Amigo para a PRX",
     description:
       "Convide 1 amigo para a comunidade. Peça para ele colocar o seu ID de usuário no dashboard dele para validar a missão e ambos ganharem XP!",
     xpReward: 250,
@@ -279,7 +279,7 @@ export const PDF_MISSION_TEMPLATES: Omit<PassMission, "id">[] = [
     isCompleted: false,
     verificationType: "referral",
     category: "Comunidade",
-    targetAction: "Indicar 3 amigos que ingressem no PRX",
+    targetAction: "Indicar 3 amigos que ingressem na PRX",
   },
   {
     title: "Resgatar Primeiro Voucher no PRX PASS",

@@ -578,7 +578,7 @@ function LimitsSheet({ child, onClose, onDone }: { child: ChildDetail; onClose: 
   const { busy, error, run } = useSubmit(onDone, onClose, "Limites atualizados.");
   const n = (v: string) => Number(v.replace(",", ".")) || 0;
   return (
-    <Sheet open onClose={onClose} title="Limites de gasto" description="Valem para o cartão e para o Pix do seu filho. Acima disso, o PRX bloqueia.">
+    <Sheet open onClose={onClose} title="Limites de gasto" description="Valem para o cartão e para o Pix do seu filho. Acima disso, a PRX bloqueia.">
       <form
         className="space-y-4"
         onSubmit={(e: FormEvent) => {
@@ -624,7 +624,7 @@ function NewChildSheet({ onClose, onDone }: { onClose: () => void; onDone: (chil
   }
 
   return (
-    <Sheet open onClose={onClose} title="Adicionar filho" description="Crie o acesso dele ao PRX. A conta já nasce vinculada a você, com limites iniciais." size="lg">
+    <Sheet open onClose={onClose} title="Adicionar filho" description="Crie o acesso dele à PRX. A conta já nasce vinculada a você, com limites iniciais." size="lg">
       <form onSubmit={(e) => void submit(e)} className="space-y-4">
         <Field label="Nome completo">{(id) => <Input id={id} value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} required />}</Field>
         <div className="grid gap-4 sm:grid-cols-2">

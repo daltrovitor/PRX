@@ -29,7 +29,7 @@ export interface PendingGooglePayload {
 }
 
 /**
- * Perfil que nunca passou pelo cadastro do PRX: sem CPF, celular nem aceite dos Termos.
+ * Perfil que nunca passou pelo cadastro da PRX: sem CPF, celular nem aceite dos Termos.
  * É o que o gatilho handle_new_user do banco cria no instante em que o Google cria o acesso,
  * por isso "já existe perfil" não quer dizer "já é membro".
  */

@@ -51,7 +51,7 @@ export function eventInstant(dateCreated: string | null | undefined): Date | nul
   return Number.isNaN(parsed) ? null : new Date(parsed);
 }
 
-/** Estado do PRX que cada combinação produz. Conta bloqueada pelo PRX continua bloqueada. */
+/** Estado da PRX que cada combinação produz. Conta bloqueada pela PRX continua bloqueada. */
 function derive(current: Subaccount, dims: StatusSnapshot): { status: SubaccountStatus; kycStatus: SubaccountKycStatus } {
   if (current.status === "blocked") return { status: "blocked", kycStatus: dims.general === "APPROVED" ? "APPROVED" : current.kycStatus };
   if (dims.general === "APPROVED") return { status: "active", kycStatus: "APPROVED" };
@@ -63,7 +63,7 @@ function derive(current: Subaccount, dims: StatusSnapshot): { status: Subaccount
 
 /**
  * Menor emancipado cuja conta o banco parceiro aprovou (ele conferiu a certidão
- * de emancipação): vira conta comum no PRX, sem os limites de menor.
+ * de emancipação): vira conta comum na PRX, sem os limites de menor.
  */
 async function liftEmancipatedMinor(userId: string, deps: AsaasDeps): Promise<void> {
   const app = await deps.latestKyc(userId);

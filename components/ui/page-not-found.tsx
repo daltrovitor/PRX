@@ -32,7 +32,7 @@ export default function NotFoundPage() {
           href="/"
           className="mt-8 inline-flex min-h-12 items-center justify-center rounded-full bg-ink px-6 text-[15px] font-medium text-background transition-opacity hover:opacity-90"
         >
-          Voltar para o PRX
+          Voltar para a PRX
         </Link>
       </section>
     </main>

@@ -151,7 +151,7 @@ export function QuickLogin({ account, remember = true }: { account: KnownAccount
             {step === "offer" ? (
               <>
                 <p className="text-[14px] leading-relaxed text-muted-foreground">
-                  A biometria fica só no seu aparelho; o PRX guarda apenas uma chave pública para confirmar que é você.
+                  A biometria fica só no seu aparelho; a PRX guarda apenas uma chave pública para confirmar que é você.
                 </p>
                 <Button block onClick={() => void enableBiometrics()} disabled={busy !== null}>
                   <FaceIdIcon className="h-5 w-5" />

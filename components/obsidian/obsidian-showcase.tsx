@@ -115,7 +115,7 @@ export function ObsidianShowcase() {
               <Tagline />
             </h1>
             <p className="mt-6 max-w-md text-[15px] leading-relaxed text-muted-foreground">
-              Showcase da identidade Cyber-Luxury Obsidian do PRX: o celular 3D com o app vivo na tela, a visão em tela cheia, os componentes e os assets
+              Showcase da identidade Cyber-Luxury Obsidian da PRX: o celular 3D com o app vivo na tela, a visão em tela cheia, os componentes e os assets
               originais da marca.
             </p>
 

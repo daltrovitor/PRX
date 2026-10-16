@@ -483,7 +483,7 @@ function memoryWallet(userId: string): MemoryWallet {
         source: "welcome",
         ruleId: null,
         referenceId: "welcome",
-        description: "Boas-vindas ao PRX",
+        description: "Boas-vindas à PRX",
         createdAt: userStore.findById(userId)?.createdAt ?? new Date().toISOString(),
       });
     }

@@ -58,7 +58,7 @@ export default function HomePage() {
   } else if (!loading && user && viewMode === "app") {
     content = <AppShell user={user} onLogout={() => void logout()} onViewShowcase={() => setViewMode("showcase")} notice={familyNotice(family)} />;
   } else if (!loading && user) {
-    // Membro logado revendo a apresentação (landing) do PRX.
+    // Membro logado revendo a apresentação (landing) da PRX.
     content = <RevolutLanding onBackToApp={() => setViewMode("app")} />;
   } else if (!loading) {
     // Visitante: a landing Obsidian, com Entrar e Criar conta na própria página (#entrar / #criar-conta).

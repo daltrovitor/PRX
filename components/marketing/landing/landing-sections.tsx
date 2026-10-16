@@ -80,7 +80,7 @@ export function AppShowcaseSection() {
             align="left"
             title="O app, ao vivo."
             accent="Toque e navegue."
-            lead="Este é o PRX de verdade, com dados de demonstração. Troque de aba no celular e veja como o seu dinheiro, seus benefícios e seus eventos ficam juntos."
+            lead="Esta é a PRX de verdade, com dados de demonstração. Troque de aba no celular e veja como o seu dinheiro, seus benefícios e seus eventos ficam juntos."
           />
           <ul className="mt-8 space-y-3">
             {APP_TABS.map((t, i) => (
@@ -129,7 +129,7 @@ export function HowItWorksSection() {
           id="como-funciona-title"
           title="Como funciona."
           accent="Quatro passos, um ciclo que premia."
-          lead="O PRX transforma o que você já faz no dia a dia em conquistas: quanto mais você cuida do seu dinheiro, mais o app devolve."
+          lead="A PRX transforma o que você já faz no dia a dia em conquistas: quanto mais você cuida do seu dinheiro, mais o app devolve."
         />
         <ol className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
           {STEPS.map((s, i) => (
@@ -243,7 +243,7 @@ export function SecuritySection() {
 
 const PARENT_FEATURES: ReadonlyArray<{ title: string; text: string }> = [
   { title: "Mesada automática", text: "Escolha o valor e o dia: ela cai às 9h (Brasília), direto na conta do seu filho." },
-  { title: "Limites de gasto", text: "Defina quanto pode sair no cartão e no Pix. Acima do limite, o PRX bloqueia na hora." },
+  { title: "Limites de gasto", text: "Defina quanto pode sair no cartão e no Pix. Acima do limite, a PRX bloqueia na hora." },
   { title: "Extrato em tempo real", text: "Pix, compras, mesada e cashbacks aparecem para você assim que acontecem." },
   { title: "Benefícios, coins e XP", text: "Acompanhe o que ele resgatou no PRX Pass e como está evoluindo no PRX Level." },
   { title: "Eventos e ingressos", text: "Veja cada ingresso do PRX Live e os projetos enviados ao PRX Founders." },
@@ -325,7 +325,7 @@ export function ParentSection({ links }: { links: LandingLinks }) {
             align="left"
             title="Sou Pai."
             accent="Liberdade para eles, tranquilidade para você."
-            lead="A Conta Pai conecta você à conta do seu filho: mesada automática, limites de gasto e acompanhamento de tudo o que ele faz no PRX, em tempo real."
+            lead="A Conta Pai conecta você à conta do seu filho: mesada automática, limites de gasto e acompanhamento de tudo o que ele faz na PRX, em tempo real."
           />
           <ul className="mt-8 grid gap-x-6 gap-y-5 sm:grid-cols-2">
             {PARENT_FEATURES.map((f, i) => (
@@ -513,12 +513,12 @@ export function PlansSection({ links }: { links: LandingLinks }) {
 /* -------------------------------------------------------------------------- */
 
 const FAQ: ReadonlyArray<{ q: string; a: ReactNode }> = [
-  { q: "O que é o PRX?", a: "Um super app que junta conta digital (PRX Bank), clube de benefícios (PRX Pass) e eventos (PRX Live), e transforma hábitos positivos em recompensas: PRX Coins, XP e níveis." },
+  { q: "O que é a PRX?", a: "Um super app que junta conta digital (PRX Bank), clube de benefícios (PRX Pass) e eventos (PRX Live), e transforma hábitos positivos em recompensas: PRX Coins, XP e níveis." },
   { q: "Tem tarifa ou anuidade?", a: "O Pix não tem tarifa por transação e o cartão não tem anuidade. Benefícios maiores, como limites ampliados e lounges, são desbloqueados pelo PRX Level." },
   { q: "Como ganho PRX Coins?", a: "Pagando com Pix em parceiros PRX (a compra é reconhecida na hora), cumprindo missões e metas e participando dos eventos da comunidade." },
   { q: "O que o PRX Level desbloqueia?", a: "Cada nível amplia limites e libera vantagens como anuidade zero, acesso a lounges VIP e benefícios maiores no PRX Pass e no PRX Live." },
   { q: "Como funciona a Conta Pai?", a: "O responsável abre a Conta Pai, cadastra o filho e define mesada automática e limites de gasto no cartão e no Pix. Tudo o que o filho faz aparece no extrato do responsável." },
-  { q: "Menor de idade pode usar o PRX?", a: "Pode, a partir de 12 anos e com a conta vinculada a um responsável: o cadastro pede os documentos e o consentimento do responsável, como manda a LGPD." },
+  { q: "Menor de idade pode usar a PRX?", a: "Pode, a partir de 12 anos e com a conta vinculada a um responsável: o cadastro pede os documentos e o consentimento do responsável, como manda a LGPD." },
   { q: "Onde uso o PRX Pass?", a: "Nos estabelecimentos parceiros credenciados. Você gera o cupom no app e mostra o QR Code protegido no balcão; o desconto sai na hora." },
   { q: "Quando chegam o PRX Invest e o PRX Me?", a: "Estão em construção. O Invest trará caixinhas e metas para os seus planos, e o Me, conteúdo de saúde mental e longevidade. Avisaremos no app." },
 ];

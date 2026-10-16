@@ -150,7 +150,7 @@ async function open(userId: string, deps: AsaasDeps): Promise<SubaccountView> {
     throw new PartnerError("A abertura da sua conta já está em andamento. Aguarde alguns instantes.", 409);
   }
 
-  // Uma tentativa anterior pode ter criado a conta sem o PRX saber: procura pelo CPF antes de criar.
+  // Uma tentativa anterior pode ter criado a conta sem a PRX saber: procura pelo CPF antes de criar.
   try {
     const adopted = await adoptExistingSubaccount(userId, app.cpf, deps);
     if (adopted) return subaccountView(adopted.sub);
@@ -198,7 +198,7 @@ async function open(userId: string, deps: AsaasDeps): Promise<SubaccountView> {
     return subaccountView(saved);
   } catch (err) {
     // A chave não volta mais: o id fica no log para o suporte religar a conta (procura pelo CPF) e gerar uma nova chave.
-    await log("failed", `Subconta ${created.id} criada no Asaas, mas falhou ao gravar no PRX: ${describeError(err)}`, created.id);
+    await log("failed", `Subconta ${created.id} criada no Asaas, mas falhou ao gravar na PRX: ${describeError(err)}`, created.id);
     throw err;
   }
 }
@@ -206,7 +206,7 @@ async function open(userId: string, deps: AsaasDeps): Promise<SubaccountView> {
 /** Consulta a situação no Asaas (reforço caso um webhook tenha se perdido). */
 export async function refreshSubaccountStatus(userId: string, deps: AsaasDeps): Promise<SubaccountView> {
   return withAsaasAudit({ userId }, async () => {
-    // Subconta sem chave no PRX (religada pelo CPF ou resposta perdida): não dá para consultar o Asaas.
+    // Subconta sem chave na PRX (religada pelo CPF ou resposta perdida): não dá para consultar o Asaas.
     // O membro segue vendo a situação salva, sem erro; o admin é que gera a chave.
     const saved = await currentSubaccount(userId, deps);
     if (saved?.asaasAccountId && !saved.apiKeySealed) {
@@ -215,7 +215,7 @@ export async function refreshSubaccountStatus(userId: string, deps: AsaasDeps): 
         step: "api_key",
         outcome: "blocked",
         asaasAccountId: saved.asaasAccountId,
-        detail: 'Membro pediu para verificar a aprovação, mas a subconta está sem chave no PRX: use "Gerar chave da subconta" em Admin → Asaas.',
+        detail: 'Membro pediu para verificar a aprovação, mas a subconta está sem chave na PRX: use "Gerar chave da subconta" em Admin → Asaas.',
       });
       return subaccountView(saved);
     }

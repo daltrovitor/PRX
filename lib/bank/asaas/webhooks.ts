@@ -87,7 +87,7 @@ const handlers: ReadonlyArray<{ match: (event: string) => boolean; handle: Event
 
 async function dispatch(event: AsaasEvent, deps: AsaasDeps): Promise<WebhookOutcome> {
   const accountId = event.account?.id ?? null;
-  // Eventos da conta mãe (ou de contas que o PRX não conhece) não mexem em correntista nenhum.
+  // Eventos da conta mãe (ou de contas que a PRX não conhece) não mexem em correntista nenhum.
   const sub = accountId ? await deps.store.findSubaccountByAsaasId(accountId) : null;
   // Sem subconta: pode ser cobrança da própria PRX (assinatura ou ingresso), na conta principal.
   if (!sub) return dispatchBillingEvent(event, deps.client);

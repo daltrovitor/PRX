@@ -68,7 +68,7 @@ export const APP_HEIGHT = Math.round(SCREEN_H / APP_SCALE);
 const EDGE_LAYERS = [1, 2, 3, 4, 5, 6, 7, 8];
 
 /* -------------------------------------------------------------------------- */
-/* App de demonstração (a tela viva do PRX)                                   */
+/* App de demonstração (a tela viva da PRX)                                   */
 /* -------------------------------------------------------------------------- */
 
 type PhoneTab = "home" | "pass" | "reels" | "bank" | "live" | "profile";
@@ -148,7 +148,7 @@ function Progress({ value, label }: { value: number; label: string }) {
 }
 
 /**
- * Interface viva do PRX na identidade Obsidian, em 390pt de largura. Botões
+ * Interface viva da PRX na identidade Obsidian, em 390pt de largura. Botões
  * funcionam de verdade: o dock troca de tela, o olho oculta o saldo, os
  * pilares e atalhos navegam, as chaves Pix copiam. Dados de demonstração (não há conta por trás).
  */

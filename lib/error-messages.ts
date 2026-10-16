@@ -1,7 +1,7 @@
 // Hello World
 
 /**
- * Textos de erro do PRX, iguais no servidor e nas telas. Regra:
+ * Textos de erro da PRX, iguais no servidor e nas telas. Regra:
  *   - erro que a pessoa resolve na própria tela: frase simples dizendo o que fazer;
  *   - erro técnico (ela não tem como resolver): "Deu um erro ao fazer isso" com um
  *     código, que o suporte usa para achar o detalhe (logs e app_incidents).

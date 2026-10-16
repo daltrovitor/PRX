@@ -144,7 +144,7 @@ export function CompleteRegistration({ person, mode }: { person: PendingPerson; 
             <Field label="Celular com DDD">
               {(id) => <Input id={id} type="tel" inputMode="tel" autoComplete="tel-national" placeholder="(11) 98888-7777" value={phone} onChange={(e) => setPhone(maskPhone(e.target.value))} required />}
             </Field>
-            <Field label="Data de nascimento" hint="O PRX é para quem tem 12 anos ou mais. Menores de 18 precisam do responsável para abrir o PRX Bank.">
+            <Field label="Data de nascimento" hint="A PRX é para quem tem 12 anos ou mais. Menores de 18 precisam do responsável para abrir o PRX Bank.">
               {(id, hint) => <Input id={id} aria-describedby={hint} type="date" autoComplete="bday" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} required className="cursor-pointer" />}
             </Field>
             <TermsConsent checked={terms} onChange={setTerms} />

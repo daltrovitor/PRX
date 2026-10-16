@@ -12,13 +12,13 @@ import { requireSubaccount } from "@/lib/bank/asaas/subaccount";
  * O webhook de cada subconta foi registrado na criação, com o token e os
  * eventos daquele dia. Quando o token muda (ASAAS_WEBHOOK_AUTH_TOKEN foi
  * rotacionado em 08/10/2026) ou entram eventos novos, as subcontas antigas
- * seguem com a configuração velha: o PRX recusa os avisos (401) e, depois de 15
- * falhas, o Asaas interrompe a fila — aprovações deixam de chegar. Aqui o PRX
+ * seguem com a configuração velha: a PRX recusa os avisos (401) e, depois de 15
+ * falhas, o Asaas interrompe a fila — aprovações deixam de chegar. Aqui a PRX
  * lê e corrige a configuração com a chave da subconta.
  */
 
 export interface WebhookHealth {
-  /** Existe um webhook apontando para o PRX nesta subconta. */
+  /** Existe um webhook apontando para a PRX nesta subconta. */
   configured: boolean;
   id: string | null;
   url: string | null;
@@ -62,7 +62,7 @@ export async function subaccountWebhookHealth(userId: string, deps: AsaasDeps): 
 /**
  * Grava a configuração atual (URL, eventos e token) no webhook da subconta, ou
  * cria se não houver. `reactivate` também religa a fila interrompida: o Asaas
- * reenvia os eventos parados, que o PRX processa sem duplicar (idempotência).
+ * reenvia os eventos parados, que a PRX processa sem duplicar (idempotência).
  */
 export async function syncSubaccountWebhook(userId: string, deps: AsaasDeps, reactivate: boolean): Promise<WebhookHealth> {
   return withAsaasAudit({ userId }, async () => {

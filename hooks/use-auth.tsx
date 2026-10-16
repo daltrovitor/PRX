@@ -180,7 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = useCallback(async () => applySession(await resolveSession()), [applySession]);
 
-  // Bloqueio de app de banco: com a conta PRX BANK ativa, sair do PRX por mais de 1 minuto faz a volta pedir senha ou biometria.
+  // Bloqueio de app de banco: com a conta PRX BANK ativa, sair da PRX por mais de 1 minuto faz a volta pedir senha ou biometria.
   useEffect(() => {
     if (!user || !requiresUnlock) return;
     const onVisibility = () => {
@@ -281,7 +281,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // O aceite dos Termos/LGPD atravessa o redirecionamento do Google e é gravado no callback.
       if (termsAccepted) document.cookie = `${CONSENT_COOKIE}=${TERMS_VERSION}; path=/; max-age=1800; SameSite=Lax`;
 
-      // Login direto pelo app: o Google mostra o endereço do PRX no lugar do endereço do Supabase.
+      // Login direto pelo app: o Google mostra o endereço da PRX no lugar do endereço do Supabase.
       // Sem as chaves do Google no servidor, a rota responde { direct: false } e o fluxo segue pelo Supabase.
       const start = await fetch("/api/auth/google/start", { method: "POST" })
         .then((r) => (r.ok ? (r.json() as Promise<{ direct?: boolean; url?: string }>) : null))

@@ -19,7 +19,7 @@ async function member(req: NextRequest) {
 
 /**
  * GET /api/bank/accounts/documents — documentos que o banco parceiro ainda pede.
- * Na primeira visita depois da criação, envia antes o que o PRX já tem.
+ * Na primeira visita depois da criação, envia antes o que a PRX já tem.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 
 /**
  * POST /api/bank/accounts/documents
- *   JSON { action: "forward_kyc" }      envia o que o PRX já tem (frente e verso num PDF, certidão);
+ *   JSON { action: "forward_kyc" }      envia o que a PRX já tem (frente e verso num PDF, certidão);
  *                                       responde wait (ms) se a subconta tem menos de 15 s
  *   multipart { groupId, file[] }       envia um documento pendente: fotos (JPG, PNG, WebP, HEIC)
  *                                       ou PDF, até 4 partes de 10 MB, juntas num arquivo só

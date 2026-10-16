@@ -57,10 +57,10 @@ export const EMANCIPATION_AGE = 16;
 export const ADULT_AGE = 18;
 export const MAX_MEMBER_AGE = 29;
 
-export const UNDER_AGE_MESSAGE = `O PRX é para quem tem ${MIN_ACCOUNT_AGE} anos ou mais.`;
+export const UNDER_AGE_MESSAGE = `A PRX é para quem tem ${MIN_ACCOUNT_AGE} anos ou mais.`;
 export const PARENT_REQUIRED_MESSAGE = "Menores de 16 anos precisam do responsável: informe o e-mail da Conta Pai dele para vincular a conta.";
 export const OVER_AGE_MESSAGE = "O ecossistema PRX é exclusivo para jovens até 29 anos (Gerações Alpha e Z). Responsáveis podem abrir a Conta Pai.";
-export const CPF_TAKEN_MESSAGE = "Este CPF já está cadastrado no PRX. Entre com a conta existente ou fale com o suporte.";
+export const CPF_TAKEN_MESSAGE = "Este CPF já está cadastrado na PRX. Entre com a conta existente ou fale com o suporte.";
 
 export const onlyDigits = (value: string) => value.replace(/\D/g, "");
 

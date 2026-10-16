@@ -165,7 +165,7 @@ export function ComingSoon() {
           <div className="mx-auto max-w-[1200px]">
             <Reveal amount={0.6}>
               <h2 id="teaser-pilares" className="ob-label border-b border-white/10 pb-4 text-[12px] text-white/70">
-                O que chega com o PRX
+                O que chega com a PRX
               </h2>
             </Reveal>
             <ul className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-5">

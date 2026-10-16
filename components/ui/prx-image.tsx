@@ -12,7 +12,7 @@ export interface PrxImageProps extends Omit<ImageProps, "src"> {
 }
 
 /**
- * Componente de imagem oficial do PRX.
+ * Componente de imagem oficial da PRX.
  * Aceita todas as propriedades de `next/image` e descompacta automaticamente
  * qualquer imagem compactada que veio do banco de dados (prx:gz:...).
  */

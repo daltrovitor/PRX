@@ -10,7 +10,7 @@ import { IconClose, IconGift } from "@/components/icons/prx-icons";
 import { dismissInstallCard, promptInstall, usePwaInstall, type InstallBrowser, type InstallPlatform } from "@/lib/pwa-install";
 
 /*
- * Convite para colocar o PRX na tela de início, no design do PRX (vidro e
+ * Convite para colocar o app da PRX na tela de início, no design da PRX (vidro e
  * violeta da marca): presente, título, subtítulo e os dois passos do aparelho.
  * Onde o navegador instala com um toque (Android/computador), um botão faz
  * tudo; no iPhone a Apple não deixa instalar por botão, então os passos

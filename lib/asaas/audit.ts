@@ -8,7 +8,7 @@ import { bankLog } from "@/lib/asaas/log";
 export { AUDIT_OUTCOMES, type AuditOutcome } from "@/lib/asaas/audit-outcomes";
 
 /**
- * Registro central de cada chamada do PRX ao Asaas (tabela asaas_api_requests).
+ * Registro central de cada chamada da PRX ao Asaas (tabela asaas_api_requests).
  * O AsaasClient abre um registro antes de enviar e o fecha com a resposta (ou
  * a falha): quem chamou não precisa repassar nada além do contexto de negócio,
  * que viaja por AsyncLocalStorage (membro, subconta, pedido). Falha ao gravar
@@ -136,7 +136,7 @@ export function logAuditRecord(record: AuditRecord): void {
   });
 }
 
-/** Registro de algo que o PRX decidiu não enviar ao Asaas (regra ou configuração). */
+/** Registro de algo que a PRX decidiu não enviar ao Asaas (regra ou configuração). */
 export async function recordNotSent(sink: AuditSink | null, input: { environment: AsaasEnvironment; operation: string; method: string; path: string; reason: string }): Promise<void> {
   const record = newAuditRecord({ environment: input.environment, operation: input.operation, method: input.method, path: input.path, query: null, auth: "none", requestBody: null });
   const done: AuditRecord = { ...record, outcome: "not_sent", durationMs: 0, errorCode: "not_sent", errorDescription: input.reason.slice(0, 1000) };

@@ -108,7 +108,7 @@ describe("registro de cada chamada ao Asaas", () => {
     expect(audit.all()[0]).toMatchObject({ outcome: "rate_limited", attempts: 2, operation: "finance.balance" });
   });
 
-  it("caminho inválido não sai do servidor e fica como not_sent; regra do PRX também", async () => {
+  it("caminho inválido não sai do servidor e fica como not_sent; regra da PRX também", async () => {
     const { asaas, audit } = client(() => json({}));
     await expect(asaas.get("/../accounts")).rejects.toThrow();
     expect(audit.all()[0]).toMatchObject({ outcome: "not_sent", errorCode: "invalid_path" });

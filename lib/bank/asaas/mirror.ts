@@ -40,7 +40,7 @@ export interface BankMirror {
   /** Nicho e parceiro do gasto (PRX Map) quando o Pix foi para um parceiro PRX. */
   categorizeTransaction(providerRef: string, data: { categoryId: string; partnerId: string | null; counterparty: string }): Promise<void>;
   saveCharge(userId: string, charge: MirrorCharge): Promise<void>;
-  /** Marca a cobrança paga; devolve o dono, ou null se não era uma cobrança do PRX. */
+  /** Marca a cobrança paga; devolve o dono, ou null se não era uma cobrança da PRX. */
   markChargePaid(providerRef: string, paidAt: string): Promise<string | null>;
 }
 

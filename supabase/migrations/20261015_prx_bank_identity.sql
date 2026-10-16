@@ -14,7 +14,7 @@
 --    verso, selfie, certidão) é aprovado ou recusado pela equipe, com motivo;
 --    a pessoa reenvia só o que foi recusado. bank_kyc_events guarda o
 --    histórico (quem, o quê, quando), inclusive cada abertura de documento.
--- 3. bank_access_grants: o PRX é para jovens até 29 anos; o admin libera a
+-- 3. bank_access_grants: a PRX é para jovens até 29 anos; o admin libera a
 --    abertura do PRX BANK para pessoas específicas acima disso. A liberação é
 --    só uma condição a mais: identidade, análise e banco parceiro continuam.
 --

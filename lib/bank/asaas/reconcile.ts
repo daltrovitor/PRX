@@ -70,7 +70,7 @@ async function reconcileOne(sub: Subaccount, report: AccountReconcileReport, dep
     await ensureDefaultPixKey(sub.userId, deps);
     return;
   }
-  // Documentação ainda não enviada (ou recusada): manda o que o PRX tem e avisa o membro do resto.
+  // Documentação ainda não enviada (ou recusada): manda o que a PRX tem e avisa o membro do resto.
   if (saved.documentationStatus !== "APPROVED" && saved.documentationStatus !== "AWAITING_APPROVAL") {
     const docs = await syncOnboardingDocuments(sub.userId, deps);
     if (docs.state === "done") report.documentsSent += docs.sent;

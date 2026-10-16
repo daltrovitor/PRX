@@ -71,7 +71,7 @@ async function accountCounts(): Promise<BankStatus["accounts"]> {
   return production === null || sandbox === null || events === null ? null : { production, sandbox, events };
 }
 
-/** As URLs dos webhooks chamadas de verdade: precisam chegar ao PRX sem redirecionamento. */
+/** As URLs dos webhooks chamadas de verdade: precisam chegar à PRX sem redirecionamento. */
 function webhookChecks(): Promise<AsaasCheck[]> {
   const urls = webhookUrls();
   if (!urls) return Promise.resolve([]);

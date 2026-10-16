@@ -7,7 +7,7 @@ import { currentSubaccount } from "@/lib/bank/asaas/subaccount";
  * Contas criadas antes do Asaas deste ambiente (sandbox: saldo, cartão e
  * agência fictícios) não valem com dinheiro real. Enquanto o espelho não
  * estiver ligado à subconta atual, ele volta a "em ativação" e passa a seguir
- * a subconta. Conta bloqueada pelo PRX continua bloqueada.
+ * a subconta. Conta bloqueada pela PRX continua bloqueada.
  * Devolve true quando mexeu na conta (quem chamou relê o espelho).
  */
 export async function reconcileLegacyAccount(userId: string, account: BankAccountRecord, deps: AsaasDeps): Promise<boolean> {

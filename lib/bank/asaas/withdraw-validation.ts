@@ -27,7 +27,7 @@ export type WithdrawValidation = z.output<typeof withdrawValidationSchema>;
 
 export type ValidationAnswer = { status: "APPROVED" } | { status: "REFUSED"; refuseReason: string };
 
-/** Tipos de operação do Asaas que cada pedido do PRX pode gerar. */
+/** Tipos de operação do Asaas que cada pedido da PRX pode gerar. */
 const COMPATIBLE: Record<string, readonly OutgoingKind[]> = {
   TRANSFER: ["pix_key", "pix_qr"],
   PIX_QR_CODE: ["pix_qr"],
@@ -58,7 +58,7 @@ async function lookup(object: Record<string, unknown>, deps: ValidationDeps): Pr
 export async function validateWithdraw(input: WithdrawValidation, deps: ValidationDeps, wait: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms))): Promise<ValidationAnswer> {
   const kinds = COMPATIBLE[input.type.toUpperCase()];
   const object = input.transfer ?? input.bill ?? input.pixQrCode ?? null;
-  if (!kinds || !object) return refuse("Operação não reconhecida pelo PRX.");
+  if (!kinds || !object) return refuse("Operação não reconhecida pela PRX.");
 
   // O id do Asaas é gravado logo depois da resposta da criação: espera um pouco se ainda não chegou.
   let request: OutgoingRequest | null = null;
@@ -66,8 +66,8 @@ export async function validateWithdraw(input: WithdrawValidation, deps: Validati
     if (attempt > 0) await wait(LOOKUP_DELAY_MS);
     request = await lookup(object, deps);
   }
-  if (!request) return refuse("Operação não encontrada no PRX.");
-  if (!kinds.includes(request.kind)) return refuse("Tipo de operação diferente do pedido no PRX.");
+  if (!request) return refuse("Operação não encontrada na PRX.");
+  if (!kinds.includes(request.kind)) return refuse("Tipo de operação diferente do pedido na PRX.");
 
   const value = typeof object.value === "number" ? object.value : Number.NaN;
   if (!(Math.abs(value - request.amount) < 0.005)) return refuse("Valor diferente do confirmado pelo cliente.");
@@ -77,7 +77,7 @@ export async function validateWithdraw(input: WithdrawValidation, deps: Validati
 
   const id = str(object.id);
   if (id && !request.providerRef) await deps.store.attachProviderRef(request.id, id);
-  if (id && request.providerRef && request.providerRef !== id) return refuse("Operação diferente da registrada no PRX.");
+  if (id && request.providerRef && request.providerRef !== id) return refuse("Operação diferente da registrada na PRX.");
   const approved = await deps.store.transitionOutgoing(request.id, ["requested"], "approved");
   return approved || (await deps.store.getOutgoing(request.id))?.status === "approved" ? { status: "APPROVED" } : refuse("Operação já decidida.");
 }

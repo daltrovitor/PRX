@@ -8,7 +8,7 @@ import { requireSubaccount } from "@/lib/bank/asaas/subaccount";
 import type { OutgoingRequest, Subaccount } from "@/lib/bank/asaas/types";
 
 /**
- * Conciliação das saídas pedidas ao Asaas e ainda sem desfecho no PRX (webhook
+ * Conciliação das saídas pedidas ao Asaas e ainda sem desfecho na PRX (webhook
  * perdido ou resposta que não chegou). Só consulta (GET), nunca repete a
  * operação: o estado vem de GET /transfers/{id}, /pix/transactions/{id} e
  * /bill/{id} (ou da lista do dia, pelo externalReference, quando o id se

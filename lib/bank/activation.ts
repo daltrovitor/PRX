@@ -22,7 +22,7 @@ export function bankActivation(input: ActivationInput): BankActivation {
   if (input.sandbox) return input.accountStatus === "blocked" ? "blocked" : "active";
   if (input.kyc === "none" || input.kyc === "rejected") return "form";
   if (input.kyc === "pending") return "waiting";
-  // Dados aprovados pelas regras do PRX: daqui em diante quem decide é o banco parceiro.
+  // Dados aprovados pelas regras da PRX: daqui em diante quem decide é o banco parceiro.
   // Sem resposta do banco agora: conta já liberada continua liberada; o resto aguarda, sem pedir reenvio.
   if (!input.bankOnline || input.provider === null) return input.accountStatus === "active" ? "active" : "unavailable";
   switch (input.provider) {

@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     await rememberBirthDate(user.id, data.birthDate, { source: "signup", verified: cpfCheck === "verified" }).catch(() => undefined);
     // "Você entrou. Welcome to PRX." depois da resposta: o cadastro não espera o provedor de e-mail.
     after(() => sendWelcomeEmail({ id: user.id, email: user.email, fullName: user.fullName }));
-    return attachSession(NextResponse.json({ success: true, message: "Conta criada. Bem-vindo ao PRX!", user: publicUser(user) }), user);
+    return attachSession(NextResponse.json({ success: true, message: "Conta criada. Bem-vindo à PRX!", user: publicUser(user) }), user);
   } catch (error) {
     if (error instanceof PartnerError && error.status < 500) return NextResponse.json({ error: error.message }, { status: error.status === 409 ? 400 : error.status });
     return incidentResponse(error, "Erro ao registrar a conta.");

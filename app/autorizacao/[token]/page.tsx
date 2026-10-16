@@ -156,7 +156,7 @@ export default function AutorizacaoPage({ params }: { params: Promise<{ token: s
             <span className="text-xs uppercase tracking-widest text-neutral-600 font-medium">LIVE · Termo de Autorização</span>
           </div>
           <Link href="/" className="text-xs text-neutral-600 hover:text-black transition-colors cursor-pointer">
-            Conhecer o PRX
+            Conhecer a PRX
           </Link>
         </header>
 

@@ -44,7 +44,7 @@ describe("login com o Google direto pelo app", () => {
     expect(googleOAuthConfig({ GOOGLE_CLIENT_ID: "  a ", GOOGLE_CLIENT_SECRET: " b  " })).toEqual({ clientId: "a", clientSecret: "b" });
   });
 
-  it("o endereço do Google leva o redirect do PRX, state, nonce e o desafio PKCE", () => {
+  it("o endereço do Google leva o redirect da PRX, state, nonce e o desafio PKCE", () => {
     const { url, tx } = begin();
     expect(url.origin + url.pathname).toBe("https://accounts.google.com/o/oauth2/v2/auth");
     expect(url.searchParams.get("client_id")).toBe(CONFIG.clientId);

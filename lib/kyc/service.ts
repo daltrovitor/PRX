@@ -13,7 +13,7 @@ import { OVER_AGE_BANK_MESSAGE, bankAgeAllowed } from "@/lib/bank/access";
 
 /*
  * Abertura do PRX BANK (KYC bancário) com validações antifraude no servidor:
- *   - CPF com dígitos verificadores (zod) e único no PRX; igual ao já registrado na conta;
+ *   - CPF com dígitos verificadores (zod) e único na PRX; igual ao já registrado na conta;
  *   - idade: menor de 18 só com responsável vinculado (ou emancipação a partir de 16);
  *   - documentos da própria pasta do usuário, frente e verso;
  *   - nomes civis coerentes, celular com DDD válido, CEP e UF válidos;

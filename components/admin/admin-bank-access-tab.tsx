@@ -10,7 +10,7 @@ import type { AccessCandidate, BankAccessGrant } from "@/lib/bank/access";
 type GrantRow = BankAccessGrant & { name: string; email: string };
 
 /**
- * Liberação do PRX BANK para maiores de 29 anos. O PRX é para jovens até 29;
+ * Liberação do PRX BANK para maiores de 29 anos. A PRX é para jovens até 29;
  * aqui a equipe libera a abertura para pessoas específicas acima disso. A
  * idade vem da data de nascimento validada da conta e é conferida no servidor.
  * Liberar não aprova nada: a pessoa ainda passa pela identidade e pelo banco.

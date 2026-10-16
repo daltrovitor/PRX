@@ -75,11 +75,11 @@ export async function probeWebhookUrl(label: string, url: string, probe: Probe =
     if (res.status === 401) return { label, ok: true, hint: null };
     if (res.status >= 300 && res.status < 400) {
       const to = res.headers.get("location");
-      return fail(`${url} redireciona (${res.status})${to ? ` para ${to}` : ""} antes de chegar ao PRX, e o Asaas só aceita 200. Use ${to ?? "o endereço final"} na variável e faça redeploy.`);
+      return fail(`${url} redireciona (${res.status})${to ? ` para ${to}` : ""} antes de chegar à PRX, e o Asaas só aceita 200. Use ${to ?? "o endereço final"} na variável e faça redeploy.`);
     }
-    if (res.status === 503) return fail(`${url} chega ao PRX, mas o deploy que atende esse endereço está sem ASAAS_WEBHOOK_AUTH_TOKEN.`);
+    if (res.status === 503) return fail(`${url} chega à PRX, mas o deploy que atende esse endereço está sem ASAAS_WEBHOOK_AUTH_TOKEN.`);
     if (res.status === 404 || res.status === 405) return fail(`${url} respondeu ${res.status}: a rota do webhook não está nesse endereço.`);
-    return fail(`${url} respondeu ${res.status} a uma chamada sem token; o esperado é 401 do PRX.`);
+    return fail(`${url} respondeu ${res.status} a uma chamada sem token; o esperado é 401 da PRX.`);
   } catch (err) {
     return fail(`${url} não respondeu: ${errorMessage(err, "sem resposta").slice(0, 160)}`);
   }

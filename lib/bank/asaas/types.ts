@@ -117,7 +117,7 @@ export interface PendingWebhook {
 /** new: primeiro recebimento; retry: já recebido, mas o processamento falhou; duplicate: já processado. */
 export type WebhookRecordResult = "new" | "retry" | "duplicate";
 
-/** sent: o Asaas aceitou; failed: recusou ou o PRX falhou; uncertain: sem resposta; blocked: o PRX nem enviou; recovered: conta achada no Asaas e religada. */
+/** sent: o Asaas aceitou; failed: recusou ou a PRX falhou; uncertain: sem resposta; blocked: a PRX nem enviou; recovered: conta achada no Asaas e religada. */
 export type ProvisioningOutcome = "sent" | "failed" | "uncertain" | "blocked" | "recovered";
 
 /** Um envio do cadastro ao Asaas (bank_provisioning_log), só para o admin. */

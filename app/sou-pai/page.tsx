@@ -5,7 +5,7 @@ import { ParentOnboarding } from "@/components/family/parent-onboarding";
 
 export const metadata: Metadata = {
   title: "Sou Pai · Conta Pai PRX",
-  description: "Abra a Conta Pai: mesada automática, Pix para o seu filho, limites do cartão e acompanhamento de tudo o que ele faz no PRX.",
+  description: "Abra a Conta Pai: mesada automática, Pix para o seu filho, limites do cartão e acompanhamento de tudo o que ele faz na PRX.",
   alternates: { canonical: "/sou-pai" },
 };
 

@@ -8,7 +8,7 @@ import { isValidCpf } from "@/lib/prx/pix";
 /**
  * Cliente do membro na conta principal do Asaas (cobranças da PRX). Um por
  * pessoa e ambiente: antes de criar, procura pela referência externa
- * "prx:<id>" (uma tentativa anterior pode ter criado sem o PRX saber). Nunca
+ * "prx:<id>" (uma tentativa anterior pode ter criado sem a PRX saber). Nunca
  * cria cliente a cada visita.
  */
 

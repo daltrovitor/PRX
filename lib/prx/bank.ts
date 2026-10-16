@@ -123,7 +123,7 @@ export interface BankAccountView {
 /**
  * Etapa da abertura do PRX BANK a partir do que está salvo (abertura no
  * Supabase, subconta no banco parceiro):
- *   form         sem abertura, ou recusada pelo PRX: formulário
+ *   form         sem abertura, ou recusada pela PRX: formulário
  *   waiting      abertura salva aguardando responsável, emancipação ou o banco parceiro
  *   unavailable  dados aprovados, mas o banco parceiro não atende agora: nada a reenviar
  *   ready        dados aprovados, conta ainda não criada no banco: abrir com os dados salvos
