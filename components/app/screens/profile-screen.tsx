@@ -15,6 +15,7 @@ import { levelProgress } from "@/lib/pass-data";
 import { usePointsWallet } from "@/components/app/use-prx-stores";
 import { PwaInstallGuide } from "@/components/app/pwa-install-guide";
 import { promptInstall, usePwaInstall } from "@/lib/pwa-install";
+import { SubscriptionsSheet } from "@/components/app/subscriptions/subscriptions-sheet";
 
 interface ProfileScreenProps {
   pass: PassData;
@@ -39,6 +40,7 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase, noticeCount, onO
   const { wallet } = usePointsWallet(member.id);
   const xp = wallet?.xp ?? member.prxScore ?? 0;
   const progress = levelProgress(xp);
+  const [sheet, setSheet] = useState<"subscriptions" | null>(null);
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
@@ -89,11 +91,16 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase, noticeCount, onO
           <Row icon={<IconTicket size={18} />} onClick={() => go("live", "ingressos")}>
             Ingressos
           </Row>
+          <Row icon={<IconCard size={18} />} onClick={() => setSheet("subscriptions")}>
+            Assinaturas
+          </Row>
           <Row icon={<IconExternal size={18} />} onClick={onViewShowcase}>
             Conhecer o PRX
           </Row>
         </ul>
       </section>
+
+      <SubscriptionsSheet open={sheet === "subscriptions"} onClose={() => setSheet(null)} />
 
       <BiometricsCard />
 

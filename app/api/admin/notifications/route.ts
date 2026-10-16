@@ -1,5 +1,6 @@
 // Hello World
 import { NextResponse, type NextRequest } from "next/server";
+import { brandAssetFor } from "@/lib/brand/assets";
 import { checkRateLimit } from "@/lib/security";
 import { PartnerError } from "@/lib/partners/errors";
 import { errorResponse, requireAdmin } from "@/lib/partners/http";
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
       if (!canSimulateDelivery()) await requireAdmin(req);
       if (preview !== "welcome") throw new PartnerError("Prévia disponível: welcome.", 404);
       const name = (req.nextUrl.searchParams.get("nome") || "Gabi").slice(0, 80);
-      const email = buildWelcomeEmail({ fullName: name, email: "membro@prx.app.br" }, req.nextUrl.origin);
+      const email = buildWelcomeEmail({ fullName: name, email: "membro@prx.app.br" }, req.nextUrl.origin, await brandAssetFor("founders_official_image", "emails").catch(() => null));
       if (req.nextUrl.searchParams.get("formato") === "texto") {
         return new NextResponse(email.text, { headers: { ...NO_STORE, "Content-Type": "text/plain; charset=utf-8" } });
       }

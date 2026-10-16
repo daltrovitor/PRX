@@ -21,6 +21,8 @@ export interface WelcomeEmailInput {
   assetsUrl: string;
   /** PRX COINS de boas-vindas. Zero esconde o selo "Seu saldo inicial". */
   startingCoins: number;
+  /** Imagem oficial do PRX Founders, só quando o admin ativou para os e-mails (sem ela, o bloco não aparece). */
+  foundersImage?: { url: string; alt: string } | null;
 }
 
 export interface RenderedEmail {
@@ -210,6 +212,16 @@ export function renderWelcomeEmail(input: WelcomeEmailInput): RenderedEmail {
     ${columns(PILLARS.slice(3).map((p) => ({ width: 188, html: pillarCard(p), className: "col3" })))}
   </td></tr>`;
 
+  // PRX Founders junto do ecossistema (ao lado do PRX LIVE), só com a imagem oficial publicada.
+  const founders = input.foundersImage
+    ? `
+  <tr><td class="px" style="padding:28px 40px 0 40px;">
+    <h2 style="${t({ size: 22, line: 1.15, weight: 700, spacing: 0.5, upper: true, color: C.ink })}">PRX <span style="color:${C.violet};">Founders</span></h2>
+    <p style="${t({ size: 13, line: 1.55 })};margin-top:6px;">A comunidade de quem constrói junto com a PRX.</p>
+    <a href="${site}/#founders" style="display:block;margin-top:14px;text-decoration:none;">${img(input.foundersImage.url, 520, input.foundersImage.alt, "width:100%;border-radius:12px;")}</a>
+  </td></tr>`
+    : "";
+
   const coinsChip =
     coins > 0
       ? `
@@ -333,6 +345,7 @@ export function renderWelcomeEmail(input: WelcomeEmailInput): RenderedEmail {
         ${hero}
         ${coinsCard}
         ${ecosystem}
+        ${founders}
         ${cta}
         ${closing}
         ${footer}

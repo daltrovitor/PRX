@@ -9,7 +9,8 @@ import { PrxImage } from "@/components/ui/prx-image";
 /** Envia a imagem para o bucket do Supabase Storage ou gera fallback compactado com gzip. */
 export function useImageUpload(onUploaded: (url: string) => void, onError: (message: string) => void) {
   const [busy, setBusy] = useState(false);
-  async function upload(event: ChangeEvent<HTMLInputElement>, type: "logo" | "banner") {
+  /** "brand": material oficial (ex.: imagem do PRX Founders), em resolução maior e sem perder qualidade. */
+  async function upload(event: ChangeEvent<HTMLInputElement>, type: "logo" | "banner" | "brand") {
     const rawFile = event.target.files?.[0];
     event.target.value = "";
     if (!rawFile) return;
@@ -17,9 +18,9 @@ export function useImageUpload(onUploaded: (url: string) => void, onError: (mess
     try {
       // Compacta e redimensiona antes de enviar para poupar banda e espaço no banco
       const file = await compressImageFile(rawFile, {
-        maxWidth: type === "logo" ? 800 : 1600,
-        maxHeight: type === "logo" ? 800 : 1200,
-        quality: 0.82,
+        maxWidth: type === "logo" ? 800 : type === "brand" ? 2400 : 1600,
+        maxHeight: type === "logo" ? 800 : type === "brand" ? 2400 : 1200,
+        quality: type === "brand" ? 0.92 : 0.82,
       });
       const body = new FormData();
       body.append("file", file);

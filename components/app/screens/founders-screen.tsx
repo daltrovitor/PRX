@@ -9,6 +9,7 @@ import { FoundersPanel } from "@/components/app/founders/founders-submit";
 import { EventDate } from "@/components/app/shared";
 import { Button, EmptyState, Notice, Segmented, Tag } from "@/components/app/ui";
 import { formatDateTime } from "@/lib/live/format";
+import { FoundersCommunity, type FoundersCommunityData } from "@/components/app/founders/founders-community";
 import { RELATIONSHIP_LABEL, STARTUP_STAGE_TEXT, UPDATE_KIND_LABEL, type FoundersHub, type FoundersUpdate } from "@/lib/founders/types";
 
 /**
@@ -20,18 +21,28 @@ import { RELATIONSHIP_LABEL, STARTUP_STAGE_TEXT, UPDATE_KIND_LABEL, type Founder
 type Section = "inicio" | "encontros" | "startups" | "novidades" | "inscrever";
 const SECTIONS: ReadonlyArray<Section> = ["inicio", "encontros", "startups", "novidades", "inscrever"];
 
+type Hub = FoundersHub & FoundersCommunityData;
+
 function useFoundersHub() {
-  const [hub, setHub] = useState<FoundersHub | null>(null);
+  const [hub, setHub] = useState<Hub | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   useEffect(() => {
     let active = true;
     fetch("/api/founders", { cache: "no-store" })
-      .then((r) => r.json() as Promise<Partial<FoundersHub> & { error?: string }>)
+      .then((r) => r.json() as Promise<Partial<Hub> & { error?: string }>)
       .then((json) => {
         if (!active) return;
         if (json.meetings && json.startups && json.updates) {
-          setHub({ nextMeeting: json.nextMeeting ?? null, meetings: json.meetings, startups: json.startups, updates: json.updates });
+          setHub({
+            nextMeeting: json.nextMeeting ?? null,
+            meetings: json.meetings,
+            startups: json.startups,
+            updates: json.updates,
+            founders: json.founders ?? [],
+            me: json.me ?? null,
+            officialImage: json.officialImage ?? null,
+          });
           setError(null);
         } else setError(json.error || "Não foi possível carregar o PRX Founders.");
       })
@@ -87,7 +98,12 @@ export function FoundersScreen({ member }: { member: User }) {
         )
       ) : (
         <>
-          {section === "inicio" && <Overview hub={hub} onGo={(s) => go("founders", s)} />}
+          {section === "inicio" && (
+            <div className="space-y-8">
+              <FoundersCommunity data={hub} />
+              <Overview hub={hub} onGo={(s) => go("founders", s)} />
+            </div>
+          )}
           {section === "encontros" && <Meetings hub={hub} />}
           {section === "startups" && <Startups hub={hub} />}
           {section === "novidades" && <Updates updates={hub.updates} />}

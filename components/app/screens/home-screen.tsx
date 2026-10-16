@@ -10,6 +10,7 @@ import { useBankAccount, useHiddenBalance, useHomeBanners, useLiveData, usePoint
 import { TextLink, TransactionRow } from "@/components/app/shared";
 import { PaymentCard } from "@/components/app/bank/card-visual";
 import { HomeBanners } from "@/components/app/reels/home-banner";
+import { FoundersHomePromo } from "@/components/app/founders/founders-community";
 import { runReelCta, trackReel } from "@/components/app/reels/reel-cta";
 import { WalletTriad } from "@/components/app/points/wallet-triad";
 import { PointsSheet } from "@/components/app/points/points-sheet";
@@ -140,6 +141,8 @@ export function HomeScreen({ pass }: { pass: PassData }) {
               })}
             </ul>
           )}
+          {/* PRX Founders ao lado do PRX LIVE: só aparece com a imagem oficial enviada e ativada no admin. */}
+          <FoundersHomePromo onOpen={() => go("founders")} />
         </motion.section>
 
         <motion.section aria-label="Ecossistema PRX" initial="hidden" animate="show" custom={2} variants={reveal} className="order-3 min-w-0 lg:order-4 lg:col-span-12">

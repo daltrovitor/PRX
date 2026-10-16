@@ -25,6 +25,8 @@ import { AdminIdentityTab } from "@/components/admin/admin-identity-tab";
 import { AdminBankAccessTab } from "@/components/admin/admin-bank-access-tab";
 import { AdminBehaviorsTab } from "@/components/admin/admin-behaviors-tab";
 import { AdminCompaniesTab } from "@/components/admin/admin-companies-tab";
+import { AdminSubscriptionsTab } from "@/components/admin/admin-subscriptions-tab";
+import { AdminFoundersMembersTab } from "@/components/admin/admin-founders-members-tab";
 import { AdminOverview } from "@/components/admin/admin-overview";
 import { AdminPromosTab } from "@/components/admin/admin-promos-tab";
 import { AdminSimulationTab } from "@/components/admin/admin-simulation-tab";
@@ -77,9 +79,12 @@ type TabKey =
   | "identity"
   | "bankAccess"
   | "behaviors"
-  | "companies";
+  | "companies"
+  | "plans"
+  | "subscribers"
+  | "foundersMembers";
 
-type ModuleKey = "overview" | "users" | "live" | "pass" | "founders" | "bank" | "finance" | "marketing" | "team" | "settings";
+type ModuleKey = "overview" | "users" | "live" | "pass" | "founders" | "bank" | "subscriptions" | "finance" | "marketing" | "team" | "settings";
 
 /** Módulos do painel: cada um com as abas que fazem algo real (nada de seção vazia). */
 const MODULES: ReadonlyArray<{ key: ModuleKey; label: string; tabs: ReadonlyArray<{ key: TabKey; label: string }> }> = [
@@ -121,6 +126,7 @@ const MODULES: ReadonlyArray<{ key: ModuleKey; label: string; tabs: ReadonlyArra
     key: "founders",
     label: "PRX Founders",
     tabs: [
+      { key: "foundersMembers", label: "Founders" },
       { key: "foundersContent", label: "Conteúdo" },
       { key: "founders", label: "Inscrições" },
     ],
@@ -132,6 +138,14 @@ const MODULES: ReadonlyArray<{ key: ModuleKey; label: string; tabs: ReadonlyArra
       { key: "identity", label: "Identidade" },
       { key: "bankAccess", label: "Liberação +29" },
       { key: "asaas", label: "Asaas" },
+    ],
+  },
+  {
+    key: "subscriptions",
+    label: "Assinaturas",
+    tabs: [
+      { key: "plans", label: "Planos" },
+      { key: "subscribers", label: "Assinantes" },
     ],
   },
   { key: "finance", label: "Financeiro", tabs: [{ key: "finance", label: "Financeiro" }] },
@@ -426,6 +440,9 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
             {tab === "bankAccess" && <AdminBankAccessTab />}
             {tab === "behaviors" && <AdminBehaviorsTab />}
             {tab === "companies" && <AdminCompaniesTab />}
+            {tab === "plans" && <AdminSubscriptionsTab view="plans" />}
+            {tab === "subscribers" && <AdminSubscriptionsTab view="subscribers" />}
+            {tab === "foundersMembers" && <AdminFoundersMembersTab />}
           </>
         )}
       </main>

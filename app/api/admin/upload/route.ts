@@ -7,9 +7,11 @@ import { PartnerError } from "@/lib/partners/errors";
 import { compressImageDataUrl } from "@/lib/media/compression";
 import { incidentResponse } from "@/lib/incidents";
 
-/** Pasta do bucket para o tipo pedido; só estas três existem (o tipo vira caminho, então nada livre). */
-function uploadFolder(value: FormDataEntryValue | null): "benefits" | "logos" | "banners" | null {
+/** Pasta do bucket para o tipo pedido; só estas existem (o tipo vira caminho, então nada livre). "brand": materiais oficiais. */
+function uploadFolder(value: FormDataEntryValue | null): "benefits" | "logos" | "banners" | "brand" | null {
   switch (String(value || "benefit")) {
+    case "brand":
+      return "brand";
     case "benefit":
       return "benefits";
     case "logo":

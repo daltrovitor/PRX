@@ -8,6 +8,7 @@ import type { AsaasDeps } from "@/lib/bank/asaas/deps";
 import { applyStatusUpdate, eventInstant, fetchStatusSnapshot, parseSnapshot, snapshotFromEvent, type StatusSnapshot } from "@/lib/bank/asaas/account-status";
 import { ensureDefaultPixKey, handlePaymentEvent } from "@/lib/bank/asaas/cash-in";
 import { handleOutgoingEvent } from "@/lib/bank/asaas/outgoing-events";
+import { dispatchBillingEvent } from "@/lib/billing/webhook";
 import type { AsaasBankStore, CommercialInfoAlert, Subaccount } from "@/lib/bank/asaas/types";
 
 /**
@@ -30,6 +31,7 @@ export const asaasEventSchema = z.object({
   transfer: looseObject.nullish(),
   bill: looseObject.nullish(),
   accountStatus: looseObject.nullish(),
+  subscription: looseObject.nullish(),
 });
 export type AsaasEvent = z.output<typeof asaasEventSchema>;
 
@@ -87,7 +89,8 @@ async function dispatch(event: AsaasEvent, deps: AsaasDeps): Promise<WebhookOutc
   const accountId = event.account?.id ?? null;
   // Eventos da conta mãe (ou de contas que o PRX não conhece) não mexem em correntista nenhum.
   const sub = accountId ? await deps.store.findSubaccountByAsaasId(accountId) : null;
-  if (!sub) return "ignored";
+  // Sem subconta: pode ser cobrança da própria PRX (assinatura ou ingresso), na conta principal.
+  if (!sub) return dispatchBillingEvent(event, deps.client);
   const handler = handlers.find((h) => h.match(event.event));
   if (!handler) return "ignored";
   return withAsaasAudit({ userId: sub.userId, asaasAccountId: accountId, businessRef: event.id }, () => handler.handle(event, sub, deps));

@@ -6,6 +6,7 @@ import { maskEmail } from "@/lib/notifications/format";
 import { recordDelivery } from "@/lib/notifications/log";
 import { renderWelcomeEmail, type RenderedEmail } from "@/lib/notifications/templates/welcome-email";
 import type { DeliveryResult } from "@/lib/notifications/types";
+import { brandAssetFor } from "@/lib/brand/assets";
 
 export interface WelcomeRecipient {
   id: string;
@@ -14,13 +15,14 @@ export interface WelcomeRecipient {
 }
 
 /** O e-mail pronto. A pré-visualização passa a própria origem para as imagens aparecerem antes do deploy. */
-export function buildWelcomeEmail(recipient: Pick<WelcomeRecipient, "email" | "fullName">, assetsUrl: string = emailAssetsUrl()): RenderedEmail {
+export function buildWelcomeEmail(recipient: Pick<WelcomeRecipient, "email" | "fullName">, assetsUrl: string = emailAssetsUrl(), foundersImage: { url: string; alt: string } | null = null): RenderedEmail {
   return renderWelcomeEmail({
     name: recipient.fullName,
     email: recipient.email,
     siteUrl: publicSiteUrl(),
     assetsUrl,
     startingCoins: WELCOME_COINS,
+    foundersImage,
   });
 }
 
@@ -32,7 +34,8 @@ export function buildWelcomeEmail(recipient: Pick<WelcomeRecipient, "email" | "f
 export async function sendWelcomeEmail(recipient: WelcomeRecipient, options: { test?: boolean } = {}): Promise<DeliveryResult> {
   let result: DeliveryResult;
   try {
-    const email = buildWelcomeEmail(recipient);
+    const foundersImage = await brandAssetFor("founders_official_image", "emails").catch(() => null);
+    const email = buildWelcomeEmail(recipient, emailAssetsUrl(), foundersImage);
     result = await sendEmail({
       to: recipient.email,
       subject: email.subject,
