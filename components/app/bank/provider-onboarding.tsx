@@ -183,7 +183,18 @@ export function ProviderOnboarding({ provider, onChanged }: { provider: BankProv
   );
 
   const verify = (
-    <Button variant="ghost" className="min-h-12" disabled={busy !== null} onClick={() => void run("refresh", "/api/bank/accounts", post({ action: "refresh" }), onChanged)}>
+    <Button
+      variant="ghost"
+      className="min-h-12"
+      disabled={busy !== null}
+      onClick={() =>
+        void run("refresh", "/api/bank/accounts", post({ action: "refresh" }), (json) => {
+          const state = (json.subaccount as { state?: string } | undefined)?.state;
+          if (state === "pending_activation") setInfo("Ainda em análise. O aviso chega aqui assim que o PRX BANK aprovar.");
+          onChanged();
+        })
+      }
+    >
       {busy === "refresh" ? "Verificando…" : "Verificar aprovação"}
     </Button>
   );

@@ -44,6 +44,15 @@ describe("resposta da criação da subconta (formato da referência atual)", () 
     await expect(regenerateSubaccountKey(USER_ID, deps)).rejects.toMatchObject({ status: 409 });
   });
 
+  it("sem chave guardada: verificar a aprovação mostra a situação salva, sem erro ao membro, e avisa o admin", async () => {
+    const { client, calls } = fakeAsaas({ "POST /accounts": { body: ACCOUNT } });
+    const { deps, store } = testDeps(client);
+    await openSubaccount(USER_ID, deps);
+    await expect(refreshSubaccountStatus(USER_ID, deps)).resolves.toMatchObject({ state: "pending_activation" });
+    expect(calls.some((c) => c.path === "/myAccount/status")).toBe(false);
+    expect(store.provisioningLog().at(-1)).toMatchObject({ step: "api_key", outcome: "blocked", asaasAccountId: "acc_v1", detail: expect.stringContaining("Gerar chave da subconta") });
+  });
+
   it("resposta perdida: a nova tentativa acha a conta pelo CPF e religa, sem criar outra", async () => {
     let created = false;
     const { client, calls } = fakeAsaas({

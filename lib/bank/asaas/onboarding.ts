@@ -203,6 +203,19 @@ async function open(userId: string, deps: AsaasDeps): Promise<SubaccountView> {
 /** Consulta a situação no Asaas (reforço caso um webhook tenha se perdido). */
 export async function refreshSubaccountStatus(userId: string, deps: AsaasDeps): Promise<SubaccountView> {
   return withAsaasAudit({ userId }, async () => {
+    // Subconta sem chave no PRX (religada pelo CPF ou resposta perdida): não dá para consultar o Asaas.
+    // O membro segue vendo a situação salva, sem erro; o admin é que gera a chave.
+    const saved = await currentSubaccount(userId, deps);
+    if (saved?.asaasAccountId && !saved.apiKeySealed) {
+      await logProvisioning(deps, {
+        userId,
+        step: "api_key",
+        outcome: "blocked",
+        asaasAccountId: saved.asaasAccountId,
+        detail: 'Membro pediu para verificar a aprovação, mas a subconta está sem chave no PRX: use "Gerar chave da subconta" em Admin → Asaas.',
+      });
+      return subaccountView(saved);
+    }
     const { sub, apiKey } = await requireSubaccount(userId, deps);
     try {
       const snapshot = await fetchStatusSnapshot(apiKey, deps);
