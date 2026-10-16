@@ -891,6 +891,39 @@ html:has(.prx-show) body {
   }
 }
 
+/* Teaser do prx.app.br (components/marketing/teaser).
+   A abertura é conduzida pelo GSAP; se o JavaScript falhar, ela some sozinha. */
+.teaser-intro {
+  animation: prx-loader-failsafe 0.4s ease 5s forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .teaser-intro {
+    display: none;
+  }
+}
+
+/* Faixa com os módulos: duas cópias seguidas andando meia largura (só transform). */
+.teaser-marquee {
+  animation: teaser-marquee 48s linear infinite;
+}
+
+.teaser-marquee-reverse {
+  animation-direction: reverse;
+}
+
+@keyframes teaser-marquee {
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .teaser-marquee {
+    animation: none;
+  }
+}
+
 /* Sem zoom de duplo toque (o de pinça é barrado no <head> de app/layout.tsx). */
 html {
   touch-action: manipulation;

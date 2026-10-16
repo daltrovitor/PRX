@@ -1,11 +1,11 @@
 // Hello World
 import type { Metadata } from "next";
-import { ComingSoon } from "@/components/marketing/coming-soon";
+import { TeaserPage } from "@/components/marketing/teaser/teaser-page";
 import { TEASER_URL } from "@/lib/domains";
 
 export const metadata: Metadata = {
   title: "PRX · O futuro não se assiste. Se constrói. Em breve em prx.app.br",
-  description: "PRX: benefícios, conta digital, eventos e cultura para as gerações Z e Alpha. Entre na Lista de Espera VIP e seja avisado primeiro.",
+  description: "A PRX chega em breve: conta digital, benefícios, eventos, investimentos, saúde mental e conexões num só ecossistema para as gerações Z e Alpha. Entre na Lista de Espera VIP.",
   alternates: { canonical: TEASER_URL },
   openGraph: {
     title: "PRX · O futuro não se assiste. Se constrói.",
@@ -17,5 +17,5 @@ export const metadata: Metadata = {
 };
 
 export default function ComingSoonPage() {
-  return <ComingSoon />;
+  return <TeaserPage />;
 }
