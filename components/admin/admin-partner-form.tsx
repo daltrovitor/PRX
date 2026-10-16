@@ -2,45 +2,18 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Button, Field, Input, Notice, RadioCards, Select, Sheet, Textarea } from "@/components/app/ui";
-import { CopyButton } from "@/components/app/pass/voucher-sheet";
+import { Button, Checkbox, Field, Input, Notice, RadioCards, Select, Sheet, Textarea } from "@/components/app/ui";
 import { ImagePicker, useImageUpload } from "@/components/admin/image-picker";
+import { useFormDraft } from "@/components/admin/use-form-draft";
+import { TemporaryCredential, type PartnerApiResult as ApiResult } from "@/components/admin/admin-partner-access";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
 import { PRX_CATEGORIES } from "@/lib/pass-data";
 import { formatDocument, inferDocumentType, onlyDigits } from "@/lib/partners/documents";
 import { PARTNER_STATUSES, PARTNER_STATUS_LABEL, type Partner, type PartnerStatus } from "@/lib/partners/types";
 
-interface ApiResult {
-  success?: boolean;
-  error?: string;
-  message?: string;
-  partner?: Partner;
-  temporaryPassword?: string;
-}
+export { AdminPartnerAccessSheet, TemporaryCredential } from "@/components/admin/admin-partner-access";
 
 type AccessMode = "none" | "link" | "create";
-
-/** Credencial gerada: aparece uma única vez, para o admin repassar ao parceiro. */
-export function TemporaryCredential({
-  email,
-  password,
-  note = "Esta senha não será mostrada de novo. Envie ao parceiro por um canal seguro; ela é pedida outra vez na hora de aceitar o contrato.",
-}: {
-  email: string;
-  password: string;
-  note?: string;
-}) {
-  return (
-    <div className="space-y-3 rounded-3xl bg-surface p-4">
-      <p className="text-[15px] font-semibold text-ink">Login criado para {email}</p>
-      <div className="flex items-center justify-between gap-3 rounded-2xl bg-card px-3.5 py-2.5">
-        <code className="font-mono text-base tracking-[0.06em] text-ink">{password}</code>
-        <CopyButton value={password} label="Copiar senha" />
-      </div>
-      <Notice tone="warning">{note}</Notice>
-    </div>
-  );
-}
 
 export function AdminPartnerSheet({
   open,
@@ -48,12 +21,17 @@ export function AdminPartnerSheet({
   partner,
   prefillEmail,
   onSaved,
+  existing = [],
+  onOpenExisting,
 }: {
   open: boolean;
   onClose: () => void;
   partner: Partner | null;
   prefillEmail?: string;
   onSaved: (partner: Partner) => void;
+  /** Parceiros já cadastrados: avisa quando o CNPJ/CPF digitado já existe. */
+  existing?: ReadonlyArray<Partner>;
+  onOpenExisting?: (id: string) => void;
 }) {
   return (
     <Sheet
@@ -63,24 +41,42 @@ export function AdminPartnerSheet({
       title={partner ? `Editar ${partner.tradeName}` : "Novo parceiro"}
       description="Empresa, representante legal e contato operacional. Estes dados preenchem o contrato."
     >
-      {open && <PartnerForm key={partner?.id ?? `new-${prefillEmail ?? ""}`} partner={partner} prefillEmail={prefillEmail} onSaved={onSaved} onClose={onClose} />}
+      {open && (
+        <PartnerForm
+          key={partner?.id ?? `new-${prefillEmail ?? ""}`}
+          partner={partner}
+          prefillEmail={prefillEmail}
+          onSaved={onSaved}
+          onClose={onClose}
+          existing={existing}
+          onOpenExisting={onOpenExisting}
+        />
+      )}
     </Sheet>
   );
 }
+
+type Person = { name: string; phone: string; email: string };
+const samePerson = (a: Person, b: Person) => a.name === b.name && a.phone === b.phone && a.email === b.email;
 
 function PartnerForm({
   partner,
   prefillEmail,
   onSaved,
   onClose,
+  existing,
+  onOpenExisting,
 }: {
   partner: Partner | null;
   prefillEmail?: string;
   onSaved: (partner: Partner) => void;
   onClose: () => void;
+  existing: ReadonlyArray<Partner>;
+  onOpenExisting?: (id: string) => void;
 }) {
   const { showToast } = useConfirmToast();
-  const [form, setForm] = useState({
+  // Rascunho no navegador: fechar o painel ou um erro não apagam o que foi digitado.
+  const draft = useFormDraft(`prx_admin_partner_draft:${partner?.id ?? "new"}`, partner?.updatedAt ?? "new", () => ({
     tradeName: partner?.tradeName ?? "",
     legalName: partner?.legalName ?? "",
     document: partner ? formatDocument(partner.documentType, partner.document) : "",
@@ -92,7 +88,11 @@ function PartnerForm({
     status: (partner?.status ?? "ATIVO") as PartnerStatus,
     representative: partner?.representative ?? { name: "", document: "", role: "", email: "", phone: "" },
     contact: partner?.contact ?? { name: "", phone: "", email: "" },
-  });
+    // Contato operacional igual ao representante: os dados não são digitados duas vezes.
+    sameContact: !partner || !partner.contact.name || samePerson(partner.contact, partner.representative),
+  }));
+  const form = draft.value;
+  const setForm = draft.setValue;
   const [access, setAccess] = useState<{ mode: AccessMode; email: string; name: string }>({
     mode: prefillEmail ? "link" : "none",
     email: prefillEmail ?? "",
@@ -105,6 +105,8 @@ function PartnerForm({
   const banner = useImageUpload((url) => setForm((f) => ({ ...f, bannerUrl: url })), setError);
 
   const docType = inferDocumentType(form.document);
+  const digits = onlyDigits(form.document);
+  const twin = !partner && digits.length >= 11 ? existing.find((p) => p.document === digits) : undefined;
   const setRep = (key: keyof typeof form.representative, value: string) => setForm((f) => ({ ...f, representative: { ...f.representative, [key]: value } }));
   const setContact = (key: keyof typeof form.contact, value: string) => setForm((f) => ({ ...f, contact: { ...f.contact, [key]: value } }));
 
@@ -112,10 +114,18 @@ function PartnerForm({
     event.preventDefault();
     setSaving(true);
     setError(null);
-    const payload = { ...form, document: onlyDigits(form.document), representative: { ...form.representative, document: onlyDigits(form.representative.document) } };
+    const { sameContact, ...fields } = form;
+    const rep = form.representative;
+    const payload = {
+      ...fields,
+      document: onlyDigits(form.document),
+      representative: { ...rep, document: onlyDigits(rep.document) },
+      contact: sameContact ? { name: rep.name, phone: rep.phone, email: rep.email } : form.contact,
+    };
+    const loginEmail = access.email.trim() || rep.email;
     const body = partner
       ? { id: partner.id, partner: payload }
-      : { partner: payload, access: access.mode === "none" ? { mode: "none" } : { mode: access.mode, email: access.email, name: access.name || form.representative.name || form.tradeName } };
+      : { partner: payload, access: access.mode === "none" ? { mode: "none" } : { mode: access.mode, email: loginEmail, name: access.name || rep.name || form.tradeName } };
     try {
       const res = await fetch("/api/admin/partners", {
         method: partner ? "PUT" : "POST",
@@ -127,9 +137,10 @@ function PartnerForm({
         setError(data.error || "Não foi possível salvar o parceiro.");
         return;
       }
+      draft.clear();
       showToast("success", data.message || "Parceiro salvo.");
       if (data.temporaryPassword) {
-        setCredential({ email: access.email, password: data.temporaryPassword, partner: data.partner });
+        setCredential({ email: loginEmail, password: data.temporaryPassword, partner: data.partner });
         return;
       }
       onSaved(data.partner);
@@ -155,6 +166,16 @@ function PartnerForm({
 
   return (
     <form onSubmit={submit} className="grid gap-5 sm:grid-cols-2">
+      {draft.restored && (
+        <Notice className="col-span-full">
+          <span className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span>Recuperamos o que você já tinha digitado neste cadastro.</span>
+            <Button variant="secondary" size="sm" onClick={draft.discard}>
+              Descartar rascunho
+            </Button>
+          </span>
+        </Notice>
+      )}
       <h3 className={section}>Empresa</h3>
       <Field label="Nome fantasia" hint="Como aparece no app.">
         {(id, d) => <Input id={id} aria-describedby={d} required value={form.tradeName} onChange={(e) => setForm({ ...form, tradeName: e.target.value })} />}
@@ -171,10 +192,35 @@ function PartnerForm({
             inputMode="numeric"
             value={form.document}
             onChange={(e) => setForm({ ...form, document: e.target.value })}
-            onBlur={() => docType && setForm((f) => ({ ...f, document: formatDocument(docType, f.document) }))}
+            onBlur={() =>
+              docType &&
+              setForm((f) => ({
+                ...f,
+                document: formatDocument(docType, f.document),
+                // Pessoa física: o titular é o representante, sem digitar nome e CPF de novo.
+                representative:
+                  docType === "CPF"
+                    ? { ...f.representative, name: f.representative.name || f.legalName, document: f.representative.document || formatDocument("CPF", f.document) }
+                    : f.representative,
+              }))
+            }
           />
         )}
       </Field>
+      {twin && (
+        <Notice tone="warning" className="col-span-full">
+          <span className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              Este {twin.documentType} já está cadastrado: <strong>{twin.tradeName}</strong>.
+            </span>
+            {onOpenExisting && (
+              <Button variant="secondary" size="sm" onClick={() => onOpenExisting(twin.id)}>
+                Abrir cadastro
+              </Button>
+            )}
+          </span>
+        </Notice>
+      )}
       <Field label="Categoria">
         {(id) => (
           <Select id={id} value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
@@ -225,15 +271,22 @@ function PartnerForm({
       </Field>
 
       <h3 className={section}>Contato operacional</h3>
-      <Field label="Nome ou setor">
-        {(id) => <Input id={id} value={form.contact.name} onChange={(e) => setContact("name", e.target.value)} />}
-      </Field>
-      <Field label="Telefone">
-        {(id) => <Input id={id} type="tel" value={form.contact.phone} onChange={(e) => setContact("phone", e.target.value)} />}
-      </Field>
-      <Field label="E-mail">
-        {(id) => <Input id={id} type="email" value={form.contact.email} onChange={(e) => setContact("email", e.target.value)} />}
-      </Field>
+      <div className="col-span-full">
+        <Checkbox checked={form.sameContact} onChange={(checked) => setForm((f) => ({ ...f, sameContact: checked }))} label="O contato do dia a dia é o próprio representante legal" />
+      </div>
+      {!form.sameContact && (
+        <>
+          <Field label="Nome ou setor">
+            {(id) => <Input id={id} value={form.contact.name} onChange={(e) => setContact("name", e.target.value)} />}
+          </Field>
+          <Field label="Telefone">
+            {(id) => <Input id={id} type="tel" value={form.contact.phone} onChange={(e) => setContact("phone", e.target.value)} />}
+          </Field>
+          <Field label="E-mail">
+            {(id) => <Input id={id} type="email" value={form.contact.email} onChange={(e) => setContact("email", e.target.value)} />}
+          </Field>
+        </>
+      )}
 
       {!partner && (
         <>
@@ -241,7 +294,7 @@ function PartnerForm({
           <RadioCards
             label="Acesso"
             value={access.mode}
-            onChange={(mode) => setAccess({ ...access, mode })}
+            onChange={(mode) => setAccess((a) => ({ ...a, mode, email: a.email || form.representative.email }))}
             className="sm:col-span-2"
             options={[
               { value: "none", title: "Configurar depois", body: "Sem login, o parceiro não valida QR Codes nem aceita contratos." },
@@ -250,8 +303,18 @@ function PartnerForm({
             ]}
           />
           {access.mode !== "none" && (
-            <Field label="E-mail de login">
-              {(id) => <Input id={id} type="email" required value={access.email} onChange={(e) => setAccess({ ...access, email: e.target.value })} />}
+            <Field label="E-mail de login" hint={form.representative.email ? "Em branco, usa o e-mail do representante." : undefined}>
+              {(id, d) => (
+                <Input
+                  id={id}
+                  aria-describedby={d}
+                  type="email"
+                  required={!form.representative.email}
+                  placeholder={form.representative.email || undefined}
+                  value={access.email}
+                  onChange={(e) => setAccess({ ...access, email: e.target.value })}
+                />
+              )}
             </Field>
           )}
         </>
@@ -271,107 +334,6 @@ function PartnerForm({
           {saving ? "Salvando…" : partner ? "Salvar alterações" : "Cadastrar parceiro"}
         </Button>
       </div>
-    </form>
-  );
-}
-
-/** Vincular, criar ou remover o login de um parceiro já cadastrado. */
-export function AdminPartnerAccessSheet({ open, onClose, partner, onSaved }: { open: boolean; onClose: () => void; partner: Partner; onSaved: () => void }) {
-  return (
-    <Sheet open={open} onClose={onClose} title="Login do parceiro" description={`${partner.tradeName} · só este login valida os QR Codes dos benefícios dele.`}>
-      {open && <AccessForm partner={partner} onSaved={onSaved} />}
-    </Sheet>
-  );
-}
-
-function AccessForm({ partner, onSaved }: { partner: Partner; onSaved: () => void }) {
-  const { showToast, confirmDelete } = useConfirmToast();
-  const [mode, setMode] = useState<"link" | "create">("create");
-  const [email, setEmail] = useState(partner.representative.email || partner.contact.email || "");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [credential, setCredential] = useState<{ email: string; password: string } | null>(null);
-
-  async function send(body: Record<string, unknown>) {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/admin/partners/access", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ partnerId: partner.id, ...body }),
-      });
-      const data = (await res.json()) as ApiResult;
-      if (!res.ok || !data.success) {
-        setError(data.error || "Não foi possível configurar o acesso.");
-        return;
-      }
-      showToast("success", data.message || "Acesso atualizado.");
-      if (data.temporaryPassword) setCredential({ email, password: data.temporaryPassword });
-      else onSaved();
-    } catch {
-      setError("Sem internet agora. Confira sua conexão e tente de novo.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function revoke() {
-    const ok = await confirmDelete({
-      title: "Remover login",
-      message: `${partner.ownerEmail} perde o acesso ao portal e volta a ser uma conta de membro. Contratos aceitos continuam válidos.`,
-      confirmText: "Remover",
-      cancelText: "Cancelar",
-    });
-    if (ok) await send({ mode: "revoke" });
-  }
-
-  if (credential) {
-    return (
-      <div className="space-y-5">
-        <TemporaryCredential email={credential.email} password={credential.password} />
-        <Button block onClick={onSaved}>
-          Concluir
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <form
-      className="space-y-5"
-      onSubmit={(e) => {
-        e.preventDefault();
-        void send({ mode, email, name: partner.representative.name || partner.tradeName });
-      }}
-    >
-      {partner.ownerEmail && (
-        <div className="flex items-center justify-between gap-3 rounded-3xl bg-surface p-4">
-          <div className="min-w-0">
-            <p className="text-[13px] text-muted-foreground">Login atual</p>
-            <p className="truncate text-[15px] text-ink">{partner.ownerEmail}</p>
-          </div>
-          <Button variant="danger" size="sm" onClick={revoke} disabled={busy}>
-            Remover
-          </Button>
-        </div>
-      )}
-      <RadioCards
-        label={partner.ownerEmail ? "Trocar por" : "Acesso"}
-        value={mode}
-        onChange={setMode}
-        options={[
-          { value: "create", title: "Criar acesso", body: "Novo login com senha temporária." },
-          { value: "link", title: "Vincular conta existente", body: "Conta PRX já cadastrada." },
-        ]}
-      />
-      <Field label="E-mail de login">
-        {(id) => <Input id={id} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />}
-      </Field>
-      {error && <Notice tone="error">{error}</Notice>}
-      <Button type="submit" block disabled={busy || !email.trim()}>
-        {busy ? "Salvando…" : mode === "create" ? "Criar login" : "Vincular conta"}
-      </Button>
     </form>
   );
 }

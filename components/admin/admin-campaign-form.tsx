@@ -4,6 +4,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { Button, Checkbox, Field, Input, Notice, RadioCards, Select, Sheet, Textarea } from "@/components/app/ui";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
+import { useFormDraft } from "@/components/admin/use-form-draft";
 import { PRX_CATEGORIES, levelGateOptions } from "@/lib/pass-data";
 import { buildSummaryRows } from "@/lib/partners/contract";
 import {
@@ -70,7 +71,29 @@ function toNumber(value: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function initialState(partner: Partner, summary?: CommercialSummary): FormState {
+/** Termos que se repetem entre campanhas do mesmo parceiro: um contrato novo já vem com os do último. */
+function reusedTerms(t: CommercialSummary): Partial<FormState> {
+  return {
+    categoryId: t.categoryId,
+    quantityUnit: t.quantityUnit,
+    perUserLimit: String(t.perUserLimit),
+    channels: t.channels,
+    redemptionModes: t.redemptionModes,
+    usageDeadlineDays: String(t.usageDeadlineDays),
+    earlyEndOnSellOut: t.earlyEndOnSellOut,
+    exclusive: t.exclusive,
+    exclusivityMonths: String(t.exclusivityMonths),
+    plan: t.plan,
+    mediaPeriods: String(t.mediaPeriods),
+    mediaPrice: String(t.mediaPrice),
+    commission: t.commission,
+    minPrxLevel: String(t.minPrxLevel),
+    rules: t.rules.join("\n"),
+  };
+}
+
+function initialState(partner: Partner, summary?: CommercialSummary, template?: CommercialSummary): FormState {
+  if (!summary && template) return { ...initialState(partner), ...reusedTerms(template) };
   if (summary) {
     return {
       ...summary,
@@ -148,12 +171,15 @@ export function AdminCampaignSheet({
   partner,
   campaign,
   onSaved,
+  template,
 }: {
   open: boolean;
   onClose: () => void;
   partner: Partner;
   campaign: Campaign | null;
   onSaved: () => void;
+  /** Último contrato do parceiro: o novo já vem com canais, comissão, plano e regras dele. */
+  template?: CommercialSummary;
 }) {
   return (
     <Sheet
@@ -163,14 +189,21 @@ export function AdminCampaignSheet({
       title={campaign ? `Editar contrato · v${campaign.version}` : "Novo contrato de campanha"}
       description={`${partner.tradeName} · cláusula 3, Resumo Comercial. O contrato individual é gerado a partir deste formulário.`}
     >
-      {open && <CampaignForm key={campaign?.id ?? "new"} partner={partner} campaign={campaign} onSaved={onSaved} />}
+      {open && <CampaignForm key={campaign?.id ?? "new"} partner={partner} campaign={campaign} template={template} onSaved={onSaved} />}
     </Sheet>
   );
 }
 
-function CampaignForm({ partner, campaign, onSaved }: { partner: Partner; campaign: Campaign | null; onSaved: () => void }) {
+function CampaignForm({ partner, campaign, template, onSaved }: { partner: Partner; campaign: Campaign | null; template?: CommercialSummary; onSaved: () => void }) {
   const { showToast } = useConfirmToast();
-  const [form, setForm] = useState<FormState>(() => initialState(partner, campaign?.summary));
+  // Rascunho no navegador: fechar o painel ou um erro não apagam o contrato em preenchimento.
+  const draft = useFormDraft<FormState>(
+    `prx_admin_campaign_draft:${partner.id}:${campaign?.id ?? "new"}`,
+    campaign ? `${campaign.id}:${campaign.version}` : "new",
+    () => initialState(partner, campaign?.summary, template)
+  );
+  const form = draft.value;
+  const setForm = draft.setValue;
   const [mediaTouched, setMediaTouched] = useState(Boolean(campaign));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
@@ -238,6 +271,7 @@ function CampaignForm({ partner, campaign, onSaved }: { partner: Partner; campai
         setServerError(data.error || "Não foi possível salvar o contrato.");
         return;
       }
+      draft.clear();
       showToast("success", data.message || "Contrato salvo.");
       onSaved();
     } catch {
@@ -259,6 +293,16 @@ function CampaignForm({ partner, campaign, onSaved }: { partner: Partner; campai
       noValidate
       className="grid gap-5 sm:grid-cols-2"
     >
+      {draft.restored && (
+        <Notice className="col-span-full">
+          <span className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span>Recuperamos o que você já tinha preenchido neste contrato.</span>
+            <Button variant="secondary" size="sm" onClick={draft.discard}>
+              Descartar rascunho
+            </Button>
+          </span>
+        </Notice>
+      )}
       <h3 className={sectionTitle}>Benefício</h3>
       <Field label="Título no catálogo" hint="Curto e direto. Ex.: Café coado grátis." error={err("benefitTitle")}>
         {(id, d) => <Input id={id} aria-describedby={d} value={form.benefitTitle} onChange={(e) => set("benefitTitle", e.target.value)} maxLength={80} />}

@@ -148,6 +148,11 @@ export function AdminPartnersTab({ partners, benefits, users, onRefresh, onGoToB
         onClose={() => setCreating(null)}
         partner={null}
         prefillEmail={creating?.prefillEmail}
+        existing={partners}
+        onOpenExisting={(id) => {
+          setCreating(null);
+          setSelectedId(id);
+        }}
         onSaved={async (partner) => {
           setCreating(null);
           await onRefresh();
@@ -238,6 +243,7 @@ function PartnerDetail({ partner, benefits, onBack, onRefresh }: { partner: Part
     }
   }
 
+  const latestCampaign = campaigns?.reduce<AdminCampaign | null>((last, c) => (!last || c.createdAt > last.createdAt ? c : last), null) ?? null;
   const category = PRX_CATEGORIES.find((c) => c.id === partner.categoryId)?.name ?? partner.categoryId;
   const docLink = (c: Campaign, kind: "contract" | "certificate") => `/api/partners/document?campaignId=${encodeURIComponent(c.id)}&kind=${kind}`;
   const linkClass =
@@ -433,6 +439,7 @@ function PartnerDetail({ partner, benefits, onBack, onRefresh }: { partner: Part
         onClose={() => setCampaignSheet(null)}
         partner={partner}
         campaign={campaignSheet?.campaign ?? null}
+        template={latestCampaign?.summary}
         onSaved={async () => {
           setCampaignSheet(null);
           await Promise.all([loadCampaigns(), onRefresh()]);
