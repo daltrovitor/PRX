@@ -176,10 +176,11 @@ class UserStore {
 
   updateUser(
     idOrEmail: string,
-    updates: Partial<Pick<StoredUser, "prxLevel" | "prxScore" | "role" | "walletBalance">>
+    updates: Partial<Pick<StoredUser, "prxLevel" | "prxScore" | "role" | "walletBalance" | "avatarUrl">>
   ): StoredUser | null {
     const user = this.findByEmail(idOrEmail) || this.findById(idOrEmail);
     if (!user) return null;
+    if (updates.avatarUrl !== undefined) user.avatarUrl = updates.avatarUrl;
     if (updates.prxLevel !== undefined) user.prxLevel = Number(updates.prxLevel);
     if (updates.prxScore !== undefined) user.prxScore = Number(updates.prxScore);
     if (updates.role !== undefined) user.role = updates.role;

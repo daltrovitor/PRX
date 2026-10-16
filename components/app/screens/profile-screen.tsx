@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { PassData } from "@/components/app/use-pass-data";
 import { useAppNav } from "@/components/app/app-nav";
 import { PrxLogo } from "@/components/brand/prx-logo";
-import { Avatar, Button, Notice, ProgressBar } from "@/components/app/ui";
+import { Button, Notice, ProgressBar } from "@/components/app/ui";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
 import { canUseBiometrics, registerPasskey } from "@/lib/passkeys/client";
 import { readKnownAccount, updateKnownAccount } from "@/lib/known-account";
@@ -16,6 +16,7 @@ import { usePointsWallet } from "@/components/app/use-prx-stores";
 import { PwaInstallGuide } from "@/components/app/pwa-install-guide";
 import { promptInstall, usePwaInstall } from "@/lib/pwa-install";
 import { SubscriptionsSheet } from "@/components/app/subscriptions/subscriptions-sheet";
+import { AvatarEditor } from "@/components/app/profile/avatar-editor";
 
 interface ProfileScreenProps {
   pass: PassData;
@@ -45,7 +46,7 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase, noticeCount, onO
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <header className="flex flex-col items-center gap-4 pt-2 text-center">
-        <Avatar name={member.name || "Membro PRX"} src={member.avatarUrl} size={88} />
+        <AvatarEditor name={member.name || "Membro PRX"} src={member.avatarUrl} />
         <div className="min-w-0">
           <h1 className="ob-display truncate text-2xl text-ink sm:text-3xl">{member.name || "Membro PRX"}</h1>
           <p className="mt-1 truncate text-sm text-muted-foreground">

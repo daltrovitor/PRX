@@ -119,14 +119,15 @@ export function initialsOf(name: string): string {
 
 /** Avatar redondo: foto da conta (Google) ou iniciais. Fotos de banco de imagem padrão são ignoradas. */
 export function Avatar({ name, src, size = 44, className }: { name: string; src?: string | null; size?: number; className?: string }) {
-  const photo = src && /^https:\/\//.test(src) && !src.includes("unsplash.com") ? src : null;
+  // Foto enviada pelo membro (https do armazenamento, ou data URL no desenvolvimento). A foto padrão de banco de imagens não conta.
+  const photo = src && (/^https:\/\//.test(src) || /^data:image\/(webp|jpeg|png);base64,/.test(src)) && !src.includes("unsplash.com") ? src : null;
   return (
     <span
       className={cn("relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/[0.1] font-semibold text-primary", className)}
       style={{ width: size, height: size, fontSize: Math.round(size * 0.36) }}
       aria-hidden
     >
-      {photo ? <Image src={photo} alt="" fill sizes={`${size}px`} className="object-cover" /> : initialsOf(name)}
+      {photo ? <Image src={photo} alt="" fill sizes={`${size}px`} className="object-cover" unoptimized={photo.startsWith("data:")} /> : initialsOf(name)}
     </span>
   );
 }
