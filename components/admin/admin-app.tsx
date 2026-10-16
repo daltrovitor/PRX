@@ -21,6 +21,8 @@ import { AdminWaitlistTab } from "@/components/admin/admin-waitlist-tab";
 import { AdminLegalTab } from "@/components/admin/admin-legal-tab";
 import { AdminNotificationsTab } from "@/components/admin/admin-notifications-tab";
 import { AdminAsaasTab } from "@/components/admin/admin-asaas-tab";
+import { AdminIdentityTab } from "@/components/admin/admin-identity-tab";
+import { AdminBankAccessTab } from "@/components/admin/admin-bank-access-tab";
 import { AdminOverview } from "@/components/admin/admin-overview";
 import { AdminPromosTab } from "@/components/admin/admin-promos-tab";
 import { AdminSimulationTab } from "@/components/admin/admin-simulation-tab";
@@ -69,9 +71,11 @@ type TabKey =
   | "audit"
   | "validations"
   | "notifications"
-  | "asaas";
+  | "asaas"
+  | "identity"
+  | "bankAccess";
 
-type ModuleKey = "overview" | "users" | "live" | "pass" | "founders" | "finance" | "marketing" | "team" | "settings";
+type ModuleKey = "overview" | "users" | "live" | "pass" | "founders" | "bank" | "finance" | "marketing" | "team" | "settings";
 
 /** Módulos do painel: cada um com as abas que fazem algo real (nada de seção vazia). */
 const MODULES: ReadonlyArray<{ key: ModuleKey; label: string; tabs: ReadonlyArray<{ key: TabKey; label: string }> }> = [
@@ -116,13 +120,15 @@ const MODULES: ReadonlyArray<{ key: ModuleKey; label: string; tabs: ReadonlyArra
     ],
   },
   {
-    key: "finance",
-    label: "Financeiro",
+    key: "bank",
+    label: "PRX BANK",
     tabs: [
-      { key: "finance", label: "Financeiro" },
+      { key: "identity", label: "Identidade" },
+      { key: "bankAccess", label: "Liberação +29" },
       { key: "asaas", label: "Asaas" },
     ],
   },
+  { key: "finance", label: "Financeiro", tabs: [{ key: "finance", label: "Financeiro" }] },
   {
     key: "marketing",
     label: "Marketing",
@@ -410,6 +416,8 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
             {tab === "legal" && <AdminLegalTab onMetrics={onLegalMetrics} />}
             {tab === "notifications" && <AdminNotificationsTab />}
             {tab === "asaas" && <AdminAsaasTab />}
+            {tab === "identity" && <AdminIdentityTab />}
+            {tab === "bankAccess" && <AdminBankAccessTab />}
           </>
         )}
       </main>

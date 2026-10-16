@@ -8,6 +8,8 @@ import { ageGroup } from "@/lib/family/age";
 import { CPF_TAKEN_MESSAGE, DOCUMENT_LABEL, type DocumentKind } from "@/lib/family/types";
 import { getKycRepository } from "@/lib/kyc/repository";
 import type { BankKycApplication, BankKycInput, KycStatus, RiskFlag } from "@/lib/kyc/types";
+import { assertIdentityApprovable, identitySchemaReady, notifyMember, receivedReviews, recordKycEvent } from "@/lib/kyc/identity";
+import { OVER_AGE_BANK_MESSAGE, bankAgeAllowed } from "@/lib/bank/access";
 
 /*
  * Abertura do PRX BANK (KYC bancário) com validações antifraude no servidor:
@@ -17,8 +19,10 @@ import type { BankKycApplication, BankKycInput, KycStatus, RiskFlag } from "@/li
  *   - nomes civis coerentes, celular com DDD válido, CEP e UF válidos;
  *   - Conta Pai não abre conta (não guarda dinheiro); um pedido em análise por vez;
  *   - IP e navegador gravados como trilha de auditoria; PEP sinalizado para diligência reforçada.
- * O PRX não analisa os documentos: passadas as regras, a abertura é aprovada na
- * hora e segue para o Asaas, que confere os documentos e aprova a conta.
+ * Passadas as regras, a abertura fica em análise pela PRX (lib/kyc/identity.ts):
+ * a equipe confere cada documento e a selfie e aprova explicitamente. Só então
+ * os dados e documentos seguem ao Asaas, que faz a análise dele e aprova a conta.
+ * Acima de 29 anos, só com a liberação do admin (lib/bank/access.ts).
  */
 
 /** Frente e verso do documento com foto e a foto do rosto (selfie da câmera): o Asaas exige do titular pessoa física. */
@@ -28,24 +32,19 @@ const familyRepo = () => getFamilyRepository();
 
 export { bankKycState } from "@/lib/kyc/guards";
 
-const AUTO_REVIEWER = "auto";
-const AUTO_NOTE = "Aprovação automática: documentos enviados direto ao banco parceiro.";
+const SYSTEM_REVIEWER = "sistema";
 
 /**
  * `allowRedo`: a conta ainda não existe no banco parceiro, então o membro pode
  * trocar uma abertura já aprovada (ex.: enviou fotos de teste). CPF e nascimento
- * continuam travados.
- * `forward`: o banco parceiro recebe a abertura agora. A aprovação automática só
- * vale porque o banco confere os documentos; com ele desligado neste deploy, a
- * abertura fica salva "em andamento" (sem duplicar) e é aprovada quando o banco
- * voltar (accountView → autoApproveBankKyc).
+ * continuam travados. A nova abertura volta para a análise da PRX.
  */
 export async function submitBankKyc(
   user: MemberRef,
   input: BankKycInput,
   meta: { ip: string | null; userAgent: string },
   now = new Date(),
-  options: { allowRedo?: boolean; forward?: boolean } = {}
+  options: { allowRedo?: boolean } = {}
 ): Promise<BankKycApplication> {
   const identity = await familyRepo().getIdentity(user.id);
   if (identity?.accountType === "parent") throw new FamilyError(PARENT_NO_MONEY, 403);
@@ -60,7 +59,10 @@ export async function submitBankKyc(
   const missing = REQUIRED_DOCS.filter((k) => !input.documents.some((d) => d.kind === k));
   if (missing.length > 0) throw new FamilyError(`Faltam documentos: ${missing.map((k) => DOCUMENT_LABEL[k]).join(" e ")}.`, 422);
 
-  const group = assertEligibleAge({ birthDate: input.birthDate, teenPath: input.minorPath, parentEmail: input.parentEmail ?? "" }, now);
+  // Acima de 29 anos, só com a liberação do admin (conferida aqui, no servidor).
+  const allowOver = ageGroup(input.birthDate, now) === "over" && (await bankAgeAllowed(user.id, input.birthDate, now));
+  if (ageGroup(input.birthDate, now) === "over" && !allowOver) throw new FamilyError(OVER_AGE_BANK_MESSAGE, 403, "OVER_AGE");
+  const group = assertEligibleAge({ birthDate: input.birthDate, teenPath: input.minorPath, parentEmail: input.parentEmail ?? "" }, now, { allowOver });
   const isMinor = group === "child" || group === "teen";
   if (isMinor && input.minorPath === "emancipated" && !input.documents.some((d) => d.kind === "emancipation_certificate")) {
     throw new FamilyError("Envie a certidão de emancipação.", 422);
@@ -83,7 +85,7 @@ export async function submitBankKyc(
   } else {
     // Primeira verificação da conta: registra CPF (único) e nascimento; menor gera o pedido de vínculo.
     try {
-      await registerIdentity(user, { cpf: input.cpf, birthDate: input.birthDate, teenPath: input.minorPath, parentEmail: input.parentEmail ?? "" }, now);
+      await registerIdentity(user, { cpf: input.cpf, birthDate: input.birthDate, teenPath: input.minorPath, parentEmail: input.parentEmail ?? "" }, now, { allowOver });
     } catch (err) {
       // Envio repetido ao mesmo tempo: o outro já registrou exatamente estes dados nesta conta.
       const same = err instanceof FamilyError && err.status === 409 && err.code !== "CPF_TAKEN" ? await familyRepo().getIdentity(user.id) : null;
@@ -126,19 +128,27 @@ export async function submitBankKyc(
     riskFlags,
     ip: meta.ip,
     userAgent: meta.userAgent.slice(0, 300),
+    documentReviews: (await identitySchemaReadySafe()) ? receivedReviews(input.documents, now.toISOString()) : undefined,
   };
+  let created: BankKycApplication | null = null;
   try {
-    await kycRepo().insert(record);
+    created = await kycRepo().insert(record);
   } catch (err) {
     // Um pedido em análise por pessoa (índice único): o envio repetido já foi gravado pela outra chamada.
     if (!(err instanceof PartnerError && err.status === 409)) throw err;
     const current = await kycRepo().latestForUser(user.id);
     if (!current || current.status === "rejected") throw err;
   }
-  const app = options.forward === false ? await kycRepo().latestForUser(user.id) : await autoApproveBankKyc(user.id);
+  if (created) {
+    await recordKycEvent({ applicationId: created.id, userId: user.id, actor: user.email, actorRole: "member", action: "submitted", documentKind: null, detail: riskFlags.join(", ") });
+  }
+  // Em análise pela PRX: nada vai ao banco parceiro antes da aprovação da equipe.
+  const app = await kycRepo().latestForUser(user.id);
   if (!app) throw new FamilyError("Não foi possível registrar a abertura de conta.", 500);
   return app;
 }
+
+const identitySchemaReadySafe = (): Promise<boolean> => identitySchemaReady().catch(() => false);
 
 const SUPERSEDED_NOTE = "Substituída por um envio mais recente da mesma pessoa.";
 
@@ -150,7 +160,7 @@ const SUPERSEDED_NOTE = "Substituída por um envio mais recente da mesma pessoa.
 async function retireOlderApprovals(app: BankKycApplication): Promise<void> {
   const others = (await kycRepo().approvedForCpf(app.cpf)).filter((a) => a.id !== app.id);
   if (others.some((a) => a.userId !== app.userId)) throw new FamilyError(CPF_TAKEN_MESSAGE, 409, "CPF_TAKEN");
-  for (const older of others) await kycRepo().decide(older.id, "rejected", SUPERSEDED_NOTE, AUTO_REVIEWER);
+  for (const older of others) await kycRepo().decide(older.id, "rejected", SUPERSEDED_NOTE, SYSTEM_REVIEWER);
 }
 
 async function approve(app: BankKycApplication, note: string, reviewer: string): Promise<BankKycApplication | null> {
@@ -165,21 +175,8 @@ async function approve(app: BankKycApplication, note: string, reviewer: string):
   }
 }
 
-/**
- * Aprova a abertura pendente sem análise do PRX (os documentos vão direto ao
- * Asaas). Menor de idade espera o responsável aceitar o vínculo (LGPD, Art. 14)
- * ou a emancipação. Vale também para pedidos antigos que ficaram em análise.
- */
-export async function autoApproveBankKyc(userId: string): Promise<BankKycApplication | null> {
-  const app = await kycRepo().latestForUser(userId);
-  if (app?.status !== "pending") return app;
-  // Menor emancipado não espera o PRX: a certidão vai ao banco parceiro, que confere e aprova a conta.
-  if (app.riskFlags.includes("minor") && app.minorPath !== "emancipated" && !(await guardianReady(app.userId, app.birthDate))) return app;
-  return (await approve(app, AUTO_NOTE, AUTO_REVIEWER)) ?? app;
-}
-
 /** Menor só é aprovado com o responsável vinculado (ou emancipação aprovada, que vira conta comum). */
-async function guardianReady(userId: string, birthDate: string): Promise<boolean> {
+export async function guardianReady(userId: string, birthDate: string): Promise<boolean> {
   const identity = await familyRepo().getIdentity(userId);
   if (!identity) return false;
   if (identity.accountType === "member") return ageGroup(birthDate) === "adult" || identity.status === "active";
@@ -195,11 +192,23 @@ export async function reviewBankKyc(id: string, decision: "approve" | "reject", 
   if (app.status === targetStatus) {
     throw new FamilyError(`Este pedido já foi ${targetStatus === "approved" ? "aprovado" : "recusado"}.`, 409);
   }
-  if (decision === "approve" && app.riskFlags.includes("minor") && !(await guardianReady(app.userId, app.birthDate))) {
+  if (decision === "approve" && app.riskFlags.includes("minor") && app.minorPath !== "emancipated" && !(await guardianReady(app.userId, app.birthDate))) {
     throw new FamilyError("Menor de idade: aprove só depois que o responsável aceitar o vínculo na Conta Pai (ou a emancipação ser aprovada).", 409);
+  }
+  if (decision === "approve") {
+    if (!(await bankAgeAllowed(app.userId, app.birthDate))) throw new FamilyError("Acima de 29 anos sem a liberação do PRX BANK vigente: libere em PRX BANK → Liberação antes de aprovar.", 409);
+    await assertIdentityApprovable(app);
+  } else if (note.trim().length < 5) {
+    throw new FamilyError("Escreva o motivo da recusa (a pessoa vê esse texto).", 422);
   }
   const decided = targetStatus === "approved" ? await approve(app, note, reviewer) : await kycRepo().decide(id, targetStatus, note, reviewer);
   if (!decided) throw new FamilyError("Não foi possível atualizar a decisão do pedido.", 409);
+  await recordKycEvent({ applicationId: app.id, userId: app.userId, actor: reviewer, actorRole: "admin", action: targetStatus === "approved" ? "approved" : "rejected", documentKind: null, detail: note.trim().slice(0, 500) });
+  if (targetStatus === "rejected") {
+    await notifyMember(app.userId, `identity:${app.id}:rejected`, "Sua abertura do PRX BANK não foi aprovada", "Abra a aba PRX BANK para ver o motivo e enviar de novo.");
+  } else {
+    await notifyMember(app.userId, `identity:${app.id}:approved`, "Identidade confirmada pela PRX", "Agora o PRX BANK abre a sua conta. O aviso da aprovação chega aqui.");
+  }
 
   if (targetStatus === "approved") {
     try {

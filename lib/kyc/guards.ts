@@ -4,6 +4,10 @@ import { getKycRepository } from "@/lib/kyc/repository";
 import { getFamilyRepository } from "@/lib/family/repository";
 import { isSandboxMode } from "@/lib/bank/repository";
 import { KYC_PENDING_MESSAGE, KYC_REQUIRED_MESSAGE, type BankKycState } from "@/lib/kyc/types";
+import { identityChecklist } from "@/lib/kyc/identity";
+import { ageGroup } from "@/lib/family/age";
+import { buyerBirthDate } from "@/lib/live/buyer";
+import { bankAgeAllowed } from "@/lib/bank/access";
 
 /*
  * Trava do PRX BANK: nada de conta, chave Pix, cartão ou movimentação sem a
@@ -33,14 +37,20 @@ export async function bankKycState(userId: string): Promise<BankKycState> {
   }
   const [app, identity] = await Promise.all([getKycRepository().latestForUser(userId), getFamilyRepository().getIdentity(userId)]);
   const minor = identity?.accountType === "minor";
+  // Acima de 29 anos sem liberação: a tela avisa antes do formulário (o envio é recusado no servidor de qualquer jeito).
+  let ageBlocked = false;
+  if (!app || app.status === "rejected") {
+    const birth = identity?.birthDate ?? (await buyerBirthDate(userId).catch(() => null))?.birthDate ?? null;
+    if (birth && ageGroup(birth) === "over") ageBlocked = !(await bankAgeAllowed(userId, birth).catch(() => false));
+  }
   return {
     status: app?.status ?? "none",
     reviewNote: app?.reviewNote ?? "",
     awaitingGuardian: minor && identity?.status === "link_pending",
     awaitingEmancipation: minor && identity?.status === "emancipation_pending",
     submittedAt: app?.createdAt ?? null,
-    documents: [],
+    documents: app && app.status !== "rejected" ? identityChecklist(app) : [],
     resubmissionRequested: Boolean(app?.status === "pending" && app.resubmissionRequestedAt),
-    ageBlocked: false,
+    ageBlocked,
   };
 }

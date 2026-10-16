@@ -73,8 +73,13 @@ export class FamilyError extends PartnerError {
  *   16–17: vínculo com o responsável ou emancipação comprovada.
  *   18–29: conta comum. 30+: fora do público do PRX BANK.
  */
-export function assertEligibleAge(input: Pick<IdentityInput, "birthDate" | "teenPath" | "parentEmail">, now = new Date()) {
-  const group = ageGroup(input.birthDate, now);
+/**
+ * `allowOver`: acima de 29 anos com a liberação do PRX BANK dada pelo admin
+ * (lib/bank/access.ts). A pessoa entra como conta comum; as outras regras não mudam.
+ */
+export function assertEligibleAge(input: Pick<IdentityInput, "birthDate" | "teenPath" | "parentEmail">, now = new Date(), options: { allowOver?: boolean } = {}) {
+  const raw = ageGroup(input.birthDate, now);
+  const group = raw === "over" && options.allowOver ? "adult" : raw;
   if (group === "under") throw new FamilyError(UNDER_AGE_MESSAGE, 403, "UNDER_AGE");
   if (group === "over") throw new FamilyError(OVER_AGE_MESSAGE, 403, "OVER_AGE");
   if (group === "child" && input.teenPath !== "linked") throw new FamilyError(PARENT_REQUIRED_MESSAGE, 403, "PARENT_REQUIRED");
@@ -112,9 +117,9 @@ async function insertIdentityOr409(identity: Omit<FamilyIdentity, "createdAt" | 
  * Registra CPF e nascimento da conta de um jovem (cadastro por e-mail, entrada
  * pelo Google ou conta antiga sem esses dados). Define o tipo e a situação.
  */
-export async function registerIdentity(user: MemberRef, input: IdentityInput, now = new Date()): Promise<FamilyIdentity> {
+export async function registerIdentity(user: MemberRef, input: IdentityInput, now = new Date(), options: { allowOver?: boolean } = {}): Promise<FamilyIdentity> {
   if (await repo().getIdentity(user.id)) throw new FamilyError("Seus dados de identidade já foram registrados.", 409);
-  const group = assertEligibleAge(input, now);
+  const group = assertEligibleAge(input, now, options);
   await assertCpfAvailable(input.cpf);
 
   if (group === "adult") {

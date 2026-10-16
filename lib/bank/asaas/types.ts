@@ -45,6 +45,20 @@ export interface Subaccount {
 
 export type SubaccountPatch = Partial<Omit<Subaccount, "userId" | "createdAt" | "environment">>;
 
+/**
+ * Cofre (bank_subaccount_vault): a subconta do Asaas existe enquanto o CPF
+ * existir, mas a chave dela só é entregue na criação. Quando o cadastro é
+ * excluído, a chave cifrada fica aqui para o novo cadastro do mesmo CPF.
+ */
+export interface VaultedSubaccount {
+  asaasAccountId: string;
+  environment: AsaasEnvironment;
+  walletId: string | null;
+  apiKeySealed: string | null;
+  archivedAt: string;
+  adoptedBy: string | null;
+}
+
 export const OUTGOING_KINDS = ["pix_key", "pix_qr", "bill"] as const;
 export type OutgoingKind = (typeof OUTGOING_KINDS)[number];
 export const OUTGOING_STATUSES = ["awaiting_confirmation", "requested", "approved", "refused", "done", "failed", "cancelled", "expired"] as const;
@@ -121,6 +135,12 @@ export interface AsaasBankStore {
   reserveSubaccount(userId: string, environment: AsaasEnvironment, staleBefore: string): Promise<boolean>;
   releaseSubaccount(userId: string): Promise<void>;
   saveSubaccount(userId: string, patch: SubaccountPatch): Promise<Subaccount>;
+  /** Subconta de um cadastro excluído, guardada no cofre com a chave (migração 20261015). null quando não há. */
+  vaultedSubaccount(asaasAccountId: string, environment: AsaasEnvironment): Promise<VaultedSubaccount | null>;
+  /** Marca a subconta do cofre como religada a um novo cadastro do mesmo CPF. */
+  markVaultAdopted(asaasAccountId: string, userId: string): Promise<void>;
+  /** Tira a subconta do cadastro (exclusão da conta): a chave vai para o cofre antes. */
+  removeSubaccount(userId: string): Promise<void>;
 
   recordWebhook(input: WebhookRecord): Promise<WebhookRecordResult>;
   /** Fecha o processamento: sem erro marca processado; com erro soma uma tentativa e guarda o motivo. */

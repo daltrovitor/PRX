@@ -4,9 +4,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button, EmptyState, Input, Notice, Segmented, Tag } from "@/components/app/ui";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
-import { ageOn, maskCpf } from "@/lib/family/age";
+import { ageOn } from "@/lib/family/age";
 import { DOCUMENT_LABEL, GUARDIANSHIP_LABEL, INCOME_LABEL, REVIEW_STATUS_LABEL, type DocumentRef, type EmancipationRequest, type ParentApplication, type ReviewStatus } from "@/lib/family/types";
-import { RISK_FLAG_LABEL, type BankKycApplication } from "@/lib/kyc/types";
+import type { BankKycApplication } from "@/lib/kyc/types";
 
 type KycRow = BankKycApplication & { guardianReady: boolean };
 
@@ -73,8 +73,7 @@ export function AdminFamilyTab() {
 
   const pendingCount =
     (data?.parents.filter((p) => p.status === "pending").length ?? 0) +
-    (data?.emancipations.filter((e) => e.status === "pending").length ?? 0) +
-    (data?.bankKyc.filter((k) => k.status === "pending").length ?? 0);
+    (data?.emancipations.filter((e) => e.status === "pending").length ?? 0);
 
   return (
     <section aria-labelledby="family-title" className="space-y-6">
@@ -84,7 +83,7 @@ export function AdminFamilyTab() {
             Verificações {filter === "pending" && pendingCount > 0 ? <span className="text-primary">· {pendingCount}</span> : null}
           </h2>
           <p className="mt-1 max-w-2xl text-[13px] text-muted-foreground">
-            O cadastro comum não pede documentos. Aqui chegam só a abertura do PRX BANK e a tutela de menores (Conta Pai e emancipação). Aprove apenas com documentos legíveis e coerentes com os dados.
+            O cadastro comum não pede documentos. Aqui chega a tutela de menores (Conta Pai e emancipação). Aprove apenas com documentos legíveis e coerentes com os dados.
           </p>
         </div>
         <Segmented
@@ -106,51 +105,7 @@ export function AdminFamilyTab() {
         <div role="status" aria-label="Carregando" className="h-32 rounded-3xl bg-surface" />
       ) : (
         <>
-          <div className="space-y-3">
-            <h3 className="text-[15px] font-semibold text-ink">Abertura do PRX BANK</h3>
-            {data.bankKyc.length === 0 ? (
-              <EmptyState title={filter === "pending" ? "Nenhuma abertura para analisar" : "Nenhuma abertura"} body="Quem abre a conta na aba PRX BANK aparece aqui." />
-            ) : (
-              <ul className="space-y-3">
-                {data.bankKyc.map((k) => (
-                  <li key={k.id} className="glass-soft space-y-4 rounded-3xl p-5">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-[16px] font-semibold text-ink">{k.fullName}</p>
-                        <p className="text-[13px] text-muted-foreground">
-                          {k.email} · CPF {maskCpf(k.cpf)} · {when.format(new Date(k.createdAt)).replace(".", "")}
-                        </p>
-                      </div>
-                      <Tag tone={tone(k.status)}>{REVIEW_STATUS_LABEL[k.status]}</Tag>
-                    </div>
-                    <dl className="grid gap-2 text-[14px] sm:grid-cols-3">
-                      <Info label="Idade" value={`${ageOn(k.birthDate)} anos`} />
-                      <Info label="Mãe" value={k.motherName && k.motherName !== "Não informado" ? k.motherName : "Não informada"} />
-                      <Info label="Celular" value={phone(k.phone)} />
-                      <Info label="Ocupação" value={k.occupation} />
-                      <Info label="Renda" value={INCOME_LABEL[k.incomeRange]} />
-                      <Info label="Endereço" value={`${k.address.street}, ${k.address.number} · ${k.address.city}/${k.address.state}`} />
-                    </dl>
-                    {k.riskFlags.length > 0 && (
-                      <ul className="flex flex-wrap gap-2" aria-label="Sinais para a análise">
-                        {k.riskFlags.map((flag) => (
-                          <li key={flag}>
-                            <Tag tone="warning">{RISK_FLAG_LABEL[flag]}</Tag>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    {k.riskFlags.includes("minor") && !k.guardianReady && k.status === "pending" && (
-                      <Notice tone="warning">Aguardando o responsável aceitar o vínculo (ou a emancipação ser aprovada). A aprovação fica bloqueada até lá.</Notice>
-                    )}
-                    <p className="text-[12px] text-muted-foreground">Trilha antifraude: IP {k.ip ?? "—"}</p>
-                    <Documents documents={k.documents} />
-                    <Decision id={k.id} status={k.status} note={k.reviewNote} value={notes[k.id] ?? ""} onNote={(v) => setNotes((n) => ({ ...n, [k.id]: v }))} busy={busy} onDecide={(d) => void decide("bank", k.id, d)} />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          <Notice>A abertura do PRX BANK agora é analisada em PRX BANK → Identidade (documento a documento, com histórico).</Notice>
 
           <div className="space-y-3">
             <h3 className="text-[15px] font-semibold text-ink">Conta Pai</h3>

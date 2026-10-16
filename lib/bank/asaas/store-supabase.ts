@@ -1,6 +1,6 @@
 // Hello World
 import type { supabaseAdmin } from "@/lib/supabase/client";
-import { dbError } from "@/lib/partners/errors";
+import { dbError, isMissingTable } from "@/lib/partners/errors";
 import { isUuid } from "@/lib/partners/catalog";
 import { bankLog } from "@/lib/asaas/log";
 import {
@@ -14,6 +14,7 @@ import {
   type ProvisioningLogEntry,
   type Subaccount,
   type SubaccountPatch,
+  type VaultedSubaccount,
   type WebhookRecord,
   type WebhookRecordResult,
   roundMoney,
@@ -95,6 +96,28 @@ export class SupabaseAsaasBankStore implements AsaasBankStore {
     const { data, error } = await tolerant(row, (r) => this.db.from("bank_subaccounts").update(r).eq("id", userId).select("*").single());
     if (error) throw dbError(error, "Não foi possível salvar a subconta");
     return mapSubaccount(data as SubaccountRow);
+  }
+
+  async vaultedSubaccount(asaasAccountId: string, environment: Subaccount["environment"]): Promise<VaultedSubaccount | null> {
+    const { data, error } = await this.db.from("bank_subaccount_vault").select("*").eq("asaas_account_id", asaasAccountId).eq("environment", environment).maybeSingle();
+    // Sem a migração 20261015 o cofre não existe: segue como antes (religa sem a chave).
+    if (isMissingTable(error)) return null;
+    if (error) throw dbError(error, "Não foi possível consultar o cofre da subconta");
+    if (!data) return null;
+    const row = data as { asaas_account_id: string; environment: Subaccount["environment"]; wallet_id: string | null; api_key: string | null; archived_at: string; adopted_by: string | null };
+    return { asaasAccountId: row.asaas_account_id, environment: row.environment, walletId: row.wallet_id, apiKeySealed: row.api_key, archivedAt: row.archived_at, adoptedBy: row.adopted_by };
+  }
+
+  async markVaultAdopted(asaasAccountId: string, userId: string) {
+    const { error } = await this.db.from("bank_subaccount_vault").update({ adopted_by: isUuid(userId) ? userId : null, adopted_at: new Date().toISOString() }).eq("asaas_account_id", asaasAccountId);
+    if (error && !isMissingTable(error)) throw dbError(error, "Não foi possível atualizar o cofre da subconta");
+  }
+
+  async removeSubaccount(userId: string) {
+    if (!isUuid(userId)) return;
+    // O gatilho bank_subaccounts_archive_on_delete guarda a chave no cofre antes de apagar.
+    const { error } = await this.db.from("bank_subaccounts").delete().eq("id", userId);
+    if (error) throw dbError(error, "Não foi possível tirar a subconta do cadastro");
   }
 
   async listSubaccounts(environment: Subaccount["environment"], limit: number) {

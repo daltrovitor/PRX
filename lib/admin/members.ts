@@ -126,3 +126,28 @@ function memoryMembers(query: MemberQuery, term: string): MemberPage {
   const { page, pageSize } = query;
   return { members: sorted.slice((page - 1) * pageSize, page * pageSize), total: sorted.length, page, pageSize, source: "memory" };
 }
+
+export interface MemberContact {
+  name: string;
+  email: string;
+}
+
+/** Nome e e-mail de uma lista de contas (fichas do admin). Ids desconhecidos ficam de fora. */
+export async function memberContacts(ids: ReadonlyArray<string>): Promise<Map<string, MemberContact>> {
+  const unique = [...new Set(ids)].filter(Boolean).slice(0, 500);
+  const out = new Map<string, MemberContact>();
+  if (unique.length === 0) return out;
+  if (!supabaseAdmin) {
+    for (const id of unique) {
+      const u = userStore.findById(id);
+      if (u) out.set(id, { name: u.fullName, email: u.email });
+    }
+    return out;
+  }
+  const { data, error } = await supabaseAdmin.from("profiles").select("id, full_name, email").in("id", unique);
+  if (error) throw dbError(error, "Não foi possível ler os membros");
+  for (const r of (data ?? []) as Array<{ id: string; full_name: string | null; email: string | null }>) {
+    out.set(r.id, { name: r.full_name || (r.email ?? "").split("@")[0], email: r.email ?? "" });
+  }
+  return out;
+}

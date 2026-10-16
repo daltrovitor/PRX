@@ -14,6 +14,7 @@ import {
   type ProvisioningLogEntry,
   type Subaccount,
   type SubaccountPatch,
+  type VaultedSubaccount,
   type WebhookRecord,
   type WebhookRecordResult,
 } from "@/lib/bank/asaas/types";
@@ -34,6 +35,7 @@ const EMPTY_STATUS = {
 /** Espelho em memória (desenvolvimento sem Supabase e testes). Mesmas regras do Supabase. */
 export class MemoryAsaasBankStore implements AsaasBankStore {
   private subaccounts = new Map<string, Subaccount>();
+  private vault = new Map<string, VaultedSubaccount>();
   private webhooks = new Map<string, { processedAt: string | null; error: string | null; payload: unknown; attempts: number; receivedAt: string }>();
   private notifications: Array<BankNotification & { eventId: string | null }> = [];
   private outgoing = new Map<string, OutgoingRequest>();
@@ -98,6 +100,34 @@ export class MemoryAsaasBankStore implements AsaasBankStore {
     const next = { ...current, ...defined };
     this.subaccounts.set(userId, next);
     return { ...next };
+  }
+
+  async vaultedSubaccount(asaasAccountId: string, environment: Subaccount["environment"]) {
+    const found = this.vault.get(asaasAccountId);
+    return found && found.environment === environment ? { ...found } : null;
+  }
+
+  async markVaultAdopted(asaasAccountId: string, userId: string) {
+    const found = this.vault.get(asaasAccountId);
+    if (found) found.adoptedBy = userId;
+  }
+
+  async removeSubaccount(userId: string) {
+    const current = this.subaccounts.get(userId);
+    if (!current) return;
+    // Mesmo efeito do gatilho do Supabase: a chave vai para o cofre antes de a linha sair.
+    if (current.asaasAccountId) {
+      const previous = this.vault.get(current.asaasAccountId);
+      this.vault.set(current.asaasAccountId, {
+        asaasAccountId: current.asaasAccountId,
+        environment: current.environment,
+        walletId: current.walletId ?? previous?.walletId ?? null,
+        apiKeySealed: current.apiKeySealed ?? previous?.apiKeySealed ?? null,
+        archivedAt: new Date().toISOString(),
+        adoptedBy: null,
+      });
+    }
+    this.subaccounts.delete(userId);
   }
 
   async listSubaccounts(environment: Subaccount["environment"], limit: number) {

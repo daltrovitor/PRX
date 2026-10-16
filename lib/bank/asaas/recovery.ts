@@ -38,13 +38,19 @@ export async function adoptExistingSubaccount(userId: string, cpf: string, deps:
     if (!owner || owner.userId === userId) free.push(account);
   }
   if (free.length === 0) return null;
-  const [chosen, ...others] = free;
+  // Cadastro excluído e refeito com o mesmo CPF: a subconta guardada no cofre volta com a chave.
+  const vaulted = await Promise.all(free.map((a) => deps.store.vaultedSubaccount(a.id, deps.client.environment).catch(() => null)));
+  const keyed = vaulted.findIndex((v) => Boolean(v?.apiKeySealed));
+  const pick = keyed >= 0 ? keyed : 0;
+  const chosen = free[pick];
+  const others = free.filter((_, i) => i !== pick);
+  const restoredKey = vaulted[pick]?.apiKeySealed ?? null;
   const { agency, accountNumber } = formatAccount(chosen.accountNumber);
   const now = deps.now().toISOString();
   const sub = await deps.store.saveSubaccount(userId, {
     asaasAccountId: chosen.id,
-    walletId: chosen.walletId,
-    apiKeySealed: null,
+    walletId: chosen.walletId ?? vaulted[pick]?.walletId ?? null,
+    apiKeySealed: restoredKey,
     agency,
     accountNumber,
     status: "pending_activation",
@@ -52,7 +58,11 @@ export async function adoptExistingSubaccount(userId: string, cpf: string, deps:
     rejectReason: null,
     provisioningStartedAt: null,
     accountCreatedAt: now,
+    // Documentos do novo cadastro seguem de novo ao Asaas; o aviso do link também.
+    documentsSyncedAt: null,
+    onboardingNotifiedAt: null,
   });
+  if (vaulted[pick]) await deps.store.markVaultAdopted(chosen.id, userId).catch(() => undefined);
   const duplicates = others.map((a) => a.id);
   const extra = duplicates.length ? ` Outras subcontas com o mesmo CPF no Asaas (duplicadas por tentativas anteriores): ${duplicates.join(", ")}.` : "";
   await logProvisioning(deps, {
@@ -60,7 +70,9 @@ export async function adoptExistingSubaccount(userId: string, cpf: string, deps:
     step: "account",
     outcome: "recovered",
     asaasAccountId: chosen.id,
-    detail: `Subconta já existia no Asaas e foi religada ao membro (sem criar outra). Falta a chave da subconta: gere em Admin → Asaas.${extra}`,
+    detail: restoredKey
+      ? `Subconta já existia no Asaas (cadastro anterior excluído) e foi religada ao membro com a chave guardada no cofre. Nada foi criado.${extra}`
+      : `Subconta já existia no Asaas e foi religada ao membro (sem criar outra). Falta a chave da subconta: gere em Admin → Asaas.${extra}`,
   });
   await deps.mirror.linkAccount(userId, { providerAccountId: chosen.id, agency, accountNumber });
   return { sub, duplicates };
@@ -71,8 +83,10 @@ export async function adoptExistingSubaccount(userId: string, cpf: string, deps:
  * travada): o último envio é encerrado e o membro volta ao formulário. A
  * subconta do Asaas, em análise ou aprovada, continua ligada com a chave e é
  * reaproveitada no próximo envio (nada de conta nova); os documentos desse
- * envio seguem de novo ao Asaas. Apagar o cadastro perde a chave da subconta,
- * que pela Vercel não dá para gerar de novo (whitelist de IP).
+ * envio seguem de novo ao Asaas. Apagar o cadastro também não perde mais a
+ * chave: o gatilho da migração 20261015 a guarda no cofre e o novo cadastro do
+ * mesmo CPF religa a subconta com ela (sem a migração, a chave se perde e pela
+ * Vercel não dá para gerar outra: whitelist de IP).
  */
 export async function restartOpening(userId: string, deps: AsaasDeps, reviewer: string): Promise<{ retiredKyc: boolean; asaasAccountId: string | null }> {
   const app = await deps.latestKyc(userId);

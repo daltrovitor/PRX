@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { resetFamilyMemory } from "@/lib/family/repository";
 import { registerIdentity } from "@/lib/family/service";
 import { getKycRepository, resetKycMemory } from "@/lib/kyc/repository";
-import { bankKycState, submitBankKyc } from "@/lib/kyc/service";
+import { bankKycState, reviewBankKyc, submitBankKyc } from "@/lib/kyc/service";
+import { approveReceivedDocuments } from "@/lib/kyc/identity";
 import { bankKycSchema, type BankKycInput } from "@/lib/kyc/types";
 
 /*
@@ -11,6 +12,7 @@ import { bankKycSchema, type BankKycInput } from "@/lib/kyc/types";
  * análise por pessoa e um CPF aprovado por vez. Um envio repetido (toque duplo,
  * rede lenta) ou uma reabertura batia nessas regras e a tela mostrava erro,
  * embora a abertura já estivesse salva. Envio repetido agora é o mesmo envio.
+ * Desde 15/10/2026 toda abertura espera a análise da PRX (admin) em "pending".
  */
 
 function cpf(base: string): string {
@@ -51,7 +53,13 @@ const input = (userId: string, cpfDigits: string): BankKycInput =>
 
 const meta = { ip: "203.0.113.7", userAgent: "vitest" };
 /** O que a rota usa quando a conta ainda não existe no banco parceiro. */
-const routeOptions = { allowRedo: true, forward: true };
+const routeOptions = { allowRedo: true };
+
+/** O admin confere os documentos e aprova a identidade. */
+async function adminApproves(id: string) {
+  await approveReceivedDocuments(id, "admin@prx.dev");
+  return reviewBankKyc(id, "approve", "", "admin@prx.dev");
+}
 
 beforeEach(() => {
   resetFamilyMemory();
@@ -63,13 +71,14 @@ async function approvedForCpf(doc: string) {
 }
 
 describe("abertura do PRX BANK sem 'Registro duplicado'", () => {
-  it("toque duplo no primeiro envio (sem CPF na conta): os dois envios terminam bem e a conta fica aprovada", async () => {
+  it("toque duplo no primeiro envio (sem CPF na conta): os dois envios terminam bem, num único pedido em análise", async () => {
     const u = member();
     const doc = cpf("123456780");
     const results = await Promise.allSettled([submitBankKyc(u, input(u.id, doc), meta, new Date(), routeOptions), submitBankKyc(u, input(u.id, doc), meta, new Date(), routeOptions)]);
     expect(results.map((r) => (r.status === "rejected" ? String((r.reason as Error).message) : "ok"))).toEqual(["ok", "ok"]);
-    expect((await bankKycState(u.id)).status).toBe("approved");
-    expect(await approvedForCpf(doc)).toHaveLength(1);
+    expect((await bankKycState(u.id)).status).toBe("pending");
+    expect((await getKycRepository().list("pending")).filter((a) => a.cpf === doc)).toHaveLength(1);
+    expect(await approvedForCpf(doc)).toHaveLength(0);
   });
 
   it("toque duplo com o CPF já registrado no cadastro: nada de erro e um único pedido aprovado", async () => {
@@ -78,18 +87,20 @@ describe("abertura do PRX BANK sem 'Registro duplicado'", () => {
     await registerIdentity(u, { cpf: doc, birthDate: "2000-02-10" });
     const results = await Promise.allSettled([submitBankKyc(u, input(u.id, doc), meta, new Date(), routeOptions), submitBankKyc(u, input(u.id, doc), meta, new Date(), routeOptions)]);
     expect(results.every((r) => r.status === "fulfilled")).toBe(true);
-    expect((await bankKycState(u.id)).status).toBe("approved");
-    expect(await approvedForCpf(doc)).toHaveLength(1);
+    expect((await bankKycState(u.id)).status).toBe("pending");
+    expect((await getKycRepository().list("pending")).filter((a) => a.cpf === doc)).toHaveLength(1);
   });
 
   it("refazer a abertura (conta ainda não criada no banco parceiro) troca a aprovada anterior pela nova", async () => {
     const u = member();
     const doc = cpf("323456780");
     const first = await submitBankKyc(u, input(u.id, doc), meta, new Date(), routeOptions);
-    expect(first.status).toBe("approved");
+    expect(first.status).toBe("pending");
+    expect((await adminApproves(first.id)).status).toBe("approved");
     const second = await submitBankKyc(u, input(u.id, doc), meta, new Date(), routeOptions);
-    expect(second.status).toBe("approved");
+    expect(second.status).toBe("pending");
     expect(second.id).not.toBe(first.id);
+    expect((await adminApproves(second.id)).status).toBe("approved");
     const approved = await approvedForCpf(doc);
     expect(approved.map((a) => a.id)).toEqual([second.id]);
     expect((await getKycRepository().get(first.id))?.reviewNote).toMatch(/Substituída/);
@@ -98,10 +109,9 @@ describe("abertura do PRX BANK sem 'Registro duplicado'", () => {
   it("reenviar com a abertura já em análise devolve a mesma abertura, sem erro", async () => {
     const u = member();
     const doc = cpf("423456780");
-    // Banco parceiro desligado neste deploy: a abertura fica salva em análise.
-    const first = await submitBankKyc(u, input(u.id, doc), meta, new Date(), { allowRedo: true, forward: false });
+    const first = await submitBankKyc(u, input(u.id, doc), meta, new Date(), routeOptions);
     expect(first.status).toBe("pending");
-    const again = await submitBankKyc(u, input(u.id, doc), meta, new Date(), { allowRedo: true, forward: false });
+    const again = await submitBankKyc(u, input(u.id, doc), meta, new Date(), routeOptions);
     expect(again.id).toBe(first.id);
     expect((await bankKycState(u.id)).status).toBe("pending");
   });
@@ -109,7 +119,7 @@ describe("abertura do PRX BANK sem 'Registro duplicado'", () => {
   it("CPF de outra pessoa continua barrado com a mensagem clara (não 'Registro duplicado')", async () => {
     const owner = member();
     const doc = cpf("523456780");
-    await submitBankKyc(owner, input(owner.id, doc), meta, new Date(), routeOptions);
+    await adminApproves((await submitBankKyc(owner, input(owner.id, doc), meta, new Date(), routeOptions)).id);
     const intruder = member();
     await expect(submitBankKyc(intruder, input(intruder.id, doc), meta, new Date(), routeOptions)).rejects.toThrow(/CPF/);
   });

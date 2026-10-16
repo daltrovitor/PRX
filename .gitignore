@@ -43,3 +43,6 @@ next-env.d.ts
 # resultados de testes E2E
 /test-results
 /shots
+
+# Saída do Playwright MCP (capturas e logs locais)
+.playwright-mcp/

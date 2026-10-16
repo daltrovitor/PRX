@@ -9,6 +9,7 @@ import { DocumentPicker } from "@/components/family/document-picker";
 import { ProviderDisclosure } from "@/components/app/bank/provider-disclosure";
 import { postJson, uploadFamilyDocument } from "@/components/family/family-client";
 import { SelfieCapture } from "@/components/app/bank/selfie-capture";
+import { KycPending } from "@/components/app/bank/kyc-pending";
 import { maskCpfInput } from "@/lib/cpf-mask";
 import { APP_HOST } from "@/lib/domains";
 import { ageGroup } from "@/lib/family/age";
@@ -44,102 +45,23 @@ function groupOf(birthDate: string) {
 type KycDone = (providerError?: string | null) => Promise<void> | void;
 
 export function BankKycPanel({ member, kyc, onDone }: { member: User; kyc: BankKycState; onDone: KycDone }) {
-  if (kyc.status === "pending") return <KycPending kyc={kyc} />;
+  if (kyc.status === "pending") return <KycPending kyc={kyc} onChanged={() => onDone()} />;
+  if (kyc.ageBlocked) return <AgeBlocked />;
   // Recomeçada pelo suporte não é recusa: formulário de novo, sem aviso.
   const rejected = kyc.status === "rejected" && kyc.reviewNote !== KYC_RESTART_NOTE;
   return <KycForm member={member} rejectedNote={rejected ? kyc.reviewNote || "Revise os dados e os documentos." : null} onDone={onDone} />;
 }
 
-/** Abertura salva e ainda não aprovada: nunca é mostrada como aprovada nem pede o mesmo envio de novo. */
-function KycPending({ kyc }: { kyc: BankKycState }) {
-  const waitingPeople = kyc.awaitingGuardian || kyc.awaitingEmancipation;
-  const sent = kyc.submittedAt ? new Date(kyc.submittedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : null;
-  const [canBio, setCanBio] = useState(false);
-  const [bioBusy, setBioBusy] = useState(false);
-  const [bioDone, setBioDone] = useState(false);
-  const [bioError, setBioError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    void (async () => {
-      const ok = await canUseBiometrics();
-      const localAccepted = typeof window !== "undefined" && localStorage.getItem("prx_bank_biometrics_accepted") === "true";
-      const known = readKnownAccount()?.passkey === true;
-      if (localAccepted || known) {
-        if (alive) setCanBio(false);
-        return;
-      }
-      try {
-        const res = await fetch("/api/auth/passkeys", { cache: "no-store" });
-        if (res.ok) {
-          const data = (await res.json().catch(() => ({}))) as { passkeys?: unknown[] };
-          if (data.passkeys && data.passkeys.length > 0) {
-            if (typeof window !== "undefined") {
-              localStorage.setItem("prx_bank_biometrics_accepted", "true");
-            }
-            if (alive) setCanBio(false);
-            return;
-          }
-        }
-      } catch {
-        // Ignora falhas de rede na checagem
-      }
-      if (alive) setCanBio(ok);
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  async function activateBiometrics() {
-    setBioBusy(true);
-    setBioError(null);
-    const res = await registerPasskey();
-    setBioBusy(false);
-    if (res.ok) {
-      setBioDone(true);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("prx_bank_biometrics_accepted", "true");
-      }
-    } else {
-      setBioError(res.error || "Não foi possível ativar neste momento.");
-    }
-  }
-
+/** Acima de 29 anos sem a liberação da equipe: nada de formulário (o servidor recusaria o envio). */
+function AgeBlocked() {
   return (
     <div className="mx-auto max-w-xl space-y-6 pb-32 sm:pb-36">
       <h1 className="ob-display text-[28px] text-ink sm:text-[40px]">PRX BANK</h1>
-      <section className="glass space-y-4 rounded-[28px] p-6">
-        <Tag>Em análise</Tag>
-        <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-ink">Conta em análise</h2>
+      <section className="glass space-y-3 rounded-[28px] p-6">
+        <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-ink">Conta para jovens até 29 anos</h2>
         <p className="text-[15px] leading-relaxed text-muted-foreground">
-          {waitingPeople
-            ? "Assim que a etapa abaixo for concluída, seus dados e documentos seguem direto para o PRX BANK, que aprova a conta. Você recebe o aviso aqui."
-            : `Seus dados e documentos${sent ? `, enviados em ${sent},` : ""} estão salvos e seguem para o PRX BANK, que aprova a conta. Você não precisa enviar nada de novo: o aviso chega aqui.`}
+          A conta PRX BANK é aberta para jovens até 29 anos. Se você foi convidado pela equipe da PRX, fale com o suporte: com a liberação, a abertura aparece aqui.
         </p>
-        {kyc.awaitingGuardian && (
-          <Notice tone="warning">Como você tem menos de 18 anos, seu responsável precisa aceitar o vínculo na Conta Pai dele. Peça para ele abrir o PRX e aprovar.</Notice>
-        )}
-        {kyc.awaitingEmancipation && <Notice>Sua certidão de emancipação também está em análise.</Notice>}
-
-        {canBio && !bioDone && (
-          <div className="mt-4 space-y-3 rounded-2xl border border-line bg-surface p-4 text-left">
-            <div className="flex items-center gap-2 text-ink">
-              <IconLock size={18} className="text-primary" />
-              <p className="text-[14px] font-medium">Segurança biométrica do PRX BANK</p>
-            </div>
-            <p className="text-[13px] leading-relaxed text-muted-foreground">
-              Ative o Face ID, Touch ID ou a digital do aparelho para aprovar pagamentos Pix e acessar seu banco com rapidez e proteção.
-            </p>
-            {bioError && <Notice tone="error">{bioError}</Notice>}
-            <Button size="sm" className="min-h-12 cursor-pointer" disabled={bioBusy} onClick={() => void activateBiometrics()}>
-              {bioBusy ? "Ativando…" : "Ativar biometria neste aparelho"}
-            </Button>
-          </div>
-        )}
-        {bioDone && (
-          <Notice tone="success">Sua biometria está ativada e pronta para proteger o PRX BANK neste aparelho.</Notice>
-        )}
       </section>
     </div>
   );

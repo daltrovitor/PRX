@@ -5,12 +5,13 @@ import { TechnicalError } from "@/lib/error-messages";
 import { recordNotSent, withAsaasAudit } from "@/lib/asaas/audit";
 import { webhookAuthToken, webhookUrls } from "@/lib/asaas/config";
 import { emailConfig } from "@/lib/notifications/config";
-import { encryptSecret } from "@/lib/asaas/secrets";
+import { decryptSecret, encryptSecret } from "@/lib/asaas/secrets";
 import { SUBACCOUNT_WEBHOOK_EVENTS, approveSandboxAccount, createSubaccount, type CreatedSubaccount, type NewSubaccount, type SubaccountWebhook } from "@/lib/asaas/accounts";
 import { assertCanHoldMoney } from "@/lib/family/guards";
 import type { IncomeRange } from "@/lib/family/types";
 import { KYC_PENDING_MESSAGE, KYC_REQUIRED_MESSAGE, type BankKycApplication } from "@/lib/kyc/types";
 import { ageOn } from "@/lib/family/age";
+import { OVER_AGE_BANK_MESSAGE, bankAgeAllowed } from "@/lib/bank/access";
 import type { AsaasDeps } from "@/lib/bank/asaas/deps";
 import { asaasDeps } from "@/lib/bank/asaas/deps";
 import { ensureDefaultPixKey } from "@/lib/bank/asaas/cash-in";
@@ -19,7 +20,7 @@ import { syncOnboardingDocuments } from "@/lib/bank/asaas/documents";
 import { describeError, logDeferred, logProvisioning } from "@/lib/bank/asaas/provisioning-log";
 import { adoptExistingSubaccount, formatAccount } from "@/lib/bank/asaas/recovery";
 import { currentSubaccount, requireSubaccount, subaccountView, type SubaccountView } from "@/lib/bank/asaas/subaccount";
-import type { ProvisioningOutcome } from "@/lib/bank/asaas/types";
+import type { ProvisioningOutcome, Subaccount } from "@/lib/bank/asaas/types";
 
 export { currentSubaccount, requireActiveSubaccount, requireSubaccount, sinceSubaccount, subaccountView, type SubaccountView } from "@/lib/bank/asaas/subaccount";
 export { applyGeneralApproval } from "@/lib/bank/asaas/account-status";
@@ -118,6 +119,8 @@ async function open(userId: string, deps: AsaasDeps): Promise<SubaccountView> {
   try {
     await assertCanHoldMoney(userId);
     app = await approvedKyc(userId, deps);
+    // Acima de 29 anos só com a liberação vigente (revogada depois da aprovação também barra aqui).
+    if (!(await bankAgeAllowed(userId, app.birthDate, deps.now()))) throw new PartnerError(OVER_AGE_BANK_MESSAGE, 403);
   } catch (err) {
     await notSent(describeError(err));
     throw err;
@@ -228,6 +231,13 @@ export async function refreshSubaccountStatus(userId: string, deps: AsaasDeps): 
   });
 }
 
+/** Situação atual no Asaas (GET /myAccount/status) aplicada à subconta salva. */
+async function syncStatus(sub: Subaccount, deps: AsaasDeps): Promise<void> {
+  if (!sub.apiKeySealed) return;
+  const snapshot = await fetchStatusSnapshot(decryptSecret(sub.apiKeySealed), deps);
+  await applyStatusUpdate(sub, { snapshot, at: deps.now() }, deps);
+}
+
 /** No sandbox, a aprovação simulada oficial do Asaas; a situação aplicada é a que ele devolve. */
 async function approveInSandbox(userId: string, deps: AsaasDeps): Promise<void> {
   const { sub, apiKey } = await requireSubaccount(userId, deps);
@@ -253,6 +263,9 @@ export async function ensureAsaasCustomerAndAccount(userId: string, deps: AsaasD
     await syncOnboardingDocuments(userId, deps).catch((err: unknown) => logDeferred(userId, "abertura.documentos", err));
     if (deps.client.environment === "sandbox") {
       await approveInSandbox(userId, deps).catch((err: unknown) => logProvisioning(deps, { userId, step: "status", outcome: "failed", asaasAccountId: sub?.asaasAccountId ?? null, detail: `Aprovação simulada do sandbox: ${describeError(err)}` }));
+    } else if (sub.status !== "active" && sub.status !== "blocked") {
+      // Subconta religada (cadastro refeito) pode já estar aprovada no Asaas: os eventos do intervalo não acharam dono.
+      await syncStatus(sub, deps).catch((err: unknown) => logDeferred(userId, "abertura.situacao", err));
     }
     sub = await currentSubaccount(userId, deps);
     if (sub?.status === "active") await ensureDefaultPixKey(userId, deps).catch(() => {});

@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { asaasEnabled } from "@/lib/asaas/client";
 import { asaasDeps } from "@/lib/bank/asaas/deps";
 import { reconcileBank } from "@/lib/bank/asaas/reconcile";
+import { purgeRejectedDocuments } from "@/lib/kyc/identity";
 
 export const maxDuration = 60;
 
@@ -20,7 +21,9 @@ export async function GET(req: NextRequest) {
   if (!secret || given.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected))) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
-  if (!asaasEnabled()) return NextResponse.json({ success: true, skipped: "Asaas desligado neste ambiente." });
+  // Retenção (LGPD): arquivos de aberturas recusadas há mais de 180 dias saem do armazenamento; o registro da decisão fica.
+  const retention = await purgeRejectedDocuments().catch((err: unknown) => ({ purged: 0, error: err instanceof Error ? err.message : String(err) }));
+  if (!asaasEnabled()) return NextResponse.json({ success: true, retention, skipped: "Asaas desligado neste ambiente." });
   const report = await reconcileBank(asaasDeps());
-  return NextResponse.json({ success: true, report });
+  return NextResponse.json({ success: true, report, retention });
 }

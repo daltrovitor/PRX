@@ -23,7 +23,15 @@ import {
 } from "@/lib/family/service";
 import { activateSandbox, accountView } from "@/lib/bank/service";
 import { resetKycMemory } from "@/lib/kyc/repository";
-import { autoApproveBankKyc, reviewBankKyc, submitBankKyc } from "@/lib/kyc/service";
+import { bankKycState, reviewBankKyc, submitBankKyc } from "@/lib/kyc/service";
+import { approveReceivedDocuments, requestResubmission, resubmitDocument, reviewDocument } from "@/lib/kyc/identity";
+import { grantBankAccess, resetBankGrantsMemory, revokeBankAccess } from "@/lib/bank/access";
+
+/** O admin confere todos os documentos e aprova a identidade (decisão explícita). */
+async function adminApproves(id: string) {
+  await approveReceivedDocuments(id, "admin@prx.dev");
+  return reviewBankKyc(id, "approve", "", "admin@prx.dev");
+}
 import type { BankKycInput } from "@/lib/kyc/types";
 
 const CONSENT = { relationship: "mae" as const, guardianshipDeclared: true as const, consentAccepted: true as const };
@@ -266,7 +274,10 @@ describe("Conta Pai: aprovação, filhos, mesada e limites (memória + sandbox)"
     const childRef = { id: child.id, email: child.email, fullName: child.fullName };
     const kyc = await submitBankKyc(childRef, kycInput(child.id, childCpf, "2013-06-01", { minorPath: "linked", parentEmail: parent.email }), { ip: IP, userAgent: "vitest" }, NOW);
     expect(kyc.riskFlags).toContain("minor");
-    expect(kyc).toMatchObject({ status: "approved", reviewedBy: "auto" });
+    // Em análise pela PRX até o admin conferir e aprovar.
+    expect(kyc).toMatchObject({ status: "pending", reviewedBy: null });
+    await expect(activateSandbox(child.id)).rejects.toThrow(/em andamento/);
+    await expect(adminApproves(kyc.id)).resolves.toMatchObject({ status: "approved", reviewedBy: "admin@prx.dev" });
     await activateSandbox(child.id);
     await sendToChild(parent, child.id, { amount: 25.5, note: "Lanche" });
     expect((await accountView(child.id)).balance).toBe(1025.5);
@@ -338,32 +349,70 @@ describe("abertura do PRX BANK (KYC bancário)", () => {
   it("aprova adulto, registra CPF único e trilha antifraude; recusa segundo pedido e CPF divergente", async () => {
     const u = person();
     const cpf = nextCpf();
-    // Sem análise do PRX: aprovada na hora, os documentos seguem para o Asaas.
+    // Em análise pela PRX: nada é aprovado sem a decisão do admin.
     const app = await submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01", { pep: true }), { ip: IP, userAgent: "Mozilla/5.0" }, NOW);
-    expect(app).toMatchObject({ status: "approved", reviewedBy: "auto", ip: IP, riskFlags: ["pep"] });
+    expect(app).toMatchObject({ status: "pending", reviewedBy: null, ip: IP, riskFlags: ["pep"] });
+    // Sem conferir os documentos, o admin não aprova.
+    await expect(reviewBankKyc(app.id, "approve", "", "admin@prx.dev")).rejects.toThrow(/Aprove cada documento/);
+    await expect(adminApproves(app.id)).resolves.toMatchObject({ status: "approved", reviewedBy: "admin@prx.dev" });
     await expect(submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW)).rejects.toThrow(/já foi aberta/);
     // Antes de a conta existir no banco parceiro, dá para trocar dados e documentos (ex.: fotos de teste), mas não o CPF.
     await expect(submitBankKyc(u, kycInput(u.id, nextCpf(), "2000-01-01"), { ip: IP, userAgent: "" }, NOW, { allowRedo: true })).rejects.toThrow(/CPF informado é diferente/);
     const redone = await submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW, { allowRedo: true });
-    expect(redone).toMatchObject({ status: "approved", reviewedBy: "auto" });
-    // O admin ainda pode recusar (ex.: fraude): o membro reenvia com os mesmos CPF e nascimento.
+    expect(redone).toMatchObject({ status: "pending" });
+    // O admin pode recusar (ex.: fraude), sempre com o motivo: o membro reenvia com os mesmos CPF e nascimento.
+    await expect(reviewBankKyc(redone.id, "reject", "", "admin@prx.dev")).rejects.toThrow(/motivo/);
     await reviewBankKyc(redone.id, "reject", "Documento ilegível", "admin@prx.dev");
     await expect(submitBankKyc(u, kycInput(u.id, nextCpf(), "2000-01-01"), { ip: IP, userAgent: "" }, NOW)).rejects.toThrow(/CPF informado é diferente/);
-    await expect(submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW)).resolves.toMatchObject({ status: "approved" });
+    await expect(submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW)).resolves.toMatchObject({ status: "pending" });
     const other = person();
     await expect(submitBankKyc(other, kycInput(other.id, cpf, "2001-01-01"), { ip: IP, userAgent: "" }, NOW)).rejects.toMatchObject({ code: "CPF_TAKEN" });
   });
 
-  it("banco parceiro desligado no deploy: a abertura fica salva em andamento, sem aprovação automática nem duplicata", async () => {
+  it("análise por documento: recusa com motivo, pedido de reenvio, troca só do recusado e aprovação explícita", async () => {
     const u = person();
     const cpf = nextCpf();
-    const app = await submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW, { forward: false, allowRedo: true });
-    // Pendente não é aprovação: nada foi conferido pelo banco.
-    expect(app).toMatchObject({ status: "pending", reviewedBy: null });
+    const app = await submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW, { allowRedo: true });
     // Reenviar (toque duplo, rede lenta) não cria outro pedido nem mostra erro: é a mesma abertura em análise.
-    await expect(submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW, { forward: false, allowRedo: true })).resolves.toMatchObject({ id: app.id, status: "pending" });
-    // Com o banco de volta (accountView), a mesma abertura é aprovada pelas regras do PRX e segue ao banco.
-    await expect(autoApproveBankKyc(u.id)).resolves.toMatchObject({ id: app.id, status: "approved", reviewedBy: "auto" });
+    await expect(submitBankKyc(u, kycInput(u.id, cpf, "2000-01-01"), { ip: IP, userAgent: "" }, NOW, { allowRedo: true })).resolves.toMatchObject({ id: app.id, status: "pending" });
+    await expect(reviewDocument(app.id, "selfie", "reject", "", "admin@prx.dev")).rejects.toThrow(/motivo/);
+    await reviewDocument(app.id, "selfie", "reject", "Rosto cortado na foto", "admin@prx.dev");
+    await requestResubmission(app.id, "", "admin@prx.dev");
+    let state = await bankKycState(u.id);
+    expect(state).toMatchObject({ status: "pending", resubmissionRequested: true });
+    expect(state.documents.find((d) => d.kind === "selfie")).toMatchObject({ status: "rejected", reason: "Rosto cortado na foto" });
+    // Só o recusado pode ser trocado, e só com arquivo da própria pasta.
+    await expect(resubmitDocument(u, "id_front", { kind: "id_front", path: `${u.id}/f2.jpg`, name: "" })).rejects.toThrow(/não precisa/);
+    await expect(resubmitDocument(u, "selfie", { kind: "selfie", path: "outro/s.jpg", name: "" })).rejects.toThrow(/inválido/);
+    await resubmitDocument(u, "selfie", { kind: "selfie", path: `${u.id}/s2.jpg`, name: "" });
+    state = await bankKycState(u.id);
+    expect(state).toMatchObject({ status: "pending", resubmissionRequested: false });
+    expect(state.documents.find((d) => d.kind === "selfie")).toMatchObject({ status: "received" });
+    await expect(adminApproves(app.id)).resolves.toMatchObject({ status: "approved" });
+    expect((await bankKycState(u.id)).documents.every((d) => d.status === "approved")).toBe(true);
+  });
+
+  it("acima de 29 anos só abre com a liberação do admin, conferida no envio e na aprovação", async () => {
+    resetBankGrantsMemory();
+    const u = person();
+    const cpf = nextCpf();
+    await expect(submitBankKyc(u, kycInput(u.id, cpf, "1990-01-01"), { ip: IP, userAgent: "" }, NOW)).rejects.toMatchObject({ code: "OVER_AGE" });
+    // Sem nascimento validado na conta não há liberação.
+    await expect(grantBankAccess(u.id, "Convidado", "admin@prx.dev", NOW)).rejects.toThrow(/nascimento validada/);
+    const { rememberBirthDate } = await import("@/lib/live/buyer");
+    await rememberBirthDate(u.id, "1990-01-01", { source: "signup", verified: true });
+    const grant = await grantBankAccess(u.id, "Convidado pela diretoria", "admin@prx.dev", NOW);
+    expect(grant).toMatchObject({ ageAtGrant: 36, grantedBy: "admin@prx.dev", revokedAt: null });
+    const app = await submitBankKyc(u, kycInput(u.id, cpf, "1990-01-01"), { ip: IP, userAgent: "" }, NOW);
+    expect(app.status).toBe("pending");
+    // Revogada antes da decisão: o admin não consegue aprovar.
+    await revokeBankAccess(u.id, "Convite cancelado", "admin@prx.dev", NOW);
+    await approveReceivedDocuments(app.id, "admin@prx.dev");
+    await expect(reviewBankKyc(app.id, "approve", "", "admin@prx.dev")).rejects.toThrow(/liberação/);
+    // Até 29 anos não precisa (nem aceita) liberação.
+    const young = person();
+    await rememberBirthDate(young.id, "2000-01-01", { source: "signup", verified: true });
+    await expect(grantBankAccess(young.id, "", "admin@prx.dev", NOW)).rejects.toThrow(/sem liberação/);
   });
 
   it("menor só é aprovado depois do vínculo com consentimento parental", async () => {
@@ -379,15 +428,15 @@ describe("abertura do PRX BANK (KYC bancário)", () => {
     const teen = person();
     const kyc = await submitBankKyc(teen, kycInput(teen.id, nextCpf(), "2009-10-10", { minorPath: "linked", parentEmail: parent.email }), { ip: IP, userAgent: "" }, NOW);
     expect(kyc.status).toBe("pending");
-    await expect(autoApproveBankKyc(teen.id)).resolves.toMatchObject({ status: "pending" });
+    await approveReceivedDocuments(kyc.id, "admin@prx.dev");
     await expect(reviewBankKyc(kyc.id, "approve", "", "admin@prx.dev")).rejects.toThrow(/responsável aceitar o vínculo/);
     const link = (await familyOverview(parent)).pendingLinks[0];
     await respondLink(parent, link.id, "approve", CONSENT, IP);
-    // Com o vínculo aceito, a abertura segue sozinha na próxima visita ao PRX BANK.
-    await expect(autoApproveBankKyc(teen.id)).resolves.toMatchObject({ status: "approved", reviewedBy: "auto" });
+    // Com o vínculo aceito, o admin consegue aprovar a identidade.
+    await expect(reviewBankKyc(kyc.id, "approve", "", "admin@prx.dev")).resolves.toMatchObject({ status: "approved" });
   });
 
-  it("menor emancipado tem a abertura aprovada na hora: a certidão segue para o banco parceiro, não para o PRX", async () => {
+  it("menor emancipado: a certidão entra na análise da PRX e depois segue ao banco parceiro", async () => {
     const teen = person();
     const input = kycInput(teen.id, nextCpf(), "2009-10-10", {
       minorPath: "emancipated",
@@ -399,7 +448,9 @@ describe("abertura do PRX BANK (KYC bancário)", () => {
       ],
     });
     const app = await submitBankKyc(teen, input, { ip: IP, userAgent: "" }, NOW);
-    expect(app).toMatchObject({ status: "approved", reviewedBy: "auto", minorPath: "emancipated", riskFlags: expect.arrayContaining(["minor", "emancipation"]) });
+    expect(app).toMatchObject({ status: "pending", minorPath: "emancipated", riskFlags: expect.arrayContaining(["minor", "emancipation"]) });
+    expect((await bankKycState(teen.id)).documents.map((d) => d.kind)).toContain("emancipation_certificate");
+    await expect(adminApproves(app.id)).resolves.toMatchObject({ status: "approved" });
   });
 
   it("Conta Pai não abre conta bancária", async () => {
