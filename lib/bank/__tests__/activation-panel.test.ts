@@ -16,7 +16,7 @@ import { KYC_RESTART_NOTE, type BankKycState } from "@/lib/kyc/types";
  */
 
 const member = { id: "33333333-3333-4333-8333-333333333333", name: "Pessoa Teste", email: "p@prx.dev" } as unknown as User;
-const approved: BankKycState = { status: "approved", reviewNote: "", awaitingGuardian: false, awaitingEmancipation: false, submittedAt: "2026-10-12T15:00:00Z" };
+const approved: BankKycState = { status: "approved", reviewNote: "", awaitingGuardian: false, awaitingEmancipation: false, submittedAt: "2026-10-12T15:00:00Z", documents: [], resubmissionRequested: false, ageBlocked: false };
 
 function account(activation: BankActivation, provider: BankProviderView["state"] | null): BankAccountView {
   return {

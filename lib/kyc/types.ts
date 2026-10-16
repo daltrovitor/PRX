@@ -1,6 +1,6 @@
 // Hello World
 import { z } from "zod";
-import { INCOME_RANGES, TEEN_PATHS, birthDateSchema, cpfSchema, documentRefSchema, onlyDigits, type DocumentRef, type IncomeRange, type TeenPath } from "@/lib/family/types";
+import { INCOME_RANGES, TEEN_PATHS, birthDateSchema, cpfSchema, documentRefSchema, onlyDigits, type DocumentKind, type DocumentRef, type IncomeRange, type TeenPath } from "@/lib/family/types";
 
 /*
  * Abertura do PRX BANK (KYC bancário). É o único momento, fora da Conta Pai,
@@ -124,6 +124,78 @@ export interface BankKycApplication {
   ip: string | null;
   userAgent: string;
   createdAt: string;
+  /** Análise da PRX documento a documento (vazio = tudo recebido, nada decidido). */
+  documentReviews: DocumentReviews;
+  /** A equipe pediu o reenvio dos documentos recusados. */
+  resubmissionRequestedAt: string | null;
+  /** Arquivos apagados pela política de retenção. */
+  documentsPurgedAt: string | null;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Verificação de identidade da PRX                                            */
+/* -------------------------------------------------------------------------- */
+
+export const DOC_REVIEW_STATUSES = ["received", "approved", "rejected"] as const;
+export type DocReviewStatus = (typeof DOC_REVIEW_STATUSES)[number];
+export const DOC_REVIEW_LABEL: Record<DocReviewStatus | "missing", string> = {
+  missing: "Pendente",
+  received: "Recebido",
+  approved: "Aprovado",
+  rejected: "Recusado",
+};
+
+export interface DocumentReview {
+  status: DocReviewStatus;
+  reason: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  receivedAt: string | null;
+}
+export type DocumentReviews = Partial<Record<DocumentKind, DocumentReview>>;
+
+/** Um item da lista de documentos da abertura, como o membro e o admin veem. */
+export interface IdentityDocumentItem {
+  kind: DocumentKind;
+  label: string;
+  status: DocReviewStatus | "missing";
+  reason: string;
+}
+
+export const KYC_EVENT_ACTIONS = [
+  "submitted",
+  "document_resubmitted",
+  "document_approved",
+  "document_rejected",
+  "document_viewed",
+  "resubmission_requested",
+  "approved",
+  "rejected",
+  "documents_purged",
+] as const;
+export type KycEventAction = (typeof KYC_EVENT_ACTIONS)[number];
+export const KYC_EVENT_LABEL: Record<KycEventAction, string> = {
+  submitted: "Abertura enviada",
+  document_resubmitted: "Documento reenviado",
+  document_approved: "Documento aprovado",
+  document_rejected: "Documento recusado",
+  document_viewed: "Documento aberto",
+  resubmission_requested: "Reenvio pedido",
+  approved: "Identidade aprovada",
+  rejected: "Abertura recusada",
+  documents_purged: "Documentos apagados (retenção)",
+};
+
+export interface KycEvent {
+  id: string;
+  applicationId: string;
+  userId: string;
+  actor: string;
+  actorRole: "member" | "admin" | "system";
+  action: KycEventAction;
+  documentKind: DocumentKind | null;
+  detail: string;
+  createdAt: string;
 }
 
 /** Situação da abertura de conta, como o app mostra na aba PRX BANK. */
@@ -136,6 +208,12 @@ export interface BankKycState {
   awaitingEmancipation: boolean;
   /** Quando a abertura atual foi enviada (para o membro reconhecer os dados salvos). */
   submittedAt: string | null;
+  /** Documentos da abertura e a análise da PRX de cada um (vazio quando não há abertura). */
+  documents: IdentityDocumentItem[];
+  /** A equipe da PRX pediu o reenvio de documentos recusados. */
+  resubmissionRequested: boolean;
+  /** Acima de 29 anos sem liberação do admin: a abertura nem começa. */
+  ageBlocked: boolean;
 }
 
 export const KYC_REQUIRED_MESSAGE = "Abra sua conta PRX BANK primeiro: envie seus dados e documentos na aba PRX BANK.";

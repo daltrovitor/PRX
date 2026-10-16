@@ -6,9 +6,10 @@ import { Button } from "@/components/app/ui";
 import { BankKycPanel } from "@/components/app/bank/bank-kyc";
 import { ProviderOnboarding } from "@/components/app/bank/provider-onboarding";
 import type { BankAccountView } from "@/lib/prx/bank";
+import type { BankKycState } from "@/lib/kyc/types";
 import type { User } from "@/hooks/use-auth";
 
-const FRESH_KYC = { status: "none", reviewNote: "", awaitingGuardian: false, awaitingEmancipation: false, submittedAt: null } as const;
+const FRESH_KYC: BankKycState = { status: "none", reviewNote: "", awaitingGuardian: false, awaitingEmancipation: false, submittedAt: null, documents: [], resubmissionRequested: false, ageBlocked: false };
 
 const dateBR = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : null);
 
