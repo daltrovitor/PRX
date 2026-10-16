@@ -412,7 +412,7 @@ function Header({ links, tone, onBackToApp }: { links: LandingLinks; tone: Tone;
 /** Borda especular das "ilhas" fotográficas (escuras nos dois fundos). */
 const PHOTO_EDGE = "border border-x-white/10 border-t-white/30 border-b-white/5 bg-[#07070b]";
 
-/** Cartão principal: o cartão de metal PRX com acabamento de vidro reflexivo, o Pix recebido e o saldo. */
+/** Cartão principal: a imagem oficial do PRX BANK (cartão preto sobre obsidiana) com vidro reflexivo, o Pix recebido e o saldo. */
 function HeroCard() {
   return (
     <div className="@container w-full">
@@ -424,14 +424,14 @@ function HeroCard() {
         )}
       >
         <Image
-          src={OBSIDIAN_IMAGES.cardMetal}
-          alt="Cartão de metal escovado PRX com o símbolo em relevo"
+          src={OBSIDIAN_IMAGES.bankCard}
+          alt="Cartão PRX preto apoiado em uma pedra de obsidiana"
           fill
           sizes="(min-width: 1280px) 420px, (min-width: 1024px) 400px, (min-width: 640px) 40vw, 58vw"
           loading="eager"
           fetchPriority="high"
           placeholder="blur"
-          className="-z-10 object-cover object-[50%_44%]"
+          className="-z-10 object-cover object-[50%_58%]"
         />
         {/* Vidro reflexivo: diagonal de luz no topo e retorno violeta no canto oposto. */}
         <span

@@ -24,6 +24,7 @@ import {
 } from "@/components/obsidian/obsidian-ui";
 import crystalImg from "@/public/brand/showcase/prx-3d-crystal.png";
 import cardMetalImg from "@/public/brand/showcase/prx-card-metal.png";
+import bankCardImg from "@/public/brand/showcase/prx-bank-card.jpg";
 import liveConcertImg from "@/public/brand/showcase/prx-live-concert.png";
 import moodboardImg from "@/public/brand/showcase/prx-brand-moodboard.jpg";
 import mockupImg from "@/public/brand/showcase/prx-app-mobile-mockup.jpg";
@@ -41,6 +42,7 @@ interface Asset {
 const ASSETS: ReadonlyArray<Asset> = [
   { file: "prx-app-mobile-mockup.jpg", image: mockupImg, title: "Mockup do app", use: "Referência direta da Início Obsidian." },
   { file: "prx-3d-crystal.png", image: crystalImg, title: "Cristal PRX 3D", use: "Hero da landing e profundidade dos dashboards." },
+  { file: "prx-bank-card.jpg", image: bankCardImg, title: "Cartão PRX BANK", use: "Imagem oficial do PRX BANK: landing, apresentação, teaser e e-mail." },
   { file: "prx-card-metal.png", image: cardMetalImg, title: "Cartão de metal", use: "Card PRX PASS." },
   { file: "prx-live-concert.png", image: liveConcertImg, title: "Show ao vivo", use: "Card PRX LIVE e eventos sem capa." },
   { file: "prx-invest-copper.jpg", image: investCopperImg, title: "Fita de cobre", use: "Card PRX INVEST (derivada do moodboard)." },

@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { IconArrowRight, IconBell, IconEye, IconEyeOff } from "@/components/icons/prx-icons";
 import crystalImg from "@/public/brand/showcase/prx-3d-crystal.png";
 import cardMetalImg from "@/public/brand/showcase/prx-card-metal.png";
+import bankCardImg from "@/public/brand/showcase/prx-bank-card.jpg";
 import liveConcertImg from "@/public/brand/showcase/prx-live-concert.png";
 import investCopperImg from "@/public/brand/showcase/prx-invest-copper.jpg";
 import meHorizonImg from "@/public/brand/showcase/prx-me-horizon.jpg";
@@ -25,6 +26,8 @@ import { Tagline } from "@/components/marketing/tagline";
 export const OBSIDIAN_IMAGES = {
   crystal: crystalImg,
   cardMetal: cardMetalImg,
+  /** Imagem oficial do PRX BANK: o cartão preto PRX sobre obsidiana. */
+  bankCard: bankCardImg,
   liveConcert: liveConcertImg,
   investCopper: investCopperImg,
   meHorizon: meHorizonImg,

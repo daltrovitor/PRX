@@ -327,7 +327,7 @@ export function ObsidianPhoneApp({ className, height = APP_HEIGHT }: { className
               ))}
             </div>
             <div className="relative isolate mt-3 flex h-[120px] flex-col justify-between overflow-hidden rounded-[20px] border border-white/[0.12] p-4 text-[#fff]">
-              <Image src={OBSIDIAN_IMAGES.cardMetal} alt="" fill sizes="360px" placeholder="blur" className="-z-10 object-cover object-[50%_62%]" />
+              <Image src={OBSIDIAN_IMAGES.bankCard} alt="" fill sizes="360px" placeholder="blur" className="-z-10 object-cover object-[50%_42%]" />
               <span aria-hidden className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(5,5,8,0.85),rgba(5,5,8,0.2))]" />
               <span className="flex items-center justify-between gap-2 text-[12px]">
                 <span className="flex items-center gap-2">

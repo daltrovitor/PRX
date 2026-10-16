@@ -249,7 +249,7 @@ function Bank() {
         </Reveal>
       </div>
       <Reveal index={1} className="lg:col-span-5">
-        <PhotoFrame src={OBSIDIAN_IMAGES.cardMetal} alt="Cartões de metal PRX com chip" focus="object-[50%_82%]" className="mx-auto aspect-[3/4] w-full max-w-[440px]" />
+        <PhotoFrame src={OBSIDIAN_IMAGES.bankCard} alt="Cartão PRX preto apoiado em uma pedra de obsidiana" focus="object-[50%_50%]" className="mx-auto aspect-[3/4] w-full max-w-[440px]" />
       </Reveal>
     </div>
   );

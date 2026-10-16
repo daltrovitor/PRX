@@ -80,7 +80,7 @@ async function hero() {
 /** Fotos dos seis cards de "O que tem aqui?": recorte 520×300 com a base dissolvida na cor do card. */
 const PILLAR_CROPS = [
   { name: "pass", file: "prx-card-metal.png", top: 240 },
-  { name: "bank", file: "prx-card-metal.png", top: 620 },
+  { name: "bank", file: "prx-bank-card.jpg", top: 300 },
   { name: "live", file: "prx-live-concert.png", top: 380 },
   { name: "invest", file: "prx-invest-copper.jpg", top: 250 },
   { name: "level", file: "prx-3d-crystal.png", top: 230 },

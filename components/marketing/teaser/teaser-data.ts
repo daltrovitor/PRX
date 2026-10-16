@@ -2,6 +2,7 @@
 import type { StaticImageData } from "next/image";
 import crystalImg from "@/public/brand/showcase/prx-3d-crystal.png";
 import cardMetalImg from "@/public/brand/showcase/prx-card-metal.png";
+import bankCardImg from "@/public/brand/showcase/prx-bank-card.jpg";
 import liveConcertImg from "@/public/brand/showcase/prx-live-concert.png";
 import investCopperImg from "@/public/brand/showcase/prx-invest-copper.jpg";
 import meHorizonImg from "@/public/brand/showcase/prx-me-horizon.jpg";
@@ -15,8 +16,8 @@ import homeImg from "@/public/brand/showcase/prx-home.jpg";
  * Textos do teaser do prx.app.br. Os módulos e as frases vêm da apresentação
  * oficial do ecossistema (show.prx.app.br, components/show/show-slides.tsx);
  * PRX CAR e PRX HOME seguem os media kits de 2026. Cada módulo usa a sua
- * imagem oficial (BANK e PASS são recortes do mesmo cartão de metal, como nos
- * pilares do app e dos e-mails). Nada aqui promete data de lançamento.
+ * imagem oficial (BANK: o cartão preto sobre obsidiana; PASS: o cartão de metal
+ * com o símbolo). Nada aqui promete data de lançamento.
  */
 
 export const TEASER_IMAGES = { crystal: crystalImg } as const;
@@ -47,9 +48,9 @@ export const TEASER_MODULES: readonly TeaserModule[] = [
     title: ["Um banco que recompensa", "quem sabe escolher."],
     lead: "Uma experiência financeira pensada para a Geração Z, construída por meio de parceiros regulados e infraestrutura BaaS. Na PRX, comportamento financeiro positivo pode virar vantagem.",
     points: ["Conta", "Pix", "Cartão", "Pagamentos", "Benefícios", "Educação financeira"],
-    image: cardMetalImg,
-    alt: "Cartão de metal PRX com chip",
-    focus: "object-[50%_88%]",
+    image: bankCardImg,
+    alt: "Cartão PRX preto apoiado em uma pedra de obsidiana",
+    focus: "object-[50%_50%]",
   },
   {
     id: "pass",
