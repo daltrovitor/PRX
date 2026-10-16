@@ -27,6 +27,7 @@ import { AdminBehaviorsTab } from "@/components/admin/admin-behaviors-tab";
 import { AdminCompaniesTab } from "@/components/admin/admin-companies-tab";
 import { AdminSubscriptionsTab } from "@/components/admin/admin-subscriptions-tab";
 import { AdminFoundersMembersTab } from "@/components/admin/admin-founders-members-tab";
+import { AdminRafflesTab } from "@/components/admin/admin-raffles-tab";
 import { AdminOverview } from "@/components/admin/admin-overview";
 import { AdminPromosTab } from "@/components/admin/admin-promos-tab";
 import { AdminSimulationTab } from "@/components/admin/admin-simulation-tab";
@@ -82,7 +83,8 @@ type TabKey =
   | "companies"
   | "plans"
   | "subscribers"
-  | "foundersMembers";
+  | "foundersMembers"
+  | "raffles";
 
 type ModuleKey = "overview" | "users" | "live" | "pass" | "founders" | "bank" | "subscriptions" | "finance" | "marketing" | "team" | "settings";
 
@@ -154,6 +156,7 @@ const MODULES: ReadonlyArray<{ key: ModuleKey; label: string; tabs: ReadonlyArra
     label: "Marketing",
     tabs: [
       { key: "promos", label: "Cupons e links" },
+      { key: "raffles", label: "Sorteios" },
       { key: "reels", label: "Destaques" },
       { key: "notifications", label: "Notificações" },
     ],
@@ -443,6 +446,7 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
             {tab === "plans" && <AdminSubscriptionsTab view="plans" />}
             {tab === "subscribers" && <AdminSubscriptionsTab view="subscribers" />}
             {tab === "foundersMembers" && <AdminFoundersMembersTab />}
+            {tab === "raffles" && <AdminRafflesTab />}
           </>
         )}
       </main>

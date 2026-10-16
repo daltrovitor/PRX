@@ -10,7 +10,7 @@ import { isActiveFounder } from "@/lib/founders/members";
 import { getAsaasBankStore } from "@/lib/bank/asaas/store";
 import { getSubscriptionsRepository } from "@/lib/subscriptions/repository";
 import { recordPayment } from "@/lib/subscriptions/payments";
-import { LIVE_STATUSES, planInputSchema, type MemberSubscription, type SubscriptionPayment, type SubscriptionPlan } from "@/lib/subscriptions/types";
+import { LIVE_STATUSES, planInputSchema, subscriptionGrantsAccess, type MemberSubscription, type SubscriptionPayment, type SubscriptionPlan } from "@/lib/subscriptions/types";
 
 /**
  * Regras das assinaturas. Contratar cria a assinatura no Asaas (conta
@@ -196,4 +196,12 @@ export async function cancelSubscription(userId: string, subscriptionId: string,
 export async function memberSubscriptions(userId: string): Promise<Array<MemberSubscription & { payments: SubscriptionPayment[] }>> {
   const subs = await repo().listForUser(userId);
   return Promise.all(subs.map(async (s) => ({ ...s, payments: await repo().listPayments(s.id) })));
+}
+
+/** Alguma assinatura dando benefícios agora (para regras de outros módulos, ex.: sorteio só para assinantes). */
+export async function hasActiveSubscription(userId: string, now = new Date()): Promise<boolean> {
+  const subs = await repo()
+    .listForUser(userId)
+    .catch(() => []);
+  return subs.some((s) => subscriptionGrantsAccess(s, now));
 }

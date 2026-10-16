@@ -17,9 +17,10 @@ import { Button, EmptyState, Input, Notice, Segmented, Sheet, Tag } from "@/comp
 import { IconQr, IconSearch } from "@/components/icons/prx-icons";
 import { PRX_CATEGORIES, levelProgress, type Benefit, type UserVoucher } from "@/lib/pass-data";
 import { cn } from "@/lib/utils";
+import { RafflesPanel } from "@/components/app/raffles/raffles-panel";
 
-type PassSection = "catalogo" | "vouchers" | "missions" | "convidar";
-const SECTIONS: ReadonlyArray<PassSection> = ["catalogo", "vouchers", "missions", "convidar"];
+type PassSection = "catalogo" | "vouchers" | "missions" | "sorteios" | "convidar";
+const SECTIONS: ReadonlyArray<PassSection> = ["catalogo", "vouchers", "missions", "sorteios", "convidar"];
 
 export function PassScreen({ pass }: { pass: PassData }) {
   const { sub, go } = useAppNav();
@@ -125,6 +126,7 @@ export function PassScreen({ pass }: { pass: PassData }) {
           { value: "catalogo", label: "Catálogo", count: benefits.length },
           { value: "vouchers", label: "Meus vouchers", count: activeVouchers.length },
           { value: "missions", label: "Missões", count: missions.filter((m) => !m.isCompleted).length },
+          { value: "sorteios", label: "Sorteios" },
           { value: "convidar", label: "Convidar" },
         ]}
       />
@@ -238,6 +240,8 @@ export function PassScreen({ pass }: { pass: PassData }) {
           onScoreChange={pass.applyScore}
         />
       )}
+
+      {section === "sorteios" && <RafflesPanel />}
 
       {section === "convidar" && (
         <ReferralPanel
