@@ -26,6 +26,9 @@ export async function dispatchBillingEvent(
   if (event.event.startsWith("PAYMENT_") && event.payment) {
     const reference = typeof event.payment.externalReference === "string" ? event.payment.externalReference : "";
     if (reference.startsWith("ord:")) {
+      // O módulo do checkout se registra ao carregar (sem import circular).
+      if (!orderHandler) await import("@/lib/checkout/payments");
+      if (!(await tableReady("live_orders"))) return "ignored";
       return (await orderHandler?.(event.payment, client)) ?? "ignored";
     }
     if (!(await tableReady("member_subscriptions"))) return "ignored";

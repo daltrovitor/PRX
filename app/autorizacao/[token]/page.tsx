@@ -25,6 +25,7 @@ interface AuthorizationData {
     ageRating: string;
     organizerName: string;
   };
+  document?: { title: string; version: string; body: string; certificateUrl: string | null; legalStatus: "pending_review" | "approved" };
   consent: {
     guardianEmail: string;
     status: "pending" | "approved" | "rejected";
@@ -51,6 +52,7 @@ export default function AutorizacaoPage({ params }: { params: Promise<{ token: s
   const [guardianCpf, setGuardianCpf] = useState("");
   const [relationship, setRelationship] = useState("Pai / Mãe");
   const [guardianPhone, setGuardianPhone] = useState("");
+  const [guardianBirthDate, setGuardianBirthDate] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -92,6 +94,10 @@ export default function AutorizacaoPage({ params }: { params: Promise<{ token: s
         setSubmitError("Informe um CPF válido com 11 dígitos.");
         return;
       }
+      if (!guardianBirthDate) {
+        setSubmitError("Informe a sua data de nascimento.");
+        return;
+      }
       if (!acceptedTerms) {
         setSubmitError("Você precisa confirmar a declaração de responsabilidade.");
         return;
@@ -110,6 +116,8 @@ export default function AutorizacaoPage({ params }: { params: Promise<{ token: s
           guardianCpf: action === "approve" ? guardianCpf : undefined,
           relationship: action === "approve" ? relationship : undefined,
           guardianPhone: action === "approve" ? guardianPhone.trim() : undefined,
+          guardianBirthDate: action === "approve" ? guardianBirthDate : undefined,
+          consentAccepted: action === "approve" ? acceptedTerms : undefined,
         }),
       });
 
@@ -206,7 +214,7 @@ export default function AutorizacaoPage({ params }: { params: Promise<{ token: s
 
             <div className="border border-neutral-200 bg-neutral-50 rounded-md p-5 text-xs text-neutral-600 leading-relaxed space-y-2">
               <p className="font-semibold text-neutral-800">Próximos passos:</p>
-              <p>O ingresso digital de {data.holderName} já se encontra atualizado no app PRX. Na entrada do evento, a portaria confirmará a identificação oficial com foto do menor e a presente liberação digital assinada por você.</p>
+              <p>O ingresso digital de {data.holderName} já se encontra atualizado no app PRX. Na entrada do evento, a portaria confirmará a identificação oficial com foto do menor e a liberação registrada por você.</p>
             </div>
           </div>
         ) : data.status === "rejected" ? (
@@ -332,6 +340,21 @@ export default function AutorizacaoPage({ params }: { params: Promise<{ token: s
                 </div>
 
                 <div>
+                  <label htmlFor="guardian-birth" className="block text-xs font-semibold text-neutral-800 mb-1">
+                    Sua data de nascimento *
+                  </label>
+                  <input
+                    id="guardian-birth"
+                    type="date"
+                    required
+                    value={guardianBirthDate}
+                    onChange={(e) => setGuardianBirthDate(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-md border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-[#6c0cf0] focus:border-transparent bg-white text-neutral-900"
+                  />
+                  <p className="mt-1 text-[11px] text-neutral-500">Conferimos o CPF e a data de nascimento na Receita Federal quando o serviço está disponível.</p>
+                </div>
+
+                <div>
                   <label htmlFor="guardian-phone" className="block text-xs font-semibold text-neutral-800 mb-1">
                     Telefone para Contato (opcional)
                   </label>
@@ -348,9 +371,19 @@ export default function AutorizacaoPage({ params }: { params: Promise<{ token: s
 
               {/* Legal Declaration */}
               <div className="border border-neutral-200 bg-neutral-50/90 rounded-md p-4 text-xs text-neutral-700 space-y-2.5 leading-relaxed">
-                <p className="font-semibold text-neutral-900">Termo de Consentimento e Responsabilidade (ECA - Lei Federal nº 8.069/1990):</p>
-                <p>
-                  Declaro sob as penas da lei que sou pai, mãe ou responsável legal do(a) participante menor de idade indicado(a), tendo ciência plena do horário, local e classificação indicativa do evento. Autorizo expressamente sua entrada, permanência e participação, responsabilizando-me pela veracidade das informações ora prestadas.
+                <p className="font-semibold text-neutral-900">{data.document?.title ?? "Termo de Consentimento e Responsabilidade"}:</p>
+                <p className="whitespace-pre-line">{data.document?.body}</p>
+                <p className="text-[11px] text-neutral-500">
+                  Versão {data.document?.version}
+                  {data.document?.legalStatus === "approved" ? "" : " · texto da PRX aguardando a revisão jurídica do documento oficial"}
+                  {data.document?.certificateUrl ? (
+                    <>
+                      {" · "}
+                      <a href={data.document.certificateUrl} target="_blank" rel="noopener noreferrer" className="underline">
+                        certificado
+                      </a>
+                    </>
+                  ) : null}
                 </p>
                 <label className="flex items-start gap-2.5 pt-1 cursor-pointer select-none">
                   <input

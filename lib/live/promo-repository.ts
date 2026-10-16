@@ -3,7 +3,23 @@ import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { PartnerError, dbError } from "@/lib/partners/errors";
 import { requireLaunchSchema } from "@/lib/db-features";
-import type { PromoCode, PromoKind } from "@/lib/live/promo";
+import { columnReady } from "@/lib/db-features";
+import { CHECKOUT_METHODS, PROMO_AUDIENCES, type CheckoutMethod, type PromoAudience, type PromoCode, type PromoKind } from "@/lib/live/promo";
+
+const CHECKOUT_MIGRATION_HINT = "Falta aplicar a migração supabase/migrations/20261016_prx_checkout.sql no Supabase para descontos automáticos, por público ou por forma de pagamento.";
+
+/** Antes da migração 20261016_prx_checkout: grava sem as colunas novas, se elas estiverem no padrão; senão avisa. */
+async function compatPromoRow(row: Record<string, unknown>): Promise<Record<string, unknown>> {
+  if (await columnReady("live_promo_codes", "automatic")) return row;
+  const custom = row.automatic === true || (row.audience !== undefined && row.audience !== "all") || (row.payment_methods !== undefined && row.payment_methods !== null) || row.stackable === true;
+  if (custom) throw new PartnerError(CHECKOUT_MIGRATION_HINT, 503);
+  const { automatic: _a, audience: _b, payment_methods: _c, stackable: _d, ...rest } = row;
+  void _a;
+  void _b;
+  void _c;
+  void _d;
+  return rest;
+}
 
 /** Persistência dos cupons do PRX LIVE (Supabase ou memória no desenvolvimento). */
 
@@ -31,6 +47,10 @@ interface PromoRow {
   max_uses: number | null;
   per_user_limit: number;
   active: boolean;
+  automatic?: boolean | null;
+  audience?: string | null;
+  payment_methods?: string[] | null;
+  stackable?: boolean | null;
   created_by: string | null;
   created_at: string;
   updated_at: string | null;
@@ -49,6 +69,10 @@ const mapRow = (r: PromoRow): PromoCode => ({
   maxUses: r.max_uses,
   perUserLimit: r.per_user_limit,
   active: r.active,
+  automatic: r.automatic === true,
+  audience: (PROMO_AUDIENCES as readonly string[]).includes(r.audience ?? "") ? (r.audience as PromoAudience) : "all",
+  paymentMethods: r.payment_methods && r.payment_methods.length > 0 ? (r.payment_methods.filter((m) => (CHECKOUT_METHODS as readonly string[]).includes(m)) as CheckoutMethod[]) : null,
+  stackable: r.stackable === true,
   createdBy: r.created_by ?? "",
   createdAt: r.created_at,
   updatedAt: r.updated_at ?? r.created_at,
@@ -67,6 +91,10 @@ function toRow(p: Partial<NewPromo>): Record<string, unknown> {
     maxUses: "max_uses",
     perUserLimit: "per_user_limit",
     active: "active",
+    automatic: "automatic",
+    audience: "audience",
+    paymentMethods: "payment_methods",
+    stackable: "stackable",
     createdBy: "created_by",
   };
   const row: Record<string, unknown> = {};
@@ -110,7 +138,7 @@ class SupabasePromoRepository implements PromoRepository {
 
   async insert(promo: NewPromo) {
     await requireLaunchSchema();
-    const { data, error } = await this.db.from("live_promo_codes").insert(toRow(promo)).select("*").single();
+    const { data, error } = await this.db.from("live_promo_codes").insert(await compatPromoRow(toRow(promo))).select("*").single();
     if (error) {
       if (error.code === "23505") throw new PartnerError("Já existe um cupom com este código.", 409);
       throw dbError(error, "Não foi possível criar o cupom");
@@ -122,7 +150,7 @@ class SupabasePromoRepository implements PromoRepository {
     await requireLaunchSchema();
     const { data, error } = await this.db
       .from("live_promo_codes")
-      .update({ ...toRow(patch), updated_at: new Date().toISOString() })
+      .update({ ...(await compatPromoRow(toRow(patch))), updated_at: new Date().toISOString() })
       .eq("id", id)
       .select("*")
       .maybeSingle();

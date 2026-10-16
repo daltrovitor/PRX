@@ -130,6 +130,16 @@ export interface GuardianConsent {
   rejectionReason?: string | null;
   ip?: string | null;
   userAgent?: string | null;
+  /** Evidências da liberação (16/10/2026): nascimento do responsável (maior de idade). */
+  guardianBirthDate?: string | null;
+  /** receita: CPF e nascimento conferidos no Serpro · autodeclarado: Serpro desligado, só dígitos verificadores. */
+  identityCheck?: "receita" | "autodeclarado" | null;
+  /** Versão, hash e situação jurídica do documento aceito. */
+  documentVersion?: string | null;
+  documentHash?: string | null;
+  documentLegalStatus?: "pending_review" | "approved" | null;
+  /** Biometria do responsável: sem provedor habilitado, nada é simulado. */
+  biometric?: "not_configured" | null;
 }
 
 export interface RunDetails {

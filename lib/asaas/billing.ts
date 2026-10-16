@@ -121,6 +121,11 @@ export function cancelPayment(client: AsaasClient, id: string): Promise<unknown>
   return client.delete(`/payments/${encodeURIComponent(id)}`);
 }
 
+/** Estorno total de uma cobrança recebida (o status vira REFUNDED pelo webhook). */
+export function refundPayment(client: AsaasClient, id: string, description: string): Promise<AsaasPayment> {
+  return client.post(`/payments/${encodeURIComponent(id)}/refund`, { description: description.slice(0, 500) }, {}, paymentSchema);
+}
+
 const pixQrSchema = z.object({ encodedImage: z.string(), payload: z.string(), expirationDate: text });
 export type PixQr = z.output<typeof pixQrSchema>;
 

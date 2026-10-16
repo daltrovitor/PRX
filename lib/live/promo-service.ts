@@ -3,7 +3,7 @@ import { PartnerError } from "@/lib/partners/errors";
 import { getLiveRepository } from "@/lib/live/repository";
 import { getPromoRepository, type PromoPatch } from "@/lib/live/promo-repository";
 import { isActiveTicket } from "@/lib/live/rules";
-import { applyPromo, normalizePromoCode, promoIssue, type PromoCode, type PromoInput, type PriceQuote } from "@/lib/live/promo";
+import { PROMO_AUDIENCE_LABEL, applyPromo, normalizePromoCode, promoIssue, type CheckoutMethod, type PromoCode, type PromoInput, type PriceQuote } from "@/lib/live/promo";
 import type { LiveEvent, LiveTicket, TicketBatch } from "@/lib/live/types";
 
 /**
@@ -85,23 +85,64 @@ export async function updatePromo(id: string, patch: Pick<PromoPatch, "active" |
   return promos().update(id, patch);
 }
 
+/** O desconto é para esta pessoa? (Founders, assinantes, conta PRX BANK ativa — conferido no servidor.) */
+export async function audienceAllows(promo: Pick<PromoCode, "audience">, userId: string): Promise<boolean> {
+  switch (promo.audience) {
+    case "all":
+      return true;
+    case "founders": {
+      const { isActiveFounder } = await import("@/lib/founders/members");
+      return isActiveFounder(userId);
+    }
+    case "subscribers": {
+      const { hasActiveSubscription } = await import("@/lib/subscriptions/service");
+      return hasActiveSubscription(userId);
+    }
+    case "bank_active": {
+      const { getAsaasBankStore } = await import("@/lib/bank/asaas/store");
+      const sub = await getAsaasBankStore()
+        .getSubaccount(userId)
+        .catch(() => null);
+      return sub?.status === "active";
+    }
+  }
+}
+
+/** Motivo de uso esgotado (total ou da pessoa); null = ainda tem uso. */
+async function usageIssue(promo: PromoCode, userId: string, excludeTicketId?: string): Promise<string | null> {
+  // No checkout, o próprio ingresso (já reservado com o cupom) não conta como outro uso.
+  const tickets = (await live().listTickets({ promoCodeId: promo.id })).filter((t) => isActiveTicket(t) && !t.isTest && t.id !== excludeTicketId);
+  if (promo.maxUses !== null && tickets.length >= promo.maxUses) return "Este cupom esgotou.";
+  if (tickets.filter((t) => t.userId === userId).length >= promo.perUserLimit) return "Você já usou este cupom o máximo de vezes permitido.";
+  return null;
+}
+
 /**
- * Resolve o código digitado para uma compra: existe, vale para o evento e o
- * lote agora, e ainda tem uso (total e da pessoa). Teste aceita cupom inativo
- * (pré-visualização do link pelo admin) e não conta como uso.
+ * Resolve o código digitado para uma compra: existe, vale para o evento, o
+ * lote e a forma de pagamento agora, é para esta pessoa e ainda tem uso
+ * (total e da pessoa). Teste aceita cupom inativo (pré-visualização do link
+ * pelo admin) e não conta como uso.
  */
-export async function resolvePromo(input: { code: unknown; event: LiveEvent; batch: TicketBatch; userId: string; test?: boolean }): Promise<PromoCode> {
+export async function resolvePromo(input: { code: unknown; event: LiveEvent; batch: TicketBatch; userId: string; test?: boolean; method?: CheckoutMethod | null; excludeTicketId?: string }): Promise<PromoCode> {
   const code = normalizePromoCode(input.code);
   if (!code) throw new PartnerError("Cupom inválido.", 422);
   const promo = await promos().getByCode(code);
   if (!promo) throw new PartnerError("Cupom não encontrado.", 404);
-  const issue = promoIssue(promo, { eventId: input.event.id, batch: input.batch, allowInactive: input.test });
+  const issue = promoIssue(promo, { eventId: input.event.id, batch: input.batch, allowInactive: input.test, method: input.method ?? null });
   if (issue) throw new PartnerError(issue, 422);
   if (input.test) return promo;
-  const tickets = (await live().listTickets({ promoCodeId: promo.id })).filter((t) => isActiveTicket(t) && !t.isTest);
-  if (promo.maxUses !== null && tickets.length >= promo.maxUses) throw new PartnerError("Este cupom esgotou.", 409);
-  if (tickets.filter((t) => t.userId === input.userId).length >= promo.perUserLimit) throw new PartnerError("Você já usou este cupom o máximo de vezes permitido.", 409);
+  if (!(await audienceAllows(promo, input.userId))) throw new PartnerError(`Este cupom é exclusivo para: ${PROMO_AUDIENCE_LABEL[promo.audience]}.`, 403);
+  const usage = await usageIssue(promo, input.userId, input.excludeTicketId);
+  if (usage) throw new PartnerError(usage, 409);
   return promo;
+}
+
+/** Descontos automáticos do evento que valem para esta pessoa, lote e forma de pagamento agora. */
+export async function automaticPromos(event: LiveEvent, batch: TicketBatch, userId: string, method: CheckoutMethod | null, excludeTicketId?: string): Promise<PromoCode[]> {
+  const list = (await promos().list({ eventId: event.id })).filter((p) => p.automatic && !promoIssue(p, { eventId: event.id, batch, method }));
+  const ok: PromoCode[] = [];
+  for (const p of list) if ((await audienceAllows(p, userId)) && !(await usageIssue(p, userId, excludeTicketId))) ok.push(p);
+  return ok;
 }
 
 /** Depois de emitir: o ingresso está dentro dos limites do cupom? */

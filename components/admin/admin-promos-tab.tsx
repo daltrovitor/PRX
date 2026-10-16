@@ -8,7 +8,7 @@ import { CopyButton } from "@/components/app/pass/voucher-sheet";
 import { liveShareLink } from "@/components/app/live/live-link";
 import { formatDateTimeBr } from "@/components/admin/pager";
 import { fromLocalInput } from "@/lib/live/format";
-import { promoLabel } from "@/lib/live/promo";
+import { CHECKOUT_METHODS, CHECKOUT_METHOD_LABEL, PROMO_AUDIENCES, PROMO_AUDIENCE_LABEL, promoLabel, type CheckoutMethod, type PromoAudience } from "@/lib/live/promo";
 import type { PromoView } from "@/lib/live/promo-service";
 import { useMainSiteUrl } from "@/lib/site";
 
@@ -26,7 +26,24 @@ interface EventOption {
   batches: Array<{ id: string; name: string; price: number }>;
 }
 
-const EMPTY = { eventId: "", code: "", label: "", kind: "percent" as "percent" | "fixed", value: "", allBatches: true, batchIds: [] as string[], startsAt: "", endsAt: "", maxUses: "", perUserLimit: "1" };
+const EMPTY = {
+  eventId: "",
+  code: "",
+  label: "",
+  kind: "percent" as "percent" | "fixed",
+  value: "",
+  allBatches: true,
+  batchIds: [] as string[],
+  startsAt: "",
+  endsAt: "",
+  maxUses: "",
+  perUserLimit: "1",
+  automatic: false,
+  audience: "all" as PromoAudience,
+  anyMethod: true,
+  methods: [] as CheckoutMethod[],
+  stackable: false,
+};
 
 export function AdminPromosTab({ onPreview }: { onPreview: (eventId: string, code: string) => void }) {
   const [promos, setPromos] = useState<PromoView[] | null>(null);
@@ -97,6 +114,8 @@ export function AdminPromosTab({ onPreview }: { onPreview: (eventId: string, cod
                       <span className="font-mono text-lg tracking-[0.08em] text-ink">{promo.code}</span>
                       <Tag tone={promo.active ? "success" : "neutral"}>{promo.active ? "Ativo" : "Inativo"}</Tag>
                       <Tag tone="accent">{promoLabel(promo)}</Tag>
+                      {promo.automatic && <Tag>Automático</Tag>}
+                      {promo.stackable && <Tag>Acumulável</Tag>}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {promo.eventTitle}
@@ -104,6 +123,9 @@ export function AdminPromosTab({ onPreview }: { onPreview: (eventId: string, cod
                     </p>
                     <p className="text-[13px] text-muted-foreground">
                       Validade: {promo.startsAt ? formatDateTimeBr(promo.startsAt) : "já"} → {promo.endsAt ? formatDateTimeBr(promo.endsAt) : "sem fim"} · {promo.perUserLimit} por pessoa
+                    </p>
+                    <p className="text-[13px] text-muted-foreground">
+                      Para: {PROMO_AUDIENCE_LABEL[promo.audience]} · Pagamento: {promo.paymentMethods ? promo.paymentMethods.map((m) => CHECKOUT_METHOD_LABEL[m]).join(", ") : "qualquer forma"}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -181,6 +203,10 @@ function PromoSheet({ events, onClose, onCreated }: { events: EventOption[]; onC
       maxUses: draft.maxUses.trim() ? Number(draft.maxUses) : null,
       perUserLimit: Number(draft.perUserLimit) || 1,
       active: false,
+      automatic: draft.automatic,
+      audience: draft.audience,
+      paymentMethods: draft.anyMethod ? null : draft.methods,
+      stackable: draft.stackable,
     };
     const res = await fetch("/api/admin/live/promos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const json = (await res.json().catch(() => ({}))) as { promo?: { code: string }; error?: string };
@@ -252,6 +278,31 @@ function PromoSheet({ events, onClose, onCreated }: { events: EventOption[]; onC
           {(id, describedBy) => <Input id={id} aria-describedby={describedBy} type="number" min={1} inputMode="numeric" value={draft.maxUses} onChange={(e) => set("maxUses", e.target.value)} />}
         </Field>
         <Field label="Usos por pessoa">{(id) => <Input id={id} type="number" min={1} max={20} inputMode="numeric" value={draft.perUserLimit} onChange={(e) => set("perUserLimit", e.target.value)} />}</Field>
+        <Field label="Quem pode usar">
+          {(id) => (
+            <Select id={id} value={draft.audience} onChange={(e) => set("audience", e.target.value as PromoAudience)}>
+              {PROMO_AUDIENCES.map((a) => (
+                <option key={a} value={a}>
+                  {PROMO_AUDIENCE_LABEL[a]}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+        <div className="space-y-1">
+          <Checkbox label="Desconto automático (sem digitar código)" checked={draft.automatic} onChange={(v) => set("automatic", v)} />
+          <Checkbox label="Acumula com outro desconto acumulável" checked={draft.stackable} onChange={(v) => set("stackable", v)} />
+        </div>
+        <div className="sm:col-span-2">
+          <Checkbox label="Vale para qualquer forma de pagamento" checked={draft.anyMethod} onChange={(v) => set("anyMethod", v)} />
+          {!draft.anyMethod && (
+            <div className="mt-2 flex flex-wrap gap-x-6">
+              {CHECKOUT_METHODS.map((m) => (
+                <Checkbox key={m} label={CHECKOUT_METHOD_LABEL[m]} checked={draft.methods.includes(m)} onChange={(v) => set("methods", v ? [...draft.methods, m] : draft.methods.filter((x) => x !== m))} />
+              ))}
+            </div>
+          )}
+        </div>
         {error && (
           <Notice tone="error" className="sm:col-span-2">
             {error}

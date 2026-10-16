@@ -15,6 +15,7 @@ import { Button, EmptyState, Field, Notice, Segmented, Select, Sheet, Tag, forma
 import { IconCheck } from "@/components/icons/prx-icons";
 import type { MemberTicket, PublicBatch, PublicEvent, TicketQuote } from "@/lib/live/service";
 import { SERIES_LABEL, SHIRT_SIZES, TICKET_STATUS_LABEL, type EventSeries, type ShirtSize } from "@/lib/live/types";
+import { TicketCheckout } from "@/components/app/live/ticket-checkout";
 import { formatDateTime } from "@/lib/live/format";
 import { cn } from "@/lib/utils";
 
@@ -58,7 +59,7 @@ export function LiveScreen({ member }: { member: User }) {
       ) : (
         <>
           {section === "eventos" && <EventsPanel events={agenda} member={member} reserve={live.reserve} quote={live.quote} onDone={() => go("live", "ingressos")} />}
-          {section === "ingressos" && <TicketsPanel tickets={wallet.tickets} cancel={live.cancel} resendGuardian={live.resendGuardian} onBrowse={() => go("live")} />}
+          {section === "ingressos" && <TicketsPanel tickets={wallet.tickets} cancel={live.cancel} resendGuardian={live.resendGuardian} onBrowse={() => go("live")} onPaid={() => void live.reload()} />}
           {section === "run" && (
             <RunPanel
               events={events.filter((e) => e.series === "run")}
@@ -232,7 +233,19 @@ function statusTone(status: MemberTicket["status"]): "success" | "warning" | "ne
   return "neutral";
 }
 
-function TicketSheet({ ticket, onClose, cancel, resendGuardian }: { ticket: MemberTicket | null; onClose: () => void; cancel: Cancel; resendGuardian: ResendGuardian }) {
+function TicketSheet({
+  ticket,
+  onClose,
+  cancel,
+  resendGuardian,
+  onPaid = () => undefined,
+}: {
+  ticket: MemberTicket | null;
+  onClose: () => void;
+  cancel: Cancel;
+  resendGuardian: ResendGuardian;
+  onPaid?: () => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -349,10 +362,13 @@ function TicketSheet({ ticket, onClose, cancel, resendGuardian }: { ticket: Memb
           )}
 
           {ticket.status === "pending_payment" && (
-            <Notice tone="warning">
-              Reserva de {formatBRL(ticket.price)} aguardando pagamento{ticket.holdUntil ? `, garantida até ${formatDateTime(ticket.holdUntil)}` : ""}. A equipe PRX
-              confirma o pagamento e o QR Code aparece aqui.
-            </Notice>
+            <>
+              <Notice tone="warning">
+                Reserva de {formatBRL(ticket.price)} aguardando pagamento{ticket.holdUntil ? `, garantida até ${formatDateTime(ticket.holdUntil)}` : ""}. Depois do pagamento
+                confirmado, o QR Code aparece aqui.
+              </Notice>
+              <TicketCheckout ticketId={ticket.id} onPaid={onPaid} />
+            </>
           )}
           {ticket.status === "used" && <Notice tone="success">Entrada registrada em {formatDateTime(ticket.checkedInAt)}.</Notice>}
           {ticket.status === "cancelled" && <Notice>Este ingresso foi cancelado.</Notice>}
@@ -382,7 +398,7 @@ function TicketCard({ ticket, onOpen }: { ticket: MemberTicket; onOpen: () => vo
   );
 }
 
-function TicketsPanel({ tickets, cancel, resendGuardian, onBrowse }: { tickets: MemberTicket[]; cancel: Cancel; resendGuardian: ResendGuardian; onBrowse: () => void }) {
+function TicketsPanel({ tickets, cancel, resendGuardian, onBrowse, onPaid }: { tickets: MemberTicket[]; cancel: Cancel; resendGuardian: ResendGuardian; onBrowse: () => void; onPaid?: () => void }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const open = tickets.find((t) => t.id === openId) ?? null;
   const current = tickets.filter(isOpenTicket);
@@ -417,7 +433,7 @@ function TicketsPanel({ tickets, cancel, resendGuardian, onBrowse }: { tickets: 
           </ul>
         </div>
       )}
-      <TicketSheet ticket={open} onClose={() => setOpenId(null)} cancel={cancel} resendGuardian={resendGuardian} />
+      <TicketSheet ticket={open} onClose={() => setOpenId(null)} cancel={cancel} resendGuardian={resendGuardian} onPaid={onPaid} />
     </section>
   );
 }

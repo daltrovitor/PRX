@@ -17,6 +17,8 @@ const actionSchema = z.object({
   relationship: z.string().trim().min(2, "Informe seu parentesco com o menor.").max(60).optional(),
   guardianPhone: z.string().trim().max(30).optional(),
   rejectionReason: z.string().trim().max(300).optional(),
+  guardianBirthDate: z.string().trim().max(10).optional(),
+  consentAccepted: z.boolean().optional(),
 });
 
 /**

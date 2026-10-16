@@ -15,7 +15,7 @@ import { NIGHT_LIMIT_HINT, ProviderDisclosure } from "@/components/app/bank/prov
  * depois da biometria do aparelho ou da senha da conta.
  */
 
-interface Prepared {
+export interface Prepared {
   requestId: string;
   kind: "pix_key" | "pix_qr" | "bill";
   amount: number;
@@ -29,7 +29,7 @@ interface Prepared {
 
 type Confirmation = { method: "passkey"; options: PublicKeyCredentialRequestOptionsJSON; sealed: string; passwordFallback: true } | { method: "password" };
 
-interface Review {
+export interface Review {
   prepared: Prepared;
   confirmation: Confirmation;
 }
@@ -53,8 +53,8 @@ function parseMoney(text: string): number {
   return Number.isFinite(value) ? Math.round(value * 100) / 100 : 0;
 }
 
-/** Revisão e confirmação (biometria ou senha) de uma saída preparada no servidor. */
-function ReviewSheet({ review, onClose, onDone }: { review: Review | null; onClose: () => void; onDone: (prepared: Prepared) => void }) {
+/** Revisão e confirmação (biometria ou senha) de uma saída preparada no servidor. Também usada no checkout de ingressos. */
+export function ReviewSheet({ review, onClose, onDone }: { review: Review | null; onClose: () => void; onDone: (prepared: Prepared) => void }) {
   const [password, setPassword] = useState("");
   const [usePassword, setUsePassword] = useState(false);
   const [busy, setBusy] = useState(false);

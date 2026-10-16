@@ -33,7 +33,7 @@ import {
 export type NewEvent = Omit<LiveEvent, "id" | "createdAt" | "updatedAt">;
 export type EventPatch = Partial<Omit<LiveEvent, "id" | "createdAt" | "createdBy">>;
 export type NewTicket = Omit<LiveTicket, "id">;
-export type TicketPatch = Partial<Pick<LiveTicket, "status" | "paidAt" | "cancelledAt" | "checkedInAt" | "checkedInBy" | "checkedInByRole" | "checkedInByName" | "note" | "guardianConsent">>;
+export type TicketPatch = Partial<Pick<LiveTicket, "status" | "paidAt" | "cancelledAt" | "checkedInAt" | "checkedInBy" | "checkedInByRole" | "checkedInByName" | "note" | "guardianConsent" | "price" | "originalPrice" | "discount" | "promoCodeId">>;
 export interface TicketFilter {
   eventId?: string;
   eventIds?: string[];

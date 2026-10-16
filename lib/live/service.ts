@@ -21,13 +21,15 @@ import { ageRatingLabel, checkAgeEligibility } from "@/lib/live/age";
 import { buyerBirthDate, confirmBuyerBirthDate } from "@/lib/live/buyer";
 import { getFamilyRepository } from "@/lib/family/repository";
 import { isValidCpf } from "@/lib/prx/pix";
-import { maskCpf } from "@/lib/family/age";
+import { ageOn, maskCpf } from "@/lib/family/age";
+import { assertCpfMatchesBirth } from "@/lib/cpf/verify";
+import { activeConsentDocument, documentHash, type ConsentDocument } from "@/lib/live/consent-documents";
 import { checkRateLimit } from "@/lib/security";
 import { maskEmail } from "@/lib/notifications/format";
 import { sendMinorAuthorizationEmail } from "@/lib/notifications/minor-authorization";
 import { eventReadiness, type EventReadiness } from "@/lib/live/readiness";
-import { promoOverflow, quoteFor, resolvePromo } from "@/lib/live/promo-service";
-import { promoLabel, type PriceQuote, type PromoCode } from "@/lib/live/promo";
+import { automaticPromos, promoOverflow, resolvePromo } from "@/lib/live/promo-service";
+import { combineDiscounts, promoLabel, type AppliedDiscount, type CheckoutMethod, type PriceQuote, type PromoCode } from "@/lib/live/promo";
 import {
   FOUNDERS_STATUSES,
   LIST_ONLY_SERIES,
@@ -336,6 +338,8 @@ export interface ReserveInput {
 
 export interface TicketQuote extends PriceQuote {
   promo: { code: string; label: string } | null;
+  /** Cada desconto aplicado (cupom e automático), para mostrar e registrar. */
+  discounts: AppliedDiscount[];
   age?: {
     minAge: number | null;
     needsBirthDate: boolean;
@@ -414,12 +418,37 @@ async function ageStatus(event: LiveEvent, userId: string): Promise<TicketQuote[
   };
 }
 
-/** Cupom (se houver) e preço final calculados no servidor. */
-export async function priceTicket(event: LiveEvent, batch: TicketBatch, userId: string, rawCode: unknown, test = false): Promise<{ quote: TicketQuote; promo: PromoCode | null }> {
+/**
+ * Cupom (se houver), descontos automáticos do evento e preço final, calculados
+ * no servidor. `method`: forma de pagamento escolhida no checkout (descontos
+ * restritos a uma forma só entram com ela). `promo` é o desconto principal,
+ * gravado no ingresso para os limites de uso.
+ */
+export async function priceTicket(
+  event: LiveEvent,
+  batch: TicketBatch,
+  userId: string,
+  rawCode: unknown,
+  test = false,
+  method: CheckoutMethod | null = null,
+  excludeTicketId?: string
+): Promise<{ quote: TicketQuote; promo: PromoCode | null }> {
   const hasCode = typeof rawCode === "string" && rawCode.trim() !== "";
-  const promo = hasCode ? await resolvePromo({ code: rawCode, event, batch, userId, test }) : null;
-  const quote = quoteFor(batch, promo);
-  return { quote: { ...quote, promo: promo ? { code: promo.code, label: promo.label || promoLabel(promo) } : null }, promo };
+  const coded = hasCode ? await resolvePromo({ code: rawCode, event, batch, userId, test, method, excludeTicketId }) : null;
+  const automatic = test || batch.price <= 0 ? [] : await automaticPromos(event, batch, userId, method, excludeTicketId);
+  const combined = combineDiscounts(batch.price, coded, automatic);
+  const primaryId = combined.applied.find((d) => !d.automatic)?.promoId ?? combined.applied[0]?.promoId ?? null;
+  const promo = [coded, ...automatic].find((p) => p?.id === primaryId) ?? null;
+  return {
+    quote: {
+      original: combined.original,
+      discount: combined.discount,
+      total: combined.total,
+      promo: promo ? { code: promo.code, label: promo.label || promoLabel(promo) } : null,
+      discounts: combined.applied,
+    },
+    promo,
+  };
 }
 
 /** Resumo do pedido antes de reservar: valor original, desconto e total (servidor). */
@@ -591,7 +620,24 @@ export interface GuardianAuthorizationView {
     organizerName: string;
   };
   consent: PublicGuardianConsent;
+  /** Documento que o responsável lê e aceita (versão vigente ou o texto padrão aguardando revisão jurídica). */
+  document?: Pick<ConsentDocument, "title" | "version" | "body" | "certificateUrl" | "legalStatus">;
 }
+
+/** CPF da conta (identidade ou cadastro): o menor não pode se liberar com o próprio CPF. */
+async function accountCpf(userId: string): Promise<string | null> {
+  const identity = await getFamilyRepository()
+    .getIdentity(userId)
+    .catch(() => null);
+  if (identity?.cpf) return identity.cpf;
+  if (supabaseAdmin) {
+    const { data } = await supabaseAdmin.from("profiles").select("cpf").eq("id", userId).maybeSingle();
+    return String((data as { cpf?: string | null } | null)?.cpf ?? "").replace(/\D/g, "") || null;
+  }
+  return (userStore.findById(userId)?.cpf ?? "").replace(/\D/g, "") || null;
+}
+
+const docView = (doc: ConsentDocument) => ({ title: doc.title, version: doc.version, body: doc.body, certificateUrl: doc.certificateUrl, legalStatus: doc.legalStatus });
 
 /** Ingresso, liberação e evento de um link de responsável (404 se o token não existe). */
 async function findGuardianTicket(token: string): Promise<{ ticket: LiveTicket; consent: GuardianConsent; event: LiveEvent }> {
@@ -640,7 +686,7 @@ function toAuthorizationView(token: string, ticket: LiveTicket, consent: Guardia
 
 export async function getGuardianAuthorization(token: string): Promise<GuardianAuthorizationView> {
   const { ticket, consent, event } = await findGuardianTicket(token);
-  return toAuthorizationView(token, ticket, consent, event);
+  return { ...toAuthorizationView(token, ticket, consent, event), document: docView(await activeConsentDocument()) };
 }
 
 export async function respondGuardianAuthorization(
@@ -652,6 +698,8 @@ export async function respondGuardianAuthorization(
     relationship?: string;
     guardianPhone?: string;
     rejectionReason?: string;
+    guardianBirthDate?: string;
+    consentAccepted?: boolean;
   },
   meta: { ip?: string; userAgent?: string } = {}
 ): Promise<GuardianAuthorizationView> {
@@ -688,6 +736,14 @@ export async function respondGuardianAuthorization(
     if (!relationship) {
       throw new PartnerError("Informe o parentesco (Pai, Mãe ou Responsável Legal).", 422);
     }
+    const birth = (input.guardianBirthDate || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(birth) || Number.isNaN(Date.parse(birth))) throw new PartnerError("Informe a sua data de nascimento.", 422);
+    if (ageOn(birth) < 18) throw new PartnerError("A liberação precisa ser feita por um responsável maior de idade.", 422);
+    if (rawCpf === (await accountCpf(ticket.userId))) throw new PartnerError("O CPF do responsável precisa ser diferente do CPF do menor.", 422);
+    if (input.consentAccepted !== true) throw new PartnerError("Leia e aceite o termo para liberar.", 422);
+    // Receita (Serpro), quando configurada: CPF e nascimento precisam bater. Sem Serpro, fica registrado como autodeclarado.
+    const check = await assertCpfMatchesBirth(rawCpf, birth, "guardian_consent");
+    const doc = await activeConsentDocument();
 
     updatedConsent = {
       ...current,
@@ -699,6 +755,12 @@ export async function respondGuardianAuthorization(
       respondedAt: now,
       ip: meta.ip ?? null,
       userAgent: meta.userAgent ?? null,
+      guardianBirthDate: birth,
+      identityCheck: check === "verified" ? "receita" : "autodeclarado",
+      documentVersion: doc.version,
+      documentHash: documentHash(doc),
+      documentLegalStatus: doc.legalStatus,
+      biometric: "not_configured",
     };
   }
 
@@ -710,7 +772,7 @@ export async function respondGuardianAuthorization(
     throw new PartnerError("Não foi possível atualizar a autorização.", 500);
   }
 
-  return toAuthorizationView(token, saved, updatedConsent, event);
+  return { ...toAuthorizationView(token, saved, updatedConsent, event), document: docView(await activeConsentDocument()) };
 }
 
 export async function resendGuardianAuthorization(user: StoredUser, ticketId: string): Promise<{ success: boolean; parentEmail: string }> {

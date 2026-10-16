@@ -5,11 +5,23 @@ import type { TicketBatch } from "@/lib/live/types";
 /**
  * Cupons e links de divulgação do PRX LIVE (regras puras, sem I/O).
  * O desconto é sempre calculado aqui, no servidor, a partir do preço do lote:
- * o navegador só manda o código. Um cupom por ingresso (não acumula).
+ * o navegador só manda o código. Há cupons (digitados) e descontos automáticos
+ * do evento (sem código). Vale o maior desconto; dois só se somam quando os
+ * dois foram marcados como acumuláveis (no máximo um cupom e um automático).
  */
 
 export const PROMO_KINDS = ["percent", "fixed"] as const;
 export type PromoKind = (typeof PROMO_KINDS)[number];
+
+/** Quem pode usar o desconto (conferido no servidor). */
+export const PROMO_AUDIENCES = ["all", "founders", "subscribers", "bank_active"] as const;
+export type PromoAudience = (typeof PROMO_AUDIENCES)[number];
+export const PROMO_AUDIENCE_LABEL: Record<PromoAudience, string> = { all: "Todos", founders: "Founders", subscribers: "Assinantes", bank_active: "Com conta PRX BANK ativa" };
+
+/** Formas de pagamento do checkout (cartão de débito não: o Asaas não permite pedir débito pela API). */
+export const CHECKOUT_METHODS = ["PRX_BANK", "PIX", "CREDIT_CARD"] as const;
+export type CheckoutMethod = (typeof CHECKOUT_METHODS)[number];
+export const CHECKOUT_METHOD_LABEL: Record<CheckoutMethod, string> = { PRX_BANK: "Conta PRX BANK", PIX: "Pix", CREDIT_CARD: "Cartão de crédito" };
 
 export interface PromoCode {
   id: string;
@@ -26,6 +38,13 @@ export interface PromoCode {
   maxUses: number | null;
   perUserLimit: number;
   active: boolean;
+  /** true: desconto automático do evento, aplicado sem digitar o código. */
+  automatic: boolean;
+  audience: PromoAudience;
+  /** null = qualquer forma de pagamento. */
+  paymentMethods: CheckoutMethod[] | null;
+  /** Soma com outro desconto acumulável (cupom + automático). */
+  stackable: boolean;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -58,6 +77,10 @@ export const promoInputSchema = z
     maxUses: z.union([z.coerce.number().int().min(1).max(100_000), z.null()]).default(null),
     perUserLimit: z.coerce.number().int().min(1).max(20).default(1),
     active: z.boolean().default(false),
+    automatic: z.boolean().default(false),
+    audience: z.enum(PROMO_AUDIENCES).default("all"),
+    paymentMethods: z.union([z.array(z.enum(CHECKOUT_METHODS)).min(1).max(3), z.null()]).default(null),
+    stackable: z.boolean().default(false),
   })
   .superRefine((p, ctx) => {
     if (p.kind === "percent" && p.value > 100) ctx.addIssue({ code: "custom", path: ["value"], message: "Percentual máximo de 100%." });
@@ -67,8 +90,11 @@ export const promoInputSchema = z
   });
 export type PromoInput = z.output<typeof promoInputSchema>;
 
-/** Motivo para o cupom não valer neste evento/lote agora; null = vale. Limites de uso são conferidos à parte. */
-export function promoIssue(promo: PromoCode, input: { eventId: string; batch: Pick<TicketBatch, "id" | "price">; now?: Date; allowInactive?: boolean }): string | null {
+/** Motivo para o cupom não valer neste evento/lote agora; null = vale. Limites de uso e público são conferidos à parte. */
+export function promoIssue(
+  promo: PromoCode,
+  input: { eventId: string; batch: Pick<TicketBatch, "id" | "price">; now?: Date; allowInactive?: boolean; method?: CheckoutMethod | null }
+): string | null {
   const now = (input.now ?? new Date()).getTime();
   if (!promo.active && !input.allowInactive) return "Este cupom não está ativo.";
   if (promo.eventId !== input.eventId) return "Este cupom não vale para este evento.";
@@ -76,7 +102,47 @@ export function promoIssue(promo: PromoCode, input: { eventId: string; batch: Pi
   if (promo.endsAt && now >= new Date(promo.endsAt).getTime()) return "Este cupom expirou.";
   if (input.batch.price <= 0) return "Cupom não se aplica a ingresso gratuito.";
   if (promo.batchIds && !promo.batchIds.includes(input.batch.id)) return "Este cupom não vale para o lote escolhido.";
+  // Sem forma de pagamento escolhida ainda (reserva), desconto restrito a uma forma só entra no checkout.
+  if (promo.paymentMethods && (!input.method || !promo.paymentMethods.includes(input.method))) {
+    return input.method ? `Este desconto vale só para ${promo.paymentMethods.map((m) => CHECKOUT_METHOD_LABEL[m]).join(" ou ")}.` : "Escolha a forma de pagamento para ver este desconto.";
+  }
   return null;
+}
+
+export interface AppliedDiscount {
+  promoId: string;
+  code: string;
+  label: string;
+  automatic: boolean;
+  amount: number;
+}
+
+export interface CombinedQuote extends PriceQuote {
+  applied: AppliedDiscount[];
+}
+
+/**
+ * Melhor combinação para o membro: o maior desconto sozinho, ou cupom +
+ * automático quando os dois são acumuláveis (o segundo incide sobre o que
+ * sobrou). Nunca negativo.
+ */
+export function combineDiscounts(price: number, coded: PromoCode | null, automatic: ReadonlyArray<PromoCode>): CombinedQuote {
+  const original = cents(Math.max(0, price));
+  const one = (p: PromoCode, base: number): AppliedDiscount => ({ promoId: p.id, code: p.code, label: p.label || promoLabel(p), automatic: p.automatic, amount: applyPromo(base, p).discount });
+  const options: AppliedDiscount[][] = [];
+  if (coded) options.push([one(coded, original)]);
+  for (const a of automatic) {
+    options.push([one(a, original)]);
+    if (coded && coded.stackable && a.stackable) {
+      const first = one(a, original);
+      options.push([first, one(coded, cents(original - first.amount))]);
+    }
+  }
+  const total = (list: AppliedDiscount[]) => list.reduce((s, d) => s + d.amount, 0);
+  // Empate: o cupom digitado vence (a pessoa escolheu usá-lo).
+  const best = options.reduce<AppliedDiscount[]>((acc, cur) => (total(cur) > total(acc) || (total(cur) === total(acc) && cur.some((d) => !d.automatic) && !acc.some((d) => !d.automatic)) ? cur : acc), []);
+  const discount = cents(Math.min(original, total(best)));
+  return { original, discount, total: cents(original - discount), applied: best.filter((d) => d.amount > 0) };
 }
 
 export interface PriceQuote {

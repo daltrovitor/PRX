@@ -59,7 +59,7 @@ async function consentOf(ticketId: string): Promise<GuardianConsent> {
   return ticket!.guardianConsent!;
 }
 
-const approveInput = { action: "approve", guardianName: "Carlos Eduardo Silva", guardianCpf: "529.982.247-25", relationship: "Pai" } as const;
+const approveInput = { action: "approve", guardianName: "Carlos Eduardo Silva", guardianCpf: "529.982.247-25", relationship: "Pai", guardianBirthDate: "1978-03-04", consentAccepted: true } as const;
 
 beforeEach(() => {
   delete (globalThis as { __prxLiveState?: unknown }).__prxLiveState;
@@ -236,7 +236,7 @@ describe("Fluxo Legal de Liberação de Menores pelo Responsável", () => {
     await expect(resendGuardianAuthorization(minor, ticket.id)).rejects.toMatchObject({ status: 429 });
 
     // Aprova
-    await respondGuardianAuthorization((await consentOf(ticket.id)).token, { action: "approve", guardianName: "Mariana Souza", guardianCpf: "52998224725", relationship: "Mãe" });
+    await respondGuardianAuthorization((await consentOf(ticket.id)).token, { action: "approve", guardianName: "Mariana Souza", guardianCpf: "52998224725", relationship: "Mãe", guardianBirthDate: "1980-01-01", consentAccepted: true });
 
     // Reenviar após aprovação gera erro 409
     await expect(resendGuardianAuthorization(minor, ticket.id)).rejects.toMatchObject({
