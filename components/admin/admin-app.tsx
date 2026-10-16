@@ -23,6 +23,8 @@ import { AdminNotificationsTab } from "@/components/admin/admin-notifications-ta
 import { AdminAsaasTab } from "@/components/admin/admin-asaas-tab";
 import { AdminIdentityTab } from "@/components/admin/admin-identity-tab";
 import { AdminBankAccessTab } from "@/components/admin/admin-bank-access-tab";
+import { AdminBehaviorsTab } from "@/components/admin/admin-behaviors-tab";
+import { AdminCompaniesTab } from "@/components/admin/admin-companies-tab";
 import { AdminOverview } from "@/components/admin/admin-overview";
 import { AdminPromosTab } from "@/components/admin/admin-promos-tab";
 import { AdminSimulationTab } from "@/components/admin/admin-simulation-tab";
@@ -73,7 +75,9 @@ type TabKey =
   | "notifications"
   | "asaas"
   | "identity"
-  | "bankAccess";
+  | "bankAccess"
+  | "behaviors"
+  | "companies";
 
 type ModuleKey = "overview" | "users" | "live" | "pass" | "founders" | "bank" | "finance" | "marketing" | "team" | "settings";
 
@@ -108,6 +112,8 @@ const MODULES: ReadonlyArray<{ key: ModuleKey; label: string; tabs: ReadonlyArra
       { key: "vouchers", label: "Vouchers" },
       { key: "missions", label: "Missões" },
       { key: "points", label: "Pontos" },
+      { key: "behaviors", label: "Comportamentos" },
+      { key: "companies", label: "Empresas" },
       { key: "voucherModel", label: "Modelo do voucher" },
     ],
   },
@@ -418,6 +424,8 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
             {tab === "asaas" && <AdminAsaasTab />}
             {tab === "identity" && <AdminIdentityTab />}
             {tab === "bankAccess" && <AdminBankAccessTab />}
+            {tab === "behaviors" && <AdminBehaviorsTab />}
+            {tab === "companies" && <AdminCompaniesTab />}
           </>
         )}
       </main>

@@ -54,7 +54,11 @@ async function handleTransfer(event: AsaasEvent, sub: Subaccount, deps: AsaasDep
   const counterparty = request?.counterparty ?? "Transferência";
 
   if (event.event === "TRANSFER_DONE") {
-    if (request) await deps.store.transitionOutgoing(request.id, OPEN, "done", { providerRef: request.providerRef ?? id, outcomeUnknown: false });
+    // CPF/CNPJ do recebedor (transfer.bankAccount.cpfCnpj): base dos comportamentos verificáveis.
+    const bankAccount = (transfer.bankAccount ?? {}) as Record<string, unknown>;
+    const document = (str(bankAccount.cpfCnpj) ?? "").replace(/\D/g, "");
+    const counterpartyDocument = document.length === 11 || document.length === 14 ? document : undefined;
+    if (request) await deps.store.transitionOutgoing(request.id, OPEN, "done", { providerRef: request.providerRef ?? id, outcomeUnknown: false, counterpartyDocument });
     await deps.mirror.upsertTransaction(sub.userId, {
       kind: "pix_out",
       direction: "out",

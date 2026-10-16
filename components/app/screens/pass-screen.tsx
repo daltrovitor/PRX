@@ -300,7 +300,7 @@ export function PassScreen({ pass }: { pass: PassData }) {
             </div>
             {missingCoins > 0 && (
               <Notice tone="neutral">
-                Você tem {coins?.toLocaleString("pt-BR")} coins. Check-ins de bom comportamento e compras em parceiros com Pix PRX completam o que falta.
+                Você tem {coins?.toLocaleString("pt-BR")} coins. Comportamentos verificados e compras em parceiros com Pix PRX completam o que falta.
               </Notice>
             )}
             {selected.sponsored && <p className="text-[13px] text-muted-foreground">Patrocinado: o parceiro contratou destaque para esta oferta.</p>}

@@ -128,6 +128,7 @@ const NEW_COLUMNS = new Set([
   "onboarding_notified_at",
   "outcome_unknown",
   "attempts",
+  "counterparty_document",
 ]);
 
 /** Erro de coluna inexistente (PostgREST PGRST204 ou Postgres 42703). */
@@ -160,6 +161,7 @@ export interface OutgoingRow {
   confirmed_at: string | null;
   created_at: string;
   outcome_unknown?: boolean | null;
+  counterparty_document?: string | null;
 }
 
 export function mapOutgoing(r: OutgoingRow): OutgoingRequest {
@@ -177,6 +179,7 @@ export function mapOutgoing(r: OutgoingRow): OutgoingRequest {
     confirmedAt: r.confirmed_at,
     createdAt: r.created_at,
     outcomeUnknown: r.outcome_unknown === true,
+    counterpartyDocument: r.counterparty_document ?? null,
   };
 }
 

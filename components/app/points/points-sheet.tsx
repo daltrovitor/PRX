@@ -7,6 +7,7 @@ import { useConfirmToast } from "@/components/ui/confirm-toast";
 import { levelProgress } from "@/lib/pass-data";
 import { CLAIM_STATUS_LABEL, POINT_RULE_PERIOD_LABEL, POINT_SOURCE_LABEL, type MemberPointRule, type PointsWallet } from "@/lib/points/types";
 import { cn } from "@/lib/utils";
+import { MemberBehaviors } from "@/components/app/points/member-behaviors";
 
 const integer = new Intl.NumberFormat("pt-BR");
 const when = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -23,9 +24,9 @@ interface PointsSheetProps {
 }
 
 /**
- * Como ganhar (bom comportamento com análise e regras automáticas), envios
- * em análise e o extrato de coins e XP. Coins de comportamento só entram
- * depois que a equipe PRX aprova o relato.
+ * Como ganhar (comportamentos verificados pela conta PRX BANK e regras
+ * automáticas), envios antigos de "bom comportamento" e o extrato de coins e
+ * XP. O relato por texto saiu do app em 16/10/2026.
  */
 export function PointsSheet({ open, onClose, wallet, error, onCheckin }: PointsSheetProps) {
   const [view, setView] = useState<View>("ganhar");
@@ -51,7 +52,7 @@ export function PointsSheet({ open, onClose, wallet, error, onCheckin }: PointsS
   const automatic = wallet?.rules.filter((r) => r.trigger !== "checkin") ?? [];
 
   return (
-    <Sheet open={open} onClose={onClose} title="PRX Coins" description="Bom comportamento vira coins. Coins viram benefícios." size="lg">
+    <Sheet open={open} onClose={onClose} title="PRX Coins" description="Comportamentos e compras em parceiros viram coins. Coins viram benefícios." size="lg">
       {!wallet ? (
         error ? <Notice tone="error">{error}</Notice> : <div role="status" aria-label="Carregando pontos" className="h-40 rounded-2xl bg-surface" />
       ) : (
@@ -74,6 +75,7 @@ export function PointsSheet({ open, onClose, wallet, error, onCheckin }: PointsS
 
           {view === "ganhar" ? (
             <div className="space-y-6">
+              <MemberBehaviors />
               {checkins.length > 0 && (
                 <section aria-labelledby="points-checkins" className="space-y-2">
                   <h3 id="points-checkins" className="text-[13px] font-semibold text-ink">

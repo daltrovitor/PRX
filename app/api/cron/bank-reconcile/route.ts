@@ -5,6 +5,7 @@ import { asaasEnabled } from "@/lib/asaas/client";
 import { asaasDeps } from "@/lib/bank/asaas/deps";
 import { reconcileBank } from "@/lib/bank/asaas/reconcile";
 import { purgeRejectedDocuments } from "@/lib/kyc/identity";
+import { evaluateActiveRules, evaluationDeps } from "@/lib/behaviors/service";
 
 export const maxDuration = 60;
 
@@ -25,5 +26,7 @@ export async function GET(req: NextRequest) {
   const retention = await purgeRejectedDocuments().catch((err: unknown) => ({ purged: 0, error: err instanceof Error ? err.message : String(err) }));
   if (!asaasEnabled()) return NextResponse.json({ success: true, retention, skipped: "Asaas desligado neste ambiente." });
   const report = await reconcileBank(asaasDeps());
-  return NextResponse.json({ success: true, report, retention });
+  // Comportamentos verificáveis: avalia as regras ativas com os pagamentos do dia (idempotente por dia).
+  const behaviors = await evaluateActiveRules(evaluationDeps()).catch((err: unknown) => ({ rules: 0, evaluated: 0, error: err instanceof Error ? err.message : String(err) }));
+  return NextResponse.json({ success: true, report, retention, behaviors });
 }

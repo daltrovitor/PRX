@@ -73,6 +73,24 @@ export const HOME_BANNER_MIGRATION_HINT = `Falta aplicar a migração supabase/m
 /** true quando partner_reels já tem a coluna placement (memória: sempre true). */
 export const homeBannerSchemaReady = () => columnReady("partner_reels", "placement");
 
+/** true quando a tabela já existe (cache de 1 min; memória: sempre true). Serve aos módulos novos, um por migração. */
+export async function tableReady(table: string): Promise<boolean> {
+  if (!supabaseAdmin) return true;
+  const key = `table:${table}`;
+  const hit = columnCache.get(key);
+  if (hit && Date.now() - hit.at < TTL_MS) return hit.ready;
+  const { error } = await supabaseAdmin.from(table).select("*", { head: true, count: "exact" }).limit(1);
+  const missing = isMissingTable(error);
+  if (!missing && error) return false;
+  columnCache.set(key, { at: Date.now(), ready: !missing });
+  return !missing;
+}
+
+/** 503 com o nome da migração que falta aplicar (em vez de quebrar a tela). */
+export async function requireTable(table: string, migration: string): Promise<void> {
+  if (!(await tableReady(table))) throw new PartnerError(`Falta aplicar a migração supabase/migrations/${migration} no Supabase.`, 503);
+}
+
 /** Só para testes. */
 export function resetLaunchSchemaCache(): void {
   cached = null;

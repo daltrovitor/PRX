@@ -81,10 +81,12 @@ export interface OutgoingRequest {
   createdAt: string;
   /** O Asaas não respondeu ao pedido (timeout/rede/5xx): só a conciliação diz se saiu. */
   outcomeUnknown: boolean;
+  /** CPF ou CNPJ do recebedor que o Asaas devolve na transferência concluída (migração 20261016). */
+  counterpartyDocument: string | null;
 }
 
 export type NewOutgoing = Pick<OutgoingRequest, "userId" | "kind" | "amount" | "counterparty" | "target" | "description">;
-export type OutgoingPatch = Partial<Pick<OutgoingRequest, "providerRef" | "failReason" | "confirmedAt" | "outcomeUnknown">>;
+export type OutgoingPatch = Partial<Pick<OutgoingRequest, "providerRef" | "failReason" | "confirmedAt" | "outcomeUnknown" | "counterpartyDocument">>;
 
 export interface BankNotification {
   id: string;
@@ -175,6 +177,8 @@ export interface AsaasBankStore {
   listOpenOutgoing(before: string, limit: number): Promise<OutgoingRequest[]>;
   /** Marca (ou desmarca) o resultado desconhecido sem mexer no status. */
   setOutgoingUnknown(id: string, unknown: boolean): Promise<void>;
+  /** Saídas concluídas do membro no período (base dos comportamentos verificáveis). */
+  listDoneOutgoing(userId: string, sinceIso: string, untilIso: string): Promise<OutgoingRequest[]>;
 }
 
 export const roundMoney = (value: unknown): number => Math.round(Number(value ?? 0) * 100) / 100;

@@ -231,6 +231,7 @@ export class MemoryAsaasBankStore implements AsaasBankStore {
       amount: roundMoney(input.amount),
       status: "awaiting_confirmation",
       providerRef: null,
+      counterpartyDocument: null,
       failReason: null,
       confirmedAt: null,
       createdAt: new Date().toISOString(),
@@ -261,7 +262,15 @@ export class MemoryAsaasBankStore implements AsaasBankStore {
     if (patch.failReason !== undefined) found.failReason = patch.failReason;
     if (patch.confirmedAt !== undefined) found.confirmedAt = patch.confirmedAt;
     if (patch.outcomeUnknown !== undefined) found.outcomeUnknown = patch.outcomeUnknown;
+    if (patch.counterpartyDocument !== undefined) found.counterpartyDocument = patch.counterpartyDocument;
     return { ...found };
+  }
+
+  async listDoneOutgoing(userId: string, sinceIso: string, untilIso: string) {
+    return [...this.outgoing.values()]
+      .filter((o) => o.userId === userId && o.status === "done" && o.createdAt >= sinceIso && o.createdAt <= untilIso)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .map((o) => ({ ...o }));
   }
 
   async attachProviderRef(id: string, providerRef: string) {

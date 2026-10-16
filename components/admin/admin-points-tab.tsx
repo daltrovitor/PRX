@@ -32,7 +32,7 @@ interface RuleForm {
   sortOrder: string;
 }
 
-const EMPTY: RuleForm = { title: "", description: "", trigger: "checkin", coins: "10", xp: "50", periodicity: "weekly", category: "geral", active: true, sortOrder: "0" };
+const EMPTY: RuleForm = { title: "", description: "", trigger: "partner_purchase", coins: "10", xp: "50", periodicity: "per_event", category: "geral", active: true, sortOrder: "0" };
 
 /**
  * Regras de pontos por bom comportamento: o que gera PRX Coins e XP, quanto,
@@ -135,7 +135,7 @@ export function AdminPointsTab({ rules, onRefresh }: { rules: PointRule[]; onRef
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 id="points-title" className="text-2xl font-semibold tracking-[-0.03em] text-ink">
-            Pontos e bom comportamento
+            Pontos automáticos
           </h2>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
             Cada regra define quantos PRX Coins e quanto XP o membro ganha. A regra de compra define a taxa de emissão usada pela calculadora de viabilidade.
@@ -156,7 +156,7 @@ export function AdminPointsTab({ rules, onRefresh }: { rules: PointRule[]; onRef
       </dl>
 
       {rules.length === 0 ? (
-        <EmptyState title="Nenhuma regra" body="Crie a primeira regra de bom comportamento." action={<Button onClick={openCreate}>Criar regra</Button>} />
+        <EmptyState title="Nenhuma regra" body="Crie a primeira regra automática (compra em parceiro, resgate, voucher)." action={<Button onClick={openCreate}>Criar regra</Button>} />
       ) : (
         <div className="glass overflow-x-auto rounded-3xl">
           <table className="w-full min-w-[860px] text-left text-sm">
@@ -226,7 +226,8 @@ export function AdminPointsTab({ rules, onRefresh }: { rules: PointRule[]; onRef
           <Field label="Gatilho">
             {(id) => (
               <Select id={id} value={form.trigger} onChange={(e) => setTrigger(e.target.value as PointRuleTrigger)}>
-                {POINT_RULE_TRIGGERS.map((t) => (
+                {/* "Bom comportamento" por relato saiu (16/10/2026): só aparece para editar regras antigas. */}
+                {POINT_RULE_TRIGGERS.filter((t) => t !== "checkin" || form.trigger === "checkin").map((t) => (
                   <option key={t} value={t}>
                     {POINT_RULE_TRIGGER_LABEL[t]}
                   </option>

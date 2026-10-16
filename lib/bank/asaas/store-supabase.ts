@@ -257,6 +257,7 @@ export class SupabaseAsaasBankStore implements AsaasBankStore {
     if (patch.failReason !== undefined) row.fail_reason = patch.failReason?.slice(0, 300) ?? null;
     if (patch.confirmedAt !== undefined) row.confirmed_at = patch.confirmedAt;
     if (patch.outcomeUnknown !== undefined) row.outcome_unknown = patch.outcomeUnknown;
+    if (patch.counterpartyDocument !== undefined) row.counterparty_document = patch.counterpartyDocument;
     const { data, error } = await tolerant(row, (r) => this.db.from("bank_outgoing_requests").update(r).eq("id", id).in("status", [...from]).select("*"));
     if (error) throw dbError(error, "Não foi possível atualizar a operação");
     const rows = data as OutgoingRow[];
@@ -289,6 +290,21 @@ export class SupabaseAsaasBankStore implements AsaasBankStore {
       .order("created_at", { ascending: true })
       .limit(limit);
     if (error) throw dbError(error, "Não foi possível listar as operações em aberto");
+    return (data as OutgoingRow[]).map(mapOutgoing);
+  }
+
+  async listDoneOutgoing(userId: string, sinceIso: string, untilIso: string) {
+    if (!isUuid(userId)) return [];
+    const { data, error } = await this.db
+      .from("bank_outgoing_requests")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("status", "done")
+      .gte("created_at", sinceIso)
+      .lte("created_at", untilIso)
+      .order("created_at", { ascending: true })
+      .limit(2000);
+    if (error) throw dbError(error, "Não foi possível ler as saídas da conta");
     return (data as OutgoingRow[]).map(mapOutgoing);
   }
 
