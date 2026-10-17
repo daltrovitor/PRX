@@ -270,7 +270,8 @@ export function ObsidianBalanceCard({
 /* Os 4 pilares                                                               */
 /* -------------------------------------------------------------------------- */
 
-export type PillarId = "pass" | "live" | "invest" | "me";
+/** Os módulos da PRX. OBSIDIAN_PILLARS usa os 4 do celular 3D; a lista completa está em obsidian-modules.ts. */
+export type PillarId = "bank" | "pass" | "live" | "founders" | "level" | "car" | "home" | "invest" | "me" | "circle";
 
 export interface ObsidianPillar {
   id: PillarId;
@@ -279,6 +280,8 @@ export interface ObsidianPillar {
   image: StaticImageData;
   /** Enquadramento da foto dentro do card vertical. */
   focus: string;
+  /** Ainda não abre no app: o card mostra "Em breve". */
+  soon?: boolean;
 }
 
 export const OBSIDIAN_PILLARS: ReadonlyArray<ObsidianPillar> = [
@@ -307,7 +310,7 @@ export function ObsidianPillarCard({
     <button
       type="button"
       onClick={() => onSelect?.(pillar.id)}
-      aria-label={`PRX ${pillar.name}: ${pillar.caption.join(" ")}`}
+      aria-label={`PRX ${pillar.name}: ${pillar.caption.join(" ")}${pillar.soon ? " (em breve)" : ""}`}
       className={cn(
         "group relative isolate flex w-full cursor-pointer flex-col justify-between overflow-hidden border border-white/[0.12] bg-[#07070b] text-left text-[#fff] shadow-[0_24px_48px_-28px_rgba(0,0,0,0.9)] transition-[border-color,transform] duration-300 hover:border-white/[0.24] active:scale-[0.98]",
         phone ? "aspect-[3/4.3] rounded-[16px] p-3" : "aspect-[3/4.2] rounded-[22px] p-4 sm:p-5",
@@ -328,6 +331,7 @@ export function ObsidianPillarCard({
           PRX
           <br />
           {pillar.name}
+          {pillar.soon && <span className="mt-1.5 block text-[9px] tracking-[0.18em] text-[#e6e8ee] sm:text-[10px]">Em breve</span>}
         </span>
         <span
           aria-hidden

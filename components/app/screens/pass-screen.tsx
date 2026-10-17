@@ -20,15 +20,17 @@ import { cn } from "@/lib/utils";
 import { RafflesPanel } from "@/components/app/raffles/raffles-panel";
 import { CarHomePanel } from "@/components/app/pass/car-home-panel";
 
-type PassSection = "catalogo" | "car-home" | "vouchers" | "missions" | "sorteios" | "convidar";
-const SECTIONS: ReadonlyArray<PassSection> = ["catalogo", "car-home", "vouchers", "missions", "sorteios", "convidar"];
+type PassSection = "catalogo" | "car" | "home" | "vouchers" | "missions" | "sorteios" | "convidar";
+const SECTIONS: ReadonlyArray<PassSection> = ["catalogo", "car", "home", "vouchers", "missions", "sorteios", "convidar"];
 
 export function PassScreen({ pass }: { pass: PassData }) {
   const { sub, go } = useAppNav();
   const { member, benefits, vouchers, missions, referralInfo, loaded } = pass;
 
   const benefitFromLink = sub?.startsWith("beneficio:") ? sub.slice("beneficio:".length) : null;
-  const section: PassSection = SECTIONS.includes(sub as PassSection) ? (sub as PassSection) : "catalogo";
+  // "car-home" era a aba única de antes da separação: links antigos abrem o PRX CAR.
+  const requested = sub === "car-home" ? "car" : sub;
+  const section: PassSection = SECTIONS.includes(requested as PassSection) ? (requested as PassSection) : "catalogo";
 
   const [category, setCategory] = useState("all");
   const [query, setQuery] = useState("");
@@ -125,7 +127,8 @@ export function PassScreen({ pass }: { pass: PassData }) {
         onChange={(value) => go("pass", value === "catalogo" ? null : value)}
         options={[
           { value: "catalogo", label: "Catálogo", count: benefits.length },
-          { value: "car-home", label: "Car & Home" },
+          { value: "car", label: "PRX CAR" },
+          { value: "home", label: "PRX HOME" },
           { value: "vouchers", label: "Meus vouchers", count: activeVouchers.length },
           { value: "missions", label: "Missões", count: missions.filter((m) => !m.isCompleted).length },
           { value: "sorteios", label: "Sorteios" },
@@ -243,7 +246,7 @@ export function PassScreen({ pass }: { pass: PassData }) {
         />
       )}
 
-      {section === "car-home" && <CarHomePanel />}
+      {(section === "car" || section === "home") && <CarHomePanel key={section} id={section} />}
 
       {section === "sorteios" && <RafflesPanel />}
 

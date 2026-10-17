@@ -16,8 +16,8 @@ import { WalletTriad } from "@/components/app/points/wallet-triad";
 import { PointsSheet } from "@/components/app/points/points-sheet";
 import { EmptyState, ProgressBar } from "@/components/app/ui";
 import { IconBarcode, IconPaperPlane, IconPixDiamonds } from "@/components/icons/prx-icons";
+import { PRX_MODULES } from "@/components/obsidian/obsidian-modules";
 import {
-  OBSIDIAN_PILLARS,
   ObsidianBalanceCard,
   ObsidianEventCard,
   ObsidianGreeting,
@@ -34,14 +34,15 @@ const reveal = {
   show: (i: number) => ({ opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 30, delay: i * 0.06 } }),
 };
 
-const SOON: Record<Extract<PillarId, "invest" | "me">, string> = {
+const SOON: Record<Extract<PillarId, "invest" | "me" | "circle">, string> = {
   invest: "Caixinhas e metas para os seus planos chegam em breve à PRX.",
   me: "Saúde mental pra ir mais longe: o PRX ME chega em breve.",
+  circle: "Conexões sem swipe: o PRX CIRCLE chega em breve.",
 };
 
 /**
  * Início (Cyber-Luxury Obsidian): saudação e manifesto, saldo PRX Bank com
- * Pix · Pagar · Transferir, os 4 pilares do ecossistema e os próximos eventos.
+ * Pix · Pagar · Transferir, os cards de todos os módulos e os próximos eventos.
  * Abaixo, o dia a dia: instalar o app, Coins e nível, atividade, benefícios e missões.
  */
 export function HomeScreen({ pass }: { pass: PassData }) {
@@ -78,8 +79,11 @@ export function HomeScreen({ pass }: { pass: PassData }) {
     { key: "transferir", label: "Transferir", Icon: IconPaperPlane, onClick: () => go("bank", "pix") },
   ];
 
+  // Cada card leva ao lugar do módulo no app; os que ainda não abrem avisam "em breve".
   const openPillar = (id: PillarId) => {
-    if (id === "pass" || id === "live") return go(id);
+    if (id === "bank" || id === "pass" || id === "live" || id === "founders") return go(id);
+    if (id === "level") return go("pass", "missions");
+    if (id === "car" || id === "home") return go("pass", id);
     showToast("info", SOON[id], `PRX ${id.toUpperCase()}`);
   };
 
@@ -145,11 +149,20 @@ export function HomeScreen({ pass }: { pass: PassData }) {
           <FoundersHomePromo onOpen={() => go("founders")} />
         </motion.section>
 
-        <motion.section aria-label="Ecossistema PRX" initial="hidden" animate="show" custom={2} variants={reveal} className="order-3 min-w-0 lg:order-4 lg:col-span-12">
-          <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scrollbar-none touch-pan-x sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-4 lg:gap-5 lg:overflow-visible lg:px-0">
-            {OBSIDIAN_PILLARS.map((pillar) => (
-              <li key={pillar.id} className="w-[40%] min-w-[140px] max-w-[220px] shrink-0 snap-start lg:w-auto lg:max-w-none">
-                <ObsidianPillarCard pillar={pillar} onSelect={openPillar} />
+        <motion.section
+          aria-labelledby="home-modules"
+          initial="hidden"
+          animate="show"
+          custom={2}
+          variants={reveal}
+          className="order-3 min-w-0 space-y-3 lg:order-4 lg:col-span-12"
+        >
+          <ObsidianSectionHeader id="home-modules" title="Módulos PRX" />
+          {/* Celular: carrossel com todos os módulos; desktop: duas linhas de cinco. */}
+          <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scrollbar-none touch-pan-x sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-5 lg:gap-4 lg:overflow-visible lg:px-0">
+            {PRX_MODULES.map((pillar) => (
+              <li key={pillar.id} className="w-[38%] min-w-[136px] max-w-[210px] shrink-0 snap-start lg:w-auto lg:max-w-none">
+                <ObsidianPillarCard pillar={pillar} onSelect={openPillar} sizes="(min-width: 1024px) 220px, 40vw" />
               </li>
             ))}
           </ul>

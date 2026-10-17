@@ -99,22 +99,21 @@ function Journey({ journey: j }: { journey: CarHomeJourney }) {
   );
 }
 
+const PARTNERS: Record<CarHomeJourney["id"], string> = {
+  car: "As primeiras condições aparecem aqui assim que as concessionárias parceiras entrarem.",
+  home: "As primeiras condições aparecem aqui assim que as construtoras parceiras entrarem.",
+};
+
 /**
- * PRX CAR e PRX HOME no PRX PASS: as duas primeiras grandes conquistas, com
- * condições negociadas com concessionárias e construtoras parceiras.
+ * PRX CAR ou PRX HOME no PRX PASS (cada um na sua aba): as primeiras grandes
+ * conquistas, com condições negociadas com concessionárias e construtoras.
  */
-export function CarHomePanel() {
+export function CarHomePanel({ id }: { id: CarHomeJourney["id"] }) {
+  const journey = CAR_HOME.find((j) => j.id === id) ?? CAR_HOME[0];
   return (
-    <section aria-label="PRX CAR e PRX HOME" className="space-y-14">
-      <div className="max-w-2xl space-y-2">
-        <p className="text-[15px] leading-relaxed text-ink sm:text-[16px]">
-          O primeiro carro e o primeiro apê, com condições criadas para quem está começando a construir renda e patrimônio.
-        </p>
-        <p className="text-[14px] text-muted-foreground">As primeiras condições aparecem aqui assim que as concessionárias e construtoras parceiras entrarem.</p>
-      </div>
-      {CAR_HOME.map((journey) => (
-        <Journey key={journey.id} journey={journey} />
-      ))}
+    <section aria-label={journey.name} className="space-y-8">
+      <p className="max-w-2xl text-[14px] text-muted-foreground">{PARTNERS[journey.id]}</p>
+      <Journey journey={journey} />
     </section>
   );
 }
