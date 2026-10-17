@@ -158,11 +158,11 @@ export function HomeScreen({ pass }: { pass: PassData }) {
           className="order-3 min-w-0 space-y-3 lg:order-4 lg:col-span-12"
         >
           <ObsidianSectionHeader id="home-modules" title="Módulos PRX" />
-          {/* Celular: carrossel com todos os módulos; desktop: duas linhas de cinco. */}
-          <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scrollbar-none touch-pan-x sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-5 lg:gap-4 lg:overflow-visible lg:px-0">
+          {/* Até 1279 px: carrossel com todos os módulos; a partir de 1280 px: duas linhas de cinco. */}
+          <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scrollbar-none touch-pan-x sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 xl:grid xl:grid-cols-5 xl:gap-4 xl:overflow-visible">
             {PRX_MODULES.map((pillar) => (
-              <li key={pillar.id} className="w-[38%] min-w-[136px] max-w-[210px] shrink-0 snap-start lg:w-auto lg:max-w-none">
-                <ObsidianPillarCard pillar={pillar} onSelect={openPillar} sizes="(min-width: 1024px) 220px, 40vw" />
+              <li key={pillar.id} className="w-[38%] min-w-[136px] max-w-[210px] shrink-0 snap-start xl:w-auto xl:max-w-none">
+                <ObsidianPillarCard pillar={pillar} onSelect={openPillar} sizes="(min-width: 1280px) 220px, 210px" />
               </li>
             ))}
           </ul>

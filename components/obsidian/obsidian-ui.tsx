@@ -313,7 +313,8 @@ export function ObsidianPillarCard({
       aria-label={`PRX ${pillar.name}: ${pillar.caption.join(" ")}${pillar.soon ? " (em breve)" : ""}`}
       className={cn(
         "group relative isolate flex w-full cursor-pointer flex-col justify-between overflow-hidden border border-white/[0.12] bg-[#07070b] text-left text-[#fff] shadow-[0_24px_48px_-28px_rgba(0,0,0,0.9)] transition-[border-color,transform] duration-300 hover:border-white/[0.24] active:scale-[0.98]",
-        phone ? "aspect-[3/4.3] rounded-[16px] p-3" : "aspect-[3/4.2] rounded-[22px] p-4 sm:p-5",
+        // No app o card é um contêiner: o nome e a seta se ajustam à largura (FOUNDERS não empurra a seta para fora).
+        phone ? "aspect-[3/4.3] rounded-[16px] p-3" : "@container aspect-[3/4.2] rounded-[22px] p-4 sm:p-5",
         className
       )}
     >
@@ -327,17 +328,28 @@ export function ObsidianPillarCard({
       />
       <span aria-hidden className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(5,5,8,0.62)_0%,rgba(5,5,8,0.06)_34%,rgba(5,5,8,0.1)_58%,rgba(5,5,8,0.86)_100%)]" />
       <span className="flex items-start justify-between gap-2">
-        <span className={cn("ob-label leading-[1.15] tracking-[0.16em]", phone ? "text-[12.5px]" : "text-[15px] sm:text-[17px]")}>
+        <span
+          className={cn(
+            "ob-label min-w-0 leading-[1.15]",
+            phone
+              ? "text-[12.5px] tracking-[0.16em]"
+              : cn(
+                  "tracking-[0.08em] @[130px]:tracking-[0.12em] @[170px]:tracking-[0.16em]",
+                  // Nomes longos (FOUNDERS) encolhem mais para a seta caber em cards estreitos.
+                  pillar.name.length > 6 ? "text-[clamp(10.5px,10.6cqw,17px)]" : "text-[clamp(12px,13.5cqw,17px)]"
+                )
+          )}
+        >
           PRX
           <br />
           {pillar.name}
-          {pillar.soon && <span className="mt-1.5 block text-[9px] tracking-[0.18em] text-[#e6e8ee] sm:text-[10px]">Em breve</span>}
+          {pillar.soon && <span className="mt-1.5 block whitespace-nowrap text-[9px] tracking-[0.18em] text-[#e6e8ee] sm:text-[10px]">Em breve</span>}
         </span>
         <span
           aria-hidden
           className={cn(
             "flex shrink-0 items-center justify-center rounded-full border border-white/[0.28] bg-black/[0.25] backdrop-blur-md transition-colors group-hover:bg-white/[0.14]",
-            phone ? "h-6 w-6" : "h-9 w-9"
+            phone ? "h-6 w-6" : "h-9 w-9 @max-[150px]:h-7 @max-[150px]:w-7"
           )}
         >
           <IconArrowRight size={phone ? 12 : 15} strokeWidth={1.6} />
