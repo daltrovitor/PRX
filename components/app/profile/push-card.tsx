@@ -12,7 +12,7 @@ import { usePush } from "@/components/app/profile/use-push";
  */
 export function PushCard() {
   const { showToast } = useConfirmToast();
-  const { state, busy, error, enable, disable, test } = usePush();
+  const { state, busy, error, enable, disable } = usePush();
 
   return (
     <section aria-labelledby="profile-push" className="space-y-4 rounded-3xl glass p-5">
@@ -29,14 +29,9 @@ export function PushCard() {
           </Button>
         )}
         {state.kind === "on" && (
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="secondary" onClick={() => void test().then((ok) => ok && showToast("success", "Enviamos um teste. Ele chega em alguns segundos."))} disabled={busy}>
-              Enviar teste
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => void disable()} disabled={busy}>
-              Desativar
-            </Button>
-          </div>
+          <Button size="sm" variant="ghost" onClick={() => void disable()} disabled={busy}>
+            Desativar
+          </Button>
         )}
       </div>
       {state.kind === "on" && <p className="text-sm font-medium text-ink">Ativas neste aparelho.</p>}

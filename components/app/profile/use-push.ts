@@ -116,21 +116,7 @@ export function usePush() {
     }
   }, [state]);
 
-  const test = useCallback(async (): Promise<boolean> => {
-    setBusy(true);
-    setError(null);
-    try {
-      await api("POST", { action: "test" });
-      return true;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível enviar o teste.");
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }, []);
-
-  return { state, busy, error, enable, disable, test };
+  return { state, busy, error, enable, disable };
 }
 
 /* Lembrete dispensado (banner e pop-up): volta depois de alguns dias. */

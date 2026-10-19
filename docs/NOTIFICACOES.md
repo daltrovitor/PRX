@@ -56,7 +56,7 @@ Tudo mora em `lib/notifications/` (canais, modelos e registro de envios) e `lib/
 
 ## Notificações no celular (Web Push)
 
-Desde 19/10/2026 a PRX também avisa no celular, com o app fechado. O membro ativa em **Perfil → Notificações no celular** (e pode mandar um teste ali). No Android funciona no Chrome e no app instalado; no iPhone só com o app instalado na tela de início (iOS 16.4+).
+Desde 19/10/2026 a PRX também avisa no celular, com o app fechado. O membro ativa pelo pop-up que aparece ao abrir o app, pelo banner da Home ou em **Perfil → Notificações no celular**. No Android funciona no Chrome e no app instalado; no iPhone só com o app instalado na tela de início (iOS 16.4+).
 
 O que chega no celular:
 

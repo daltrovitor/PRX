@@ -101,8 +101,7 @@ export function HomeScreen({ pass }: { pass: PassData }) {
           <ObsidianGreeting name={firstName(member)} />
         </motion.header>
 
-        <motion.div initial="hidden" animate="show" custom={1} variants={reveal} className="order-1 min-w-0 space-y-3 lg:col-span-12">
-          <ResenhaHomeCard resenhas={resenhas} onOpen={() => go("live", "resenha")} />
+        <motion.div initial="hidden" animate="show" custom={1} variants={reveal} className="order-1 min-w-0 lg:col-span-12">
           <PushBanner />
         </motion.div>
 
@@ -123,7 +122,7 @@ export function HomeScreen({ pass }: { pass: PassData }) {
           animate="show"
           custom={3}
           variants={reveal}
-          className="order-4 min-w-0 space-y-3 lg:order-3 lg:col-span-5 lg:flex lg:flex-col"
+          className="order-5 min-w-0 space-y-3 lg:order-3 lg:col-span-5 lg:flex lg:flex-col"
         >
           <ObsidianSectionHeader id="home-events" title="Próximos eventos" actionLabel="Ver todos" onAction={() => go("live")} />
           {upcoming.length === 0 ? (
@@ -178,9 +177,14 @@ export function HomeScreen({ pass }: { pass: PassData }) {
           </ul>
         </motion.section>
 
+        {/* Resenha logo abaixo dos Módulos PRX (celular e desktop). */}
+        <motion.div initial="hidden" animate="show" custom={3} variants={reveal} className="order-4 min-w-0 lg:order-5 lg:col-span-12">
+          <ResenhaHomeCard resenhas={resenhas} onOpen={() => go("live", "resenha")} />
+        </motion.div>
+
         {/* Banner de parceiro (Destaque de imagem cadastrado no admin), logo abaixo dos eventos. */}
         {banners.length > 0 && (
-          <motion.section aria-label="Destaques dos parceiros" initial="hidden" animate="show" custom={4} variants={reveal} className="order-5 min-w-0 lg:col-span-12">
+          <motion.section aria-label="Destaques dos parceiros" initial="hidden" animate="show" custom={4} variants={reveal} className="order-6 min-w-0 lg:col-span-12">
             <HomeBanners
               banners={banners}
               onOpen={(banner) => {

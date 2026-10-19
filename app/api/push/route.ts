@@ -7,16 +7,13 @@ import { PartnerError } from "@/lib/partners/errors";
 import { errorResponse, readJson } from "@/lib/partners/http";
 import { firstIssue } from "@/lib/partners/types";
 import { deleteSubscription, listSubscriptions, saveSubscription } from "@/lib/push/repository";
-import { pushConfigured, sendPushToUser, vapidPublicKey } from "@/lib/push/send";
+import { pushConfigured, vapidPublicKey } from "@/lib/push/send";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 const b64url = z.string().trim().min(8).max(200).regex(/^[A-Za-z0-9_-]+=*$/, "Chave inválida.");
 const endpoint = z.string().trim().url().max(1000).refine((v) => v.startsWith("https://"), "Endereço de notificação inválido.");
 
-const postSchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("subscribe"), subscription: z.object({ endpoint, keys: z.object({ p256dh: b64url, auth: b64url }) }) }),
-  z.object({ action: z.literal("test") }),
-]);
+const postSchema = z.object({ action: z.literal("subscribe"), subscription: z.object({ endpoint, keys: z.object({ p256dh: b64url, auth: b64url }) }) });
 const deleteSchema = z.object({ endpoint });
 
 async function member(req: NextRequest) {
@@ -35,7 +32,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/** POST /api/push — ativa este aparelho ({ action: "subscribe" }) ou manda um teste ({ action: "test" }). */
+/** POST /api/push — ativa as notificações neste aparelho ({ action: "subscribe" }). */
 export async function POST(req: NextRequest) {
   try {
     const user = await member(req);
@@ -44,12 +41,6 @@ export async function POST(req: NextRequest) {
     const parsed = postSchema.safeParse(await readJson(req));
     if (!parsed.success) throw new PartnerError(firstIssue(parsed.error), 400);
     if (!pushConfigured()) throw new PartnerError("As notificações no celular ainda estão sendo ativadas pela PRX. Tente mais tarde.", 503);
-
-    if (parsed.data.action === "test") {
-      const sent = await sendPushToUser(user.id, { title: "Notificações ativas", body: "É assim que a PRX vai te avisar de convites, Pix e liberações.", url: "/#profile", tag: "prx-test" });
-      if (sent === 0) throw new PartnerError("Nenhum aparelho recebeu. Ative as notificações neste celular de novo.", 409);
-      return NextResponse.json({ success: true, sent }, { headers: NO_STORE });
-    }
 
     const { subscription } = parsed.data;
     const saved = await saveSubscription({ userId: user.id, endpoint: subscription.endpoint, p256dh: subscription.keys.p256dh, auth: subscription.keys.auth, userAgent: req.headers.get("user-agent") ?? "" });
