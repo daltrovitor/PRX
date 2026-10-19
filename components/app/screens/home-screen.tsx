@@ -13,6 +13,7 @@ import { HomeBanners } from "@/components/app/reels/home-banner";
 import { FoundersHomePromo } from "@/components/app/founders/founders-community";
 import { ResenhaHomeCard } from "@/components/app/live/resenha-card";
 import { useResenhas } from "@/components/app/live/use-resenha";
+import { PushBanner } from "@/components/app/profile/push-prompts";
 import { runReelCta, trackReel } from "@/components/app/reels/reel-cta";
 import { WalletTriad } from "@/components/app/points/wallet-triad";
 import { PointsSheet } from "@/components/app/points/points-sheet";
@@ -74,7 +75,7 @@ export function HomeScreen({ pass }: { pass: PassData }) {
   const ticketEvents = new Set((live?.wallet.tickets ?? []).filter((t) => t.status === "valid" || t.status === "pending_payment").map((t) => t.eventId));
   const transactions = account?.transactions ?? [];
   const banners = useHomeBanners(member.id);
-  // Só quem um Insider convidou vê a Resenha.
+  // Banner da Resenha sempre na Home; os detalhes da festa só para quem um Insider convidou.
   const { resenhas } = useResenhas(member.id);
 
   const balanceActions: ReadonlyArray<ObsidianAction> = [
@@ -100,11 +101,10 @@ export function HomeScreen({ pass }: { pass: PassData }) {
           <ObsidianGreeting name={firstName(member)} />
         </motion.header>
 
-        {resenhas.length > 0 && (
-          <motion.div initial="hidden" animate="show" custom={1} variants={reveal} className="order-1 min-w-0 lg:col-span-12">
-            <ResenhaHomeCard resenhas={resenhas} onOpen={() => go("live", "resenha")} />
-          </motion.div>
-        )}
+        <motion.div initial="hidden" animate="show" custom={1} variants={reveal} className="order-1 min-w-0 space-y-3 lg:col-span-12">
+          <ResenhaHomeCard resenhas={resenhas} onOpen={() => go("live", "resenha")} />
+          <PushBanner />
+        </motion.div>
 
         <motion.div initial="hidden" animate="show" custom={1} variants={reveal} className="order-2 min-w-0 lg:col-span-7">
           <ObsidianBalanceCard

@@ -33,6 +33,7 @@ import { FoundersScreen } from "@/components/app/screens/founders-screen";
 import { ProfileScreen } from "@/components/app/screens/profile-screen";
 import { CRYSTAL_CORNER, CRYSTAL_HERO, ObsidianCrystal, ObsidianDock, type ObsidianDockItem } from "@/components/obsidian/obsidian-ui";
 import { PwaInstallPrompt } from "@/components/app/pwa-install-prompt";
+import { PushPrompt } from "@/components/app/profile/push-prompts";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useThemeScope } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
@@ -387,6 +388,7 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
         onGo={go}
       />
       <PwaInstallPrompt />
+      <PushPrompt />
     </div>
   );
 }

@@ -33,7 +33,7 @@ export function LiveScreen({ member }: { member: User }) {
   const events = live.data?.events ?? [];
   const wallet = live.data?.wallet ?? { tickets: [], submissions: [] };
   const agenda = events.filter((e) => e.series !== "run" && e.status === "published" && !e.ended);
-  // Resenha: área exclusiva, só existe para quem um Insider convidou.
+  // Resenha: a aba é de todos; as festas listadas são só as que um Insider convidou a pessoa.
   const resenha = useResenhas(member.id);
 
   return (
@@ -49,9 +49,9 @@ export function LiveScreen({ member }: { member: User }) {
         onChange={(value) => go("live", value === "eventos" ? null : value)}
         options={[
           { value: "eventos", label: "Agenda", count: agenda.length },
+          { value: "resenha", label: "Resenha", count: resenha.resenhas.length },
           { value: "ingressos", label: "Meus ingressos", count: wallet.tickets.filter(isOpenTicket).length },
           { value: "run", label: "PRX RUN" },
-          ...(resenha.resenhas.length > 0 || section === "resenha" ? [{ value: "resenha" as const, label: "Resenha", count: resenha.resenhas.length }] : []),
         ]}
       />
 

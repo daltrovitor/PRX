@@ -6,7 +6,8 @@ import type { User } from "@/hooks/use-auth";
 import type { ActionResult, QuoteResult } from "@/components/app/use-prx-stores";
 import { EventPurchaseSheet } from "@/components/app/live/event-purchase-sheet";
 import { ResenhaLogo } from "@/components/app/live/resenha-card";
-import { Button, EmptyState, Tag, formatBRL } from "@/components/app/ui";
+import { Button, Tag, formatBRL } from "@/components/app/ui";
+import { MemberId } from "@/components/app/profile/member-id";
 import { formatDateTime } from "@/lib/live/format";
 import type { MemberResenhaView } from "@/lib/resenha/invites";
 
@@ -43,7 +44,21 @@ export function ResenhaPanel({
   const selected = resenhas.find((r) => r.inviteId === selectedId) ?? null;
 
   if (resenhas.length === 0) {
-    return <EmptyState title="A Resenha é só para convidados" body="Quando um Insider te convidar, a Resenha aparece aqui e você recebe um aviso no celular." />;
+    return (
+      <section aria-label="Resenha" className="space-y-4">
+        <div className="rounded-3xl border border-white/10 bg-black px-6 py-8 sm:px-10">
+          <ResenhaLogo className="mx-auto max-w-[460px]" priority />
+          <p className="mt-5 text-center text-sm text-white/70">Acesso exclusivo por convite.</p>
+        </div>
+        <div className="space-y-4 rounded-3xl glass p-5 sm:p-6">
+          <h2 className="text-lg font-semibold tracking-[-0.02em] text-ink">Você ainda não foi convidado</h2>
+          <p className="text-sm text-muted-foreground">
+            Quem entra na Resenha é chamado por um Insider. Passe o seu ID PRX para ele: quando o convite chegar, a festa aparece aqui e você recebe um aviso no celular.
+          </p>
+          <MemberId />
+        </div>
+      </section>
+    );
   }
 
   return (

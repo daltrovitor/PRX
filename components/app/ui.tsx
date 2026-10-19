@@ -410,8 +410,18 @@ interface SegmentedProps<T extends string> {
 
 export function Segmented<T extends string>({ value, onChange, options, label, className, equal = false }: SegmentedProps<T>) {
   const groupId = useId();
+  const railRef = useRef<HTMLDivElement>(null);
+  // Aba aberta por link ou notificação (#live/resenha): o trilho rola até ela, sem mexer na rolagem da página.
+  useEffect(() => {
+    const rail = railRef.current;
+    const tab = rail?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!rail || !tab || equal || rail.scrollWidth <= rail.clientWidth) return;
+    const offset = tab.getBoundingClientRect().left - rail.getBoundingClientRect().left;
+    rail.scrollTo({ left: rail.scrollLeft + offset - (rail.clientWidth - tab.offsetWidth) / 2, behavior: "smooth" });
+  }, [value, equal]);
   return (
     <div
+      ref={railRef}
       role="tablist"
       aria-label={label}
       className={cn(
