@@ -7,6 +7,8 @@ import { useAppNav } from "@/components/app/app-nav";
 import { useLiveData, type ActionResult, type QuoteResult } from "@/components/app/use-prx-stores";
 import { AgeFields } from "@/components/app/live/age-fields";
 import { EventPurchaseSheet } from "@/components/app/live/event-purchase-sheet";
+import { ResenhaPanel } from "@/components/app/live/resenha-panel";
+import { useResenhas } from "@/components/app/live/use-resenha";
 import { clearLiveLink, peekLiveLink } from "@/components/app/live/live-link";
 import { LiveTicketCard } from "@/components/tickets/live-ticket-card";
 import { EventDate } from "@/components/app/shared";
@@ -19,8 +21,8 @@ import { TicketCheckout } from "@/components/app/live/ticket-checkout";
 import { formatDateTime } from "@/lib/live/format";
 import { cn } from "@/lib/utils";
 
-type LiveSection = "eventos" | "ingressos" | "run";
-const SECTIONS: ReadonlyArray<LiveSection> = ["eventos", "ingressos", "run"];
+type LiveSection = "eventos" | "ingressos" | "run" | "resenha";
+const SECTIONS: ReadonlyArray<LiveSection> = ["eventos", "ingressos", "run", "resenha"];
 
 const isOpenTicket = (t: MemberTicket) => t.status === "valid" || t.status === "pending_payment";
 
@@ -31,6 +33,8 @@ export function LiveScreen({ member }: { member: User }) {
   const events = live.data?.events ?? [];
   const wallet = live.data?.wallet ?? { tickets: [], submissions: [] };
   const agenda = events.filter((e) => e.series !== "run" && e.status === "published" && !e.ended);
+  // Resenha: área exclusiva, só existe para quem um Insider convidou.
+  const resenha = useResenhas(member.id);
 
   return (
     <div className="space-y-8">
@@ -47,6 +51,7 @@ export function LiveScreen({ member }: { member: User }) {
           { value: "eventos", label: "Agenda", count: agenda.length },
           { value: "ingressos", label: "Meus ingressos", count: wallet.tickets.filter(isOpenTicket).length },
           { value: "run", label: "PRX RUN" },
+          ...(resenha.resenhas.length > 0 || section === "resenha" ? [{ value: "resenha" as const, label: "Resenha", count: resenha.resenhas.length }] : []),
         ]}
       />
 
@@ -60,6 +65,16 @@ export function LiveScreen({ member }: { member: User }) {
         <>
           {section === "eventos" && <EventsPanel events={agenda} member={member} reserve={live.reserve} quote={live.quote} onDone={() => go("live", "ingressos")} />}
           {section === "ingressos" && <TicketsPanel tickets={wallet.tickets} cancel={live.cancel} resendGuardian={live.resendGuardian} onBrowse={() => go("live")} onPaid={() => void live.reload()} />}
+          {section === "resenha" && (
+            <ResenhaPanel
+              resenhas={resenha.resenhas}
+              member={member}
+              reserve={live.reserve}
+              quote={live.quote}
+              onTickets={() => go("live", "ingressos")}
+              onChanged={() => Promise.all([live.reload(), resenha.reload()]).then(() => undefined)}
+            />
+          )}
           {section === "run" && (
             <RunPanel
               events={events.filter((e) => e.series === "run")}

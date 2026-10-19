@@ -6,7 +6,8 @@
  */
 
 // v6: logo nova (assinatura "the next pays", sem a barra) na página offline e nos logos pré-armazenados.
-const CACHE_NAME = 'prx-offline-v6';
+// v7: notificações no celular (push e toque na notificação).
+const CACHE_NAME = 'prx-offline-v7';
 const OFFLINE_URL = '/offline.html';
 
 // Lista de assets críticos pré-armazenados no cache durante o install
@@ -154,4 +155,40 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+});
+
+// Notificação no celular (Web Push): convite da Resenha, Pix, liberações.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : '' };
+  }
+  const title = data.title || 'PRX';
+  const options = {
+    body: data.body || '',
+    icon: '/brand/prx-icon-192.png',
+    badge: '/brand/prx-icon-192.png',
+    tag: data.tag || undefined,
+    renotify: Boolean(data.tag),
+    data: { url: typeof data.url === 'string' && data.url.startsWith('/') && !data.url.startsWith('//') ? data.url : '/' },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Toque na notificação: foca o app aberto (navegando até a tela) ou abre um novo.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      for (const client of windows) {
+        if (new URL(client.url).origin === self.location.origin && 'focus' in client) {
+          return client.focus().then((focused) => (focused && 'navigate' in focused ? focused.navigate(target) : focused));
+        }
+      }
+      return self.clients.openWindow(target);
+    })
+  );
 });

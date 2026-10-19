@@ -57,3 +57,21 @@ O pedido guarda nome, e-mail, nascimento e, se informados, WhatsApp e Instagram,
 ## Fora do escopo desta versão
 
 Botons, lounges com nome, "A Chegada", "Who's next?", Pass digital individual além da cota e troca de senha pelo Insider.
+
+## Convite pelo app (desde 19/10/2026)
+
+Além do link, o Insider convida **membros do app** direto no portal (`insider.prx.app.br` → **Convidar pelo app**), buscando pelo nome ou pelo **ID PRX** da pessoa (PRX-XXXXXX, no Perfil do app, com botão de copiar).
+
+- A Resenha **só aparece no app de quem foi convidado**: card com o logo na Home e a área exclusiva **PRX LIVE → Resenha**. Quem não tem convite não vê nada.
+- O convidado recebe uma **notificação no celular** (se ativou em Perfil → Notificações no celular) e **compra o ingresso** no PRX LIVE, no lote do evento: a edição nasce com o lote "Lista" gratuito; para cobrar, ajuste o lote do evento em PRX LIVE → Eventos.
+- **Cota:** cada convite ativo ocupa um PASS, somado aos pedidos liberados pelo link. Cancelar o convite devolve o PASS (só antes de a pessoa garantir o ingresso).
+- **18+:** menores de idade nem aparecem na busca e não podem ser convidados; a idade é conferida de novo na compra.
+- **Lista:** convites só com a lista aberta. Fechar a lista não tira quem já foi convidado.
+- **Banco:** migração `20261019_prx_resenha_convites_push.sql` (ID PRX em `profiles.member_code`, `resenha_member_invites` e `push_subscriptions`).
+
+| Rota | Quem | Uso |
+|---|---|---|
+| `GET /api/insider/members?link=&q=` | Insider | Busca membros por nome (3+ letras) ou ID PRX |
+| `GET/POST/DELETE /api/insider/invites` | Insider | Lista, cria e cancela convites |
+| `GET /api/live/resenha` | membro | Resenhas para as quais foi convidado |
+| `GET /api/profile/code` | membro | ID PRX da conta |

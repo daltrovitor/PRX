@@ -6,6 +6,8 @@ import { supabaseAdmin } from "@/lib/supabase/client";
 import { PartnerError } from "@/lib/partners/errors";
 import { getPartnerRepository } from "@/lib/partners/repository";
 import { getLiveRepository, type NewTicket } from "@/lib/live/repository";
+import { hasActiveInvite } from "@/lib/resenha/invites-repository";
+import { sendPushToUser } from "@/lib/push/send";
 import {
   batchAvailability,
   checkReservation,
@@ -471,7 +473,7 @@ export async function quoteTicket(user: StoredUser, input: ReserveInput): Promis
 export async function reserveTicket(user: StoredUser, input: ReserveInput): Promise<MemberTicket> {
   const event = await repo().getEvent(input.eventId);
   if (!event || event.status === "draft") throw new PartnerError("Evento não encontrado.", 404);
-  if (LIST_ONLY_SERIES.includes(event.series)) throw new PartnerError("Este evento é só por lista: o acesso vem do convite de um Insider.", 409);
+  if (LIST_ONLY_SERIES.includes(event.series) && !(await hasActiveInvite(user.id, event.id))) throw new PartnerError("Este evento é só por lista: o acesso vem do convite de um Insider.", 409);
 
   const eventTickets = await ticketsWithExpiry(event);
   const memberTickets = eventTickets.filter((t) => t.userId === user.id);
@@ -771,6 +773,14 @@ export async function respondGuardianAuthorization(
     if (latest && latest !== "pending") throw new PartnerError(`Esta autorização já foi ${latest === "approved" ? "concedida" : "recusada"}.`, 409);
     throw new PartnerError("Não foi possível atualizar a autorização.", 500);
   }
+
+  // Aviso no celular do menor: a liberação (ou a recusa) do responsável chegou.
+  await sendPushToUser(ticket.userId, {
+    title: updatedConsent.status === "approved" ? "Entrada liberada pelo responsável" : "Seu responsável não liberou a entrada",
+    body: updatedConsent.status === "approved" ? `Seu ingresso de ${event.title} já vale na portaria.` : `A entrada em ${event.title} não foi liberada. Veja em Meus ingressos.`,
+    url: "/#live/ingressos",
+    tag: `guardian-${ticket.id}`,
+  });
 
   return { ...toAuthorizationView(token, saved, updatedConsent, event), document: docView(await activeConsentDocument()) };
 }

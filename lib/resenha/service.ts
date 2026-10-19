@@ -2,6 +2,7 @@
 import crypto from "crypto";
 import { PartnerError } from "@/lib/partners/errors";
 import { getLiveRepository } from "@/lib/live/repository";
+import { listInvites } from "@/lib/resenha/invites-repository";
 import { eventHasEnded, ticketQrPayload } from "@/lib/live/rules";
 import { issueTicketTo } from "@/lib/live/service";
 import type { LiveEvent } from "@/lib/live/types";
@@ -145,10 +146,10 @@ export async function guestView(token: string): Promise<GuestView> {
 /* Portal do Insider                                                           */
 /* -------------------------------------------------------------------------- */
 
-export function linkStats(participation: Pick<EditionInsider, "quota">, requests: ReadonlyArray<Pick<AccessRequest, "status">>): LinkStats {
+export function linkStats(participation: Pick<EditionInsider, "quota">, requests: ReadonlyArray<Pick<AccessRequest, "status">>, invited = 0): LinkStats {
   const count = (status: AccessRequest["status"]) => requests.filter((r) => r.status === status).length;
   const approved = count("approved");
-  return { quota: participation.quota, approved, pending: count("pending"), rejected: count("rejected") + count("revoked"), left: Math.max(0, participation.quota - approved) };
+  return { quota: participation.quota, approved, invited, pending: count("pending"), rejected: count("rejected") + count("revoked"), left: Math.max(0, participation.quota - approved - invited) };
 }
 
 export async function insiderEditions(insider: Insider, baseUrl: string): Promise<InsiderEditionView[]> {
@@ -159,14 +160,14 @@ export async function insiderEditions(insider: Insider, baseUrl: string): Promis
     if (!edition || edition.status === "draft") continue;
     const event = await live().getEvent(edition.eventId);
     if (!event) continue;
-    const requests = await repo().listRequests({ editionInsiderId: participation.id });
+    const [requests, invites] = await Promise.all([repo().listRequests({ editionInsiderId: participation.id }), listInvites({ editionInsiderId: participation.id, status: "invited" })]);
     found.push({
       startsAt: event.startsAt,
       view: {
         participationId: participation.id,
         kind: participation.kind,
         link: insiderLink(baseUrl, edition.slug, participation.code),
-        stats: linkStats(participation, requests),
+        stats: linkStats(participation, requests, invites.length),
         edition: { id: edition.id, slug: edition.slug, title: editionTitle(edition), headline: editionHeadline(edition), status: edition.status, startsAt: event.startsAt, city: event.city, venue: event.venue, hostName: edition.hostName },
       },
     });
@@ -241,9 +242,11 @@ export async function decideRequest(actor: Actor, requestId: string, action: Dec
 
   if (request.status !== "pending" && request.status !== "rejected") throw new PartnerError("Este pedido já está na lista.", 409);
   const quotaApplies = actor.kind === "insider";
+  // Convites a membros do app também ocupam PASS.
+  const invited = quotaApplies ? (await listInvites({ editionInsiderId: participation.id, status: "invited" })).length : 0;
   if (quotaApplies) {
     const approved = (await repo().listRequests({ editionInsiderId: participation.id })).filter((r) => r.status === "approved").length;
-    if (approved >= participation.quota) throw new PartnerError(`Seus PASSes acabaram (${approved}/${participation.quota}).`, 409);
+    if (approved + invited >= participation.quota) throw new PartnerError(`Seus PASSes acabaram (${approved + invited}/${participation.quota}).`, 409);
   }
 
   const insider = await repo().getInsider(participation.insiderId);
@@ -258,7 +261,7 @@ export async function decideRequest(actor: Actor, requestId: string, action: Dec
     await live().deleteTicket(ticket.id);
     throw new PartnerError("Este pedido mudou. Atualize a lista.", 409);
   }
-  if (quotaApplies && !(await repo().firstApprovedIds(participation.id, participation.quota)).includes(request.id)) {
+  if (quotaApplies && !(await repo().firstApprovedIds(participation.id, Math.max(0, participation.quota - invited))).includes(request.id)) {
     await repo().updateRequest(request.id, { status: request.status, ticketId: null, decidedAt: request.decidedAt, decidedBy: request.decidedBy }, ["approved"]);
     await live().deleteTicket(ticket.id);
     throw new PartnerError(`Seus PASSes acabaram (${participation.quota}/${participation.quota}).`, 409);

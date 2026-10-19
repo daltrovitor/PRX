@@ -53,3 +53,24 @@ Tudo mora em `lib/notifications/` (canais, modelos e registro de envios) e `lib/
 ## Registro de envios
 
 `notification_log` guarda canal, modelo, destinatário mascarado (`g***@gmail.com`, `(11) *****-7777`), resultado e o id do provedor. Nunca guarda o conteúdo nem o código.
+
+## Notificações no celular (Web Push)
+
+Desde 19/10/2026 a PRX também avisa no celular, com o app fechado. O membro ativa em **Perfil → Notificações no celular** (e pode mandar um teste ali). No Android funciona no Chrome e no app instalado; no iPhone só com o app instalado na tela de início (iOS 16.4+).
+
+O que chega no celular:
+
+| Aviso | Quando |
+|---|---|
+| Convite da Resenha | Um Insider convida a pessoa pelo app |
+| PRX BANK | Todo aviso novo do banco: Pix recebido e enviado, contas pagas, aprovação da conta, revisão de identidade |
+| Liberação do responsável | O responsável libera (ou recusa) a entrada do menor num evento |
+| Atendimento (SAC) | A equipe responde uma solicitação |
+
+**Colocar no ar:**
+
+1. Aplique `supabase/migrations/20261019_prx_resenha_convites_push.sql` (tabela `push_subscriptions`).
+2. Gere o par de chaves uma vez: `npx web-push generate-vapid-keys`.
+3. Na Vercel (Production), crie `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (chave pública), `VAPID_PRIVATE_KEY` (chave privada, nunca no código) e, opcional, `VAPID_SUBJECT` (`mailto:suporte@prx.app.br` por padrão). Faça um novo deploy.
+
+Sem as chaves, o cartão do Perfil diz que as notificações estão sendo ativadas e nada é enviado (nada quebra). Trocar as chaves invalida os aparelhos já ativados: cada pessoa ativa de novo.

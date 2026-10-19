@@ -11,6 +11,8 @@ import { TextLink, TransactionRow } from "@/components/app/shared";
 import { PaymentCard } from "@/components/app/bank/card-visual";
 import { HomeBanners } from "@/components/app/reels/home-banner";
 import { FoundersHomePromo } from "@/components/app/founders/founders-community";
+import { ResenhaHomeCard } from "@/components/app/live/resenha-card";
+import { useResenhas } from "@/components/app/live/use-resenha";
 import { runReelCta, trackReel } from "@/components/app/reels/reel-cta";
 import { WalletTriad } from "@/components/app/points/wallet-triad";
 import { PointsSheet } from "@/components/app/points/points-sheet";
@@ -72,6 +74,8 @@ export function HomeScreen({ pass }: { pass: PassData }) {
   const ticketEvents = new Set((live?.wallet.tickets ?? []).filter((t) => t.status === "valid" || t.status === "pending_payment").map((t) => t.eventId));
   const transactions = account?.transactions ?? [];
   const banners = useHomeBanners(member.id);
+  // Só quem um Insider convidou vê a Resenha.
+  const { resenhas } = useResenhas(member.id);
 
   const balanceActions: ReadonlyArray<ObsidianAction> = [
     { key: "pix", label: "Pix", Icon: IconPixDiamonds, onClick: () => go("bank", "chaves") },
@@ -95,6 +99,12 @@ export function HomeScreen({ pass }: { pass: PassData }) {
         <motion.header initial="hidden" animate="show" custom={0} variants={reveal} className="order-1 pb-2 pt-3 sm:pt-8 lg:col-span-12 lg:pb-4 lg:pt-12">
           <ObsidianGreeting name={firstName(member)} />
         </motion.header>
+
+        {resenhas.length > 0 && (
+          <motion.div initial="hidden" animate="show" custom={1} variants={reveal} className="order-1 min-w-0 lg:col-span-12">
+            <ResenhaHomeCard resenhas={resenhas} onOpen={() => go("live", "resenha")} />
+          </motion.div>
+        )}
 
         <motion.div initial="hidden" animate="show" custom={1} variants={reveal} className="order-2 min-w-0 lg:col-span-7">
           <ObsidianBalanceCard

@@ -17,6 +17,8 @@ import { PwaInstallGuide } from "@/components/app/pwa-install-guide";
 import { promptInstall, usePwaInstall } from "@/lib/pwa-install";
 import { SubscriptionsSheet } from "@/components/app/subscriptions/subscriptions-sheet";
 import { AvatarEditor } from "@/components/app/profile/avatar-editor";
+import { MemberId } from "@/components/app/profile/member-id";
+import { PushCard } from "@/components/app/profile/push-card";
 
 interface ProfileScreenProps {
   pass: PassData;
@@ -53,6 +55,7 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase, noticeCount, onO
             {member.email} · {ROLE_LABEL[member.role] ?? "Membro"}
           </p>
         </div>
+        <MemberId />
       </header>
 
       <section aria-label="Resumo do membro" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -108,6 +111,8 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase, noticeCount, onO
       </section>
 
       <SubscriptionsSheet open={sheet === "subscriptions"} onClose={() => setSheet(null)} />
+
+      <PushCard />
 
       <BiometricsCard />
 

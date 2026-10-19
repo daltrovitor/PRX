@@ -1,6 +1,7 @@
 // Hello World
 import { PartnerError } from "@/lib/partners/errors";
 import { sendSupportReplyEmail } from "@/lib/notifications/support-reply";
+import { sendPushToUser } from "@/lib/push/send";
 import { getSupportRepository } from "@/lib/support/repository";
 import type { NewTicketInput, SupportStatus, SupportTicket } from "@/lib/support/types";
 
@@ -75,6 +76,7 @@ export async function adminAct(admin: { name: string; email: string }, input: { 
   const status = input.status ?? (reply ? "answered" : ticket.status);
   await repo().updateTicket(ticket.id, { status, resolvedAt: status === "resolved" ? new Date().toISOString() : null });
 
+  if (message) await sendPushToUser(ticket.userId, { title: "O atendimento respondeu", body: `${ticket.protocol} · ${ticket.subject}`, url: "/#pass/atendimento", tag: `support-${ticket.id}` });
   if (message && ticket.userEmail) {
     await sendSupportReplyEmail({ userId: ticket.userId, email: ticket.userEmail, name: ticket.userName, protocol: ticket.protocol, subject: ticket.subject, messageId: message.id });
   }

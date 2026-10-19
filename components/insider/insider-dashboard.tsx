@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { CopyButton } from "@/components/app/pass/voucher-sheet";
 import { Button, EmptyState, Notice, Segmented, Tag } from "@/components/app/ui";
 import { RequestList, type Tab } from "@/components/insider/request-list";
+import { InviteMembers } from "@/components/insider/invite-members";
 import { formatPartyDate, sentence } from "@/lib/resenha/format";
 import { EDITION_STATUS_LABEL, INSIDER_KIND_LABEL, type Decision, type InsiderEditionView, type InsiderRequestView } from "@/lib/resenha/types";
 
@@ -148,9 +149,11 @@ export function InsiderDashboard({ editions, onChanged }: { editions: InsiderEdi
             {sentence(formatPartyDate(edition.startsAt))} · {edition.city}
           </p>
         </div>
-        <PassMeter approved={stats.approved} quota={stats.quota} />
+        <PassMeter approved={stats.approved + stats.invited} quota={stats.quota} />
         {edition.status === "closed" && <Notice tone="warning">A lista fechou: não chegam pedidos novos, mas você ainda pode decidir os pendentes.</Notice>}
       </section>
+
+      <InviteMembers key={current.participationId} link={current.participationId} passesLeft={stats.left} open={edition.status === "open"} onChanged={onChanged} />
 
       <LinkCard edition={current} />
 

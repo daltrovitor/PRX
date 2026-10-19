@@ -10,6 +10,7 @@ import { provisionInsiderAccount } from "@/lib/resenha/access";
 import { insiderLink } from "@/lib/resenha/config";
 import { getResenhaRepository } from "@/lib/resenha/repository";
 import { linkStats } from "@/lib/resenha/service";
+import { listInvites } from "@/lib/resenha/invites-repository";
 import {
   editionHeadline,
   editionTitle,
@@ -77,7 +78,7 @@ export interface AdminOverview {
 }
 
 export async function adminOverview(baseUrl: string): Promise<AdminOverview> {
-  const [editions, insiders, participations, requests] = await Promise.all([repo().listEditions(), repo().listInsiders(), repo().listParticipations(), repo().listRequests({})]);
+  const [editions, insiders, participations, requests, invites] = await Promise.all([repo().listEditions(), repo().listInsiders(), repo().listParticipations(), repo().listRequests({}), listInvites({ status: "invited" })]);
   const insiderById = new Map(insiders.map((i) => [i.id, i]));
   const views: AdminEditionView[] = [];
   for (const edition of editions) {
@@ -122,7 +123,7 @@ export async function adminOverview(baseUrl: string): Promise<AdminOverview> {
             quota: p.quota,
             active: p.active,
             link: insiderLink(baseUrl, edition.slug, p.code),
-            stats: linkStats(p, requests.filter((r) => r.editionInsiderId === p.id)),
+            stats: linkStats(p, requests.filter((r) => r.editionInsiderId === p.id), invites.filter((i) => i.editionInsiderId === p.id).length),
           };
           return [view];
         }),

@@ -199,6 +199,8 @@ export type InsiderInput = z.output<typeof insiderInputSchema>;
 export interface LinkStats {
   quota: number;
   approved: number;
+  /** Membros do app convidados pelo Insider (cada convite ativo ocupa um PASS). */
+  invited: number;
   pending: number;
   rejected: number;
   /** PASSes que ainda dá para liberar. */
