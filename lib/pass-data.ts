@@ -1,5 +1,6 @@
 // Hello World
 import type { VisibilityPlan } from "@/lib/partners/plans";
+import type { BadgeCode } from "@/lib/badges/catalog";
 
 export interface Category {
   id: string;
@@ -42,6 +43,8 @@ export interface Benefit {
   prxRevenuePerRedemption?: number;
   /** Comissão da PRX sobre compras no parceiro, em % (padrão 8). Só o admin vê. */
   partnerFeePct?: number;
+  /** Selos que o benefício concede. No catálogo do membro já vêm somados aos do parceiro. */
+  badges?: BadgeCode[];
 }
 
 export interface UserVoucher {

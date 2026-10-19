@@ -11,6 +11,7 @@ import {
   type RedemptionMode,
   type VisibilityPlan,
 } from "@/lib/partners/plans";
+import { badgesSchema, type BadgeCode } from "@/lib/badges/catalog";
 
 /* -------------------------------------------------------------------------- */
 /* Parceiro                                                                    */
@@ -62,6 +63,8 @@ export interface Partner {
   ownerEmail: string | null;
   representative: PartnerRepresentative;
   contact: PartnerContact;
+  /** Selos que valem para todos os benefícios do parceiro. */
+  badges: BadgeCode[];
   createdAt: string;
   updatedAt: string;
 }
@@ -230,6 +233,7 @@ export const partnerInputSchema = z
     status: z.enum(PARTNER_STATUSES).default("ATIVO"),
     representative: representativeSchema.default({ name: "", document: "", role: "", email: "", phone: "" }),
     contact: contactSchema.default({ name: "", phone: "", email: "" }),
+    badges: badgesSchema.default([]),
   })
   .transform((input, ctx) => {
     const documentType = input.documentType ?? inferDocumentType(input.document);

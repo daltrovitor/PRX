@@ -36,6 +36,9 @@ import { AdminSimulationTab } from "@/components/admin/admin-simulation-tab";
 import { AdminTicketModels } from "@/components/admin/admin-ticket-models";
 import { AdminLogsTab } from "@/components/admin/admin-logs-tab";
 import { AdminFoundersContent } from "@/components/admin/admin-founders-content";
+import { AdminBadgesTab } from "@/components/admin/admin-badges-tab";
+import { AdminSupportTab } from "@/components/admin/admin-support-tab";
+import { AdminPartnerLeadsTab } from "@/components/admin/admin-partner-leads-tab";
 import type { DirectoryMember } from "@/lib/admin/members";
 import type { LegalMetrics } from "@/lib/legal/checklist-store";
 import type { PartnerOverview } from "@/lib/partners/service";
@@ -88,9 +91,12 @@ type TabKey =
   | "foundersMembers"
   | "raffles"
   | "orders"
-  | "consentDocs";
+  | "consentDocs"
+  | "badges"
+  | "support"
+  | "partnerLeads";
 
-type ModuleKey = "overview" | "users" | "live" | "pass" | "founders" | "bank" | "subscriptions" | "finance" | "marketing" | "team" | "settings";
+type ModuleKey = "overview" | "users" | "service" | "live" | "pass" | "founders" | "bank" | "subscriptions" | "finance" | "marketing" | "team" | "settings";
 
 /** Módulos do painel: cada um com as abas que fazem algo real (nada de seção vazia). */
 const MODULES: ReadonlyArray<{ key: ModuleKey; label: string; tabs: ReadonlyArray<{ key: TabKey; label: string }> }> = [
@@ -102,6 +108,14 @@ const MODULES: ReadonlyArray<{ key: ModuleKey; label: string; tabs: ReadonlyArra
       { key: "members", label: "Membros" },
       { key: "family", label: "Verificações" },
       { key: "waitlist", label: "Lista de espera" },
+    ],
+  },
+  {
+    key: "service",
+    label: "Atendimento",
+    tabs: [
+      { key: "support", label: "SAC" },
+      { key: "partnerLeads", label: "Seja parceiro" },
     ],
   },
   {
@@ -121,6 +135,7 @@ const MODULES: ReadonlyArray<{ key: ModuleKey; label: string; tabs: ReadonlyArra
     tabs: [
       { key: "partners", label: "Parceiros" },
       { key: "benefits", label: "Benefícios" },
+      { key: "badges", label: "Selos" },
       { key: "vouchers", label: "Vouchers" },
       { key: "missions", label: "Missões" },
       { key: "points", label: "Pontos" },
@@ -455,6 +470,9 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
             {tab === "raffles" && <AdminRafflesTab />}
             {tab === "orders" && <AdminOrdersTab />}
             {tab === "consentDocs" && <AdminConsentDocsTab />}
+            {tab === "badges" && <AdminBadgesTab benefits={benefits} partners={partners} />}
+            {tab === "support" && <AdminSupportTab />}
+            {tab === "partnerLeads" && <AdminPartnerLeadsTab onGoToPartners={() => handleTabChange("partners")} />}
           </>
         )}
       </main>

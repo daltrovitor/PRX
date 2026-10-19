@@ -33,6 +33,8 @@ export interface BenefitRow {
   cost_price?: number | string | null;
   prx_revenue_per_redemption?: number | string | null;
   partner_fee_pct?: number | string | null;
+  /** Selos (migração 20261018_prx_badges). */
+  badges?: string[] | null;
 }
 
 export interface PartnerRow {
@@ -51,6 +53,8 @@ export interface PartnerRow {
   owner_email?: string | null;
   representative?: unknown;
   contact?: unknown;
+  /** Selos (migração 20261018_prx_badges). */
+  badges?: string[] | null;
   created_at?: string | null;
   updated_at?: string | null;
 }

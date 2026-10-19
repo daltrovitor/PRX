@@ -3,6 +3,8 @@ import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import type { AcceptanceRow, BenefitEventRow, CampaignRevisionRow, CampaignRow, PartnerRow } from "@/lib/db-rows";
 import { PartnerError, dbError } from "@/lib/partners/errors";
+import { normalizeBadges } from "@/lib/badges/catalog";
+import { prepareBadgesWrite } from "@/lib/badges/schema";
 import type { AgeBand, MetricEvent } from "@/lib/partners/metrics";
 import { isAgeBand } from "@/lib/partners/metrics";
 import {
@@ -29,7 +31,8 @@ import {
  * globalThis entre recarregamentos do Next.
  */
 
-export type NewPartner = Omit<Partner, "id" | "createdAt" | "updatedAt">;
+/** Selos são opcionais no cadastro (sem eles, lista vazia). */
+export type NewPartner = Omit<Partner, "id" | "createdAt" | "updatedAt" | "badges"> & Partial<Pick<Partner, "badges">>;
 export type PartnerPatch = Partial<Omit<Partner, "id" | "createdAt" | "updatedAt">>;
 export type NewCampaign = Omit<Campaign, "id" | "createdAt" | "updatedAt">;
 export type CampaignPatch = Partial<Omit<Campaign, "id" | "partnerId" | "createdAt" | "createdBy">>;
@@ -112,6 +115,7 @@ function mapPartner(row: PartnerRow): Partner {
     ownerEmail: row.owner_email || null,
     representative: asRepresentative(row.representative),
     contact: asContact(row.contact),
+    badges: normalizeBadges(row.badges),
     createdAt: row.created_at || new Date(0).toISOString(),
     updatedAt: row.updated_at || row.created_at || new Date(0).toISOString(),
   };
@@ -133,6 +137,7 @@ function partnerToRow(p: PartnerPatch): Record<string, unknown> {
   if (p.ownerEmail !== undefined) row.owner_email = p.ownerEmail;
   if (p.representative !== undefined) row.representative = p.representative;
   if (p.contact !== undefined) row.contact = p.contact;
+  if (p.badges !== undefined) row.badges = p.badges;
   return row;
 }
 
@@ -225,15 +230,19 @@ class SupabasePartnerRepository implements PartnerRepository {
   }
 
   async insertPartner(partner: NewPartner) {
-    const { data, error } = await this.db.from("partners").insert(partnerToRow(partner)).select("*").single();
+    const row = partnerToRow(partner);
+    await prepareBadgesWrite("partners", row);
+    const { data, error } = await this.db.from("partners").insert(row).select("*").single();
     if (error) throw dbError(error, "Não foi possível cadastrar o parceiro");
     return mapPartner(data as PartnerRow);
   }
 
   async updatePartner(id: string, patch: PartnerPatch) {
+    const row = partnerToRow(patch);
+    await prepareBadgesWrite("partners", row);
     const { data, error } = await this.db
       .from("partners")
-      .update({ ...partnerToRow(patch), updated_at: new Date().toISOString() })
+      .update({ ...row, updated_at: new Date().toISOString() })
       .eq("id", id)
       .select("*")
       .maybeSingle();
@@ -423,7 +432,7 @@ class MemoryPartnerRepository implements PartnerRepository {
       throw new PartnerError("Esta conta já está vinculada a outro parceiro.", 409);
     }
     const now = new Date().toISOString();
-    const created: Partner = { ...clone(partner), id: newId("prt"), createdAt: now, updatedAt: now };
+    const created: Partner = { badges: [], ...clone(partner), id: newId("prt"), createdAt: now, updatedAt: now };
     this.state.partners.push(created);
     return clone(created);
   }

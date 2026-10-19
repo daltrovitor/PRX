@@ -12,6 +12,9 @@ import { Button, EmptyState, Field, Input, Notice, Segmented, Select, Sheet, Tag
 import { IconImage, IconPlus } from "@/components/icons/prx-icons";
 import { ViabilityCalculator, evaluateViability, type ViabilityValues } from "@/components/admin/viability-calculator";
 import { DEFAULT_PARTNER_FEE_PCT, MIN_PROFIT_MARGIN_PCT } from "@/lib/points/economics";
+import { BADGES, type BadgeCode } from "@/lib/badges/catalog";
+import { BadgePicker } from "@/components/admin/badge-picker";
+import { BadgeChips } from "@/components/app/pass/badge-chips";
 
 export interface AdminEconomy {
   coinsPerReal: number;
@@ -40,6 +43,7 @@ interface BenefitForm {
   partnerBanner: string;
   terms: string;
   economics: ViabilityValues;
+  badges: BadgeCode[];
 }
 
 const EMPTY_ECONOMICS: ViabilityValues = {
@@ -62,6 +66,7 @@ const EMPTY_FORM: BenefitForm = {
   partnerBanner: "",
   terms: "Apresente o QR Code no balcão ao pedir a conta.",
   economics: EMPTY_ECONOMICS,
+  badges: [],
 };
 
 const toNumber = (text: string) => {
@@ -125,6 +130,7 @@ export function AdminBenefitsTab({ benefits, partners, economy, onRefresh, draft
       partnerLogo: benefit.partnerLogo || "",
       partnerBanner: benefit.partnerBanner || "",
       terms: benefit.terms?.join("\n") || "",
+      badges: benefit.badges ?? [],
       economics: {
         costPrice: String(benefit.costPrice ?? 0),
         revenuePerRedemption: String(benefit.prxRevenuePerRedemption ?? 0),
@@ -165,6 +171,7 @@ export function AdminBenefitsTab({ benefits, partners, economy, onRefresh, draft
       costPrice: toNumber(form.economics.costPrice),
       prxRevenuePerRedemption: toNumber(form.economics.revenuePerRedemption),
       partnerFeePct: toNumber(form.economics.partnerFeePct),
+      badges: form.badges,
     };
     try {
       const res = await fetch("/api/admin/benefits", {
@@ -289,6 +296,7 @@ export function AdminBenefitsTab({ benefits, partners, economy, onRefresh, draft
                         <div className="min-w-0">
                           <p className="font-medium text-ink">{benefit.title}</p>
                           <p className="text-[13px] text-muted-foreground">{cat?.name ?? benefit.categoryId}</p>
+                          <BadgeChips codes={benefit.badges} className="mt-1" />
                         </div>
                       </div>
                     </td>
@@ -399,6 +407,13 @@ export function AdminBenefitsTab({ benefits, partners, economy, onRefresh, draft
           <Field label="Regras (uma por linha)" className="sm:col-span-2">
             {(id) => <Textarea id={id} rows={3} value={form.terms} onChange={(e) => setForm({ ...form, terms: e.target.value })} />}
           </Field>
+
+          <BadgePicker
+            className="sm:col-span-2"
+            value={form.badges}
+            onChange={(badges) => setForm((f) => ({ ...f, badges }))}
+            hint={selectedPartner?.badges?.length ? `Já vêm do parceiro: ${selectedPartner.badges.map((c) => BADGES[c].name).join(", ")}.` : undefined}
+          />
 
           <fieldset className="space-y-3 sm:col-span-2">
             <legend className="text-[15px] font-semibold text-ink">Preço em PRX Coins e viabilidade</legend>

@@ -9,7 +9,7 @@ import { Button, Notice, ProgressBar } from "@/components/app/ui";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
 import { canUseBiometrics, registerPasskey } from "@/lib/passkeys/client";
 import { readKnownAccount, updateKnownAccount } from "@/lib/known-account";
-import { IconBell, IconCard, IconChevronRight, IconExternal, IconPix, IconTicket, IconUsers } from "@/components/icons/prx-icons";
+import { IconBell, IconCard, IconChevronRight, IconCommunity, IconExternal, IconPaperPlane, IconPix, IconTicket, IconUsers } from "@/components/icons/prx-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { levelProgress } from "@/lib/pass-data";
 import { usePointsWallet } from "@/components/app/use-prx-stores";
@@ -94,6 +94,12 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase, noticeCount, onO
           </Row>
           <Row icon={<IconCard size={18} />} onClick={() => setSheet("subscriptions")}>
             Assinaturas
+          </Row>
+          <Row icon={<IconPaperPlane size={18} />} onClick={() => go("pass", "atendimento")}>
+            Atendimento (SAC)
+          </Row>
+          <Row icon={<IconCommunity size={18} />} onClick={() => go("pass", "parceiro")}>
+            Seja um parceiro
           </Row>
           <Row icon={<IconExternal size={18} />} onClick={onViewShowcase}>
             Conhecer a PRX

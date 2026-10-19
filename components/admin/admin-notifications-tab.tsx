@@ -20,6 +20,7 @@ const TEMPLATE_LABEL: Record<NotificationTemplate, string> = {
   phone_code: "Código do celular",
   resenha_list: "Você tá na lista (Resenha)",
   minor_event_authorization: "Liberação de menor (Evento)",
+  support_reply: "Resposta do atendimento (SAC)",
 };
 
 const STATUS: Record<DeliveryStatus, { label: string; tone: "success" | "neutral" | "warning" }> = {

@@ -9,6 +9,8 @@ import { getPartnerRepository } from "@/lib/partners/repository";
 import { REDEMPTION_MODES, VISIBILITY_PLAN_IDS, deriveOfferLabel, isPaidPlan, type VisibilityPlan } from "@/lib/partners/plans";
 import type { Campaign, CommercialSummary, Partner } from "@/lib/partners/types";
 import { DEFAULT_PARTNER_FEE_PCT } from "@/lib/points/economics";
+import { normalizeBadges, type BadgeCode } from "@/lib/badges/catalog";
+import { columnReady } from "@/lib/db-features";
 
 /**
  * Acesso a benefícios e vouchers usado pelo programa de parceiros, nos dois
@@ -51,6 +53,7 @@ export function mapBenefitRow(row: BenefitRow): Benefit {
     costPrice: moneyOrZero(row.cost_price),
     prxRevenuePerRedemption: moneyOrZero(row.prx_revenue_per_redemption),
     partnerFeePct: row.partner_fee_pct === null || row.partner_fee_pct === undefined ? DEFAULT_PARTNER_FEE_PCT : moneyOrZero(row.partner_fee_pct),
+    badges: normalizeBadges(row.badges),
   };
 }
 
@@ -198,6 +201,24 @@ export async function partnerStatuses(partnerIds: string[]): Promise<Map<string,
   }
   const partners = await getPartnerRepository().listPartners();
   partners.filter((p) => ids.includes(p.id)).forEach((p) => map.set(p.id, p.status));
+  return map;
+}
+
+/** Selos de cada parceiro, para somar aos dos benefícios no catálogo. Sem a migração: nenhum. */
+export async function partnerBadges(partnerIds: string[]): Promise<Map<string, BadgeCode[]>> {
+  const ids = Array.from(new Set(partnerIds.filter(Boolean)));
+  const map = new Map<string, BadgeCode[]>();
+  if (ids.length === 0) return map;
+  if (supabaseAdmin) {
+    const uuids = ids.filter(isUuid);
+    if (uuids.length === 0 || !(await columnReady("partners", "badges"))) return map;
+    const { data, error } = await supabaseAdmin.from("partners").select("id, badges").in("id", uuids);
+    if (error) throw dbError(error, "Não foi possível consultar os selos dos parceiros");
+    (data as Array<{ id: string; badges: unknown }>).forEach((row) => map.set(row.id, normalizeBadges(row.badges)));
+    return map;
+  }
+  const partners = await getPartnerRepository().listPartners();
+  partners.filter((p) => ids.includes(p.id)).forEach((p) => map.set(p.id, normalizeBadges(p.badges)));
   return map;
 }
 

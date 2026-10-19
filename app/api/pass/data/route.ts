@@ -7,7 +7,8 @@ import { supabaseAdmin } from "@/lib/supabase/client";
 import { errorMessage } from "@/lib/errors";
 import type { BenefitRow, MissionRow, VoucherRow } from "@/lib/db-rows";
 import type { Benefit, MissionVerificationType, PassMission } from "@/lib/pass-data";
-import { availabilityIssue, mapBenefitRow, partnerStatuses } from "@/lib/partners/catalog";
+import { availabilityIssue, mapBenefitRow, partnerBadges, partnerStatuses } from "@/lib/partners/catalog";
+import { mergeBadges, type BadgeCode } from "@/lib/badges/catalog";
 import { planRank } from "@/lib/partners/plans";
 import { incidentResponse } from "@/lib/incidents";
 
@@ -28,16 +29,21 @@ function forMember(benefit: Benefit): Benefit {
 async function visibleCatalog(benefits: Benefit[]): Promise<Benefit[]> {
   const now = new Date();
   const candidates = benefits.filter((b) => availabilityIssue(b, now) === null);
+  const partnerIds = candidates.map((b) => b.partnerId);
+  // Selo do parceiro vale para todos os benefícios dele; falha aqui não esconde o catálogo.
+  const badgesRequest = partnerBadges(partnerIds).catch(() => new Map<string, BadgeCode[]>());
   let statuses = new Map<string, string>();
   try {
-    statuses = await partnerStatuses(candidates.map((b) => b.partnerId));
+    statuses = await partnerStatuses(partnerIds);
   } catch (err) {
     // Sem as tabelas de parceiros (migração pendente) nenhum benefício é validável.
     console.warn("Catálogo sem status de parceiros:", errorMessage(err));
     return [];
   }
+  const badges = await badgesRequest;
   return candidates
     .filter((b) => statuses.get(b.partnerId) === "ATIVO" || statuses.get(b.partnerId) === "PENDENTE")
+    .map((b) => ({ ...b, badges: mergeBadges(b.badges, badges.get(b.partnerId)) }))
     .map((b, index) => ({ b, index }))
     .sort((x, y) => planRank(y.b.visibilityPlan) - planRank(x.b.visibilityPlan) || x.index - y.index)
     .map(({ b }) => b);

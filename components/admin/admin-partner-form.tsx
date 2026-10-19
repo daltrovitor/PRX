@@ -4,6 +4,7 @@
 import { useState, type FormEvent } from "react";
 import { Button, Checkbox, Field, Input, Notice, RadioCards, Select, Sheet, Textarea } from "@/components/app/ui";
 import { ImagePicker, useImageUpload } from "@/components/admin/image-picker";
+import { BadgePicker } from "@/components/admin/badge-picker";
 import { useFormDraft } from "@/components/admin/use-form-draft";
 import { TemporaryCredential, type PartnerApiResult as ApiResult } from "@/components/admin/admin-partner-access";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
@@ -88,6 +89,7 @@ function PartnerForm({
     status: (partner?.status ?? "ATIVO") as PartnerStatus,
     representative: partner?.representative ?? { name: "", document: "", role: "", email: "", phone: "" },
     contact: partner?.contact ?? { name: "", phone: "", email: "" },
+    badges: partner?.badges ?? [],
     // Contato operacional igual ao representante: os dados não são digitados duas vezes.
     sameContact: !partner || !partner.contact.name || samePerson(partner.contact, partner.representative),
   }));
@@ -249,6 +251,12 @@ function PartnerForm({
       <Field label="Descrição (opcional)" className="sm:col-span-2">
         {(id) => <Textarea id={id} rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />}
       </Field>
+      <BadgePicker
+        className="sm:col-span-2"
+        value={form.badges ?? []}
+        onChange={(badges) => setForm((f) => ({ ...f, badges }))}
+        hint="Valem para todos os benefícios deste parceiro."
+      />
       <ImagePicker label="Logo (quadrado)" value={form.logoUrl} busy={logo.busy} onChange={(e) => logo.upload(e, "logo")} square />
       <ImagePicker label="Capa (retangular)" value={form.bannerUrl} busy={banner.busy} onChange={(e) => banner.upload(e, "banner")} />
 

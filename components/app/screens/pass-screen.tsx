@@ -7,6 +7,7 @@ import { PrxImage } from "@/components/ui/prx-image";
 import type { PassData } from "@/components/app/use-pass-data";
 import { useAppNav } from "@/components/app/app-nav";
 import { BenefitCard } from "@/components/app/pass/benefit-card";
+import { BadgeList } from "@/components/app/pass/badge-chips";
 import { VoucherSheet } from "@/components/app/pass/voucher-sheet";
 import { MissionsPanel } from "@/components/app/pass/missions-panel";
 import { ReferralPanel } from "@/components/app/pass/referral-panel";
@@ -19,9 +20,11 @@ import { PRX_CATEGORIES, levelProgress, type Benefit, type UserVoucher } from "@
 import { cn } from "@/lib/utils";
 import { RafflesPanel } from "@/components/app/raffles/raffles-panel";
 import { CarHomePanel } from "@/components/app/pass/car-home-panel";
+import { SupportPanel } from "@/components/app/support/support-panel";
+import { PartnerLeadPanel } from "@/components/app/pass/partner-lead-panel";
 
-type PassSection = "catalogo" | "car" | "home" | "vouchers" | "missions" | "sorteios" | "convidar";
-const SECTIONS: ReadonlyArray<PassSection> = ["catalogo", "car", "home", "vouchers", "missions", "sorteios", "convidar"];
+type PassSection = "catalogo" | "car" | "home" | "vouchers" | "missions" | "sorteios" | "convidar" | "atendimento" | "parceiro";
+const SECTIONS: ReadonlyArray<PassSection> = ["catalogo", "car", "home", "vouchers", "missions", "sorteios", "convidar", "atendimento", "parceiro"];
 
 export function PassScreen({ pass }: { pass: PassData }) {
   const { sub, go } = useAppNav();
@@ -133,6 +136,8 @@ export function PassScreen({ pass }: { pass: PassData }) {
           { value: "missions", label: "Missões", count: missions.filter((m) => !m.isCompleted).length },
           { value: "sorteios", label: "Sorteios" },
           { value: "convidar", label: "Convidar" },
+          { value: "atendimento", label: "Atendimento" },
+          { value: "parceiro", label: "Seja parceiro" },
         ]}
       />
 
@@ -250,6 +255,10 @@ export function PassScreen({ pass }: { pass: PassData }) {
 
       {section === "sorteios" && <RafflesPanel />}
 
+      {section === "atendimento" && <SupportPanel />}
+
+      {section === "parceiro" && <PartnerLeadPanel defaultName={member.name || ""} defaultEmail={member.email || ""} />}
+
       {section === "convidar" && (
         <ReferralPanel
           referralInfo={referralInfo}
@@ -316,6 +325,14 @@ export function PassScreen({ pass }: { pass: PassData }) {
             )}
             {selected.sponsored && <p className="text-[13px] text-muted-foreground">Patrocinado: o parceiro contratou destaque para esta oferta.</p>}
             {selected.description && <p className="text-[15px] leading-relaxed text-ink">{selected.description}</p>}
+            {(selected.badges?.length ?? 0) > 0 && (
+              <div>
+                <h3 className="text-[13px] font-semibold text-ink">Selos deste benefício</h3>
+                <div className="mt-2">
+                  <BadgeList codes={selected.badges} />
+                </div>
+              </div>
+            )}
             {selected.terms.length > 0 && (
               <div>
                 <h3 className="text-[13px] font-semibold text-ink">Regras</h3>

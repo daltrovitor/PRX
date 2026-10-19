@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { PrxImage } from "@/components/ui/prx-image";
 import type { Benefit } from "@/lib/pass-data";
+import { BadgeChips } from "@/components/app/pass/badge-chips";
 import { cn } from "@/lib/utils";
 
 interface BenefitCardProps {
@@ -67,6 +68,7 @@ export function BenefitCard({ benefit, redeemed, locked, onSelect }: BenefitCard
             {benefit.sponsored && <span className="shrink-0 rounded-full bg-card px-2 text-[12px] font-medium leading-5 text-muted-foreground">Patrocinado</span>}
           </div>
           <p className="mt-1 text-base font-semibold leading-snug tracking-[-0.01em] text-ink">{benefit.title}</p>
+          <BadgeChips codes={benefit.badges} className="mt-2.5" />
         </div>
         <span
           className={cn(

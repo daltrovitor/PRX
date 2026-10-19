@@ -12,6 +12,8 @@ import { getRulesRepository } from "@/lib/points/repository";
 import { errorResponse, readJson, requireAdmin } from "@/lib/partners/http";
 import { getPartnerRepository } from "@/lib/partners/repository";
 import { firstIssue, type Partner } from "@/lib/partners/types";
+import { badgesSchema, normalizeBadges } from "@/lib/badges/catalog";
+import { prepareBadgesWrite } from "@/lib/badges/schema";
 
 /**
  * Benefícios do catálogo. Todo benefício pertence a um parceiro cadastrado:
@@ -46,6 +48,8 @@ const benefitSchema = z.object({
   costPrice: z.coerce.number().min(0).max(100_000).default(0),
   prxRevenuePerRedemption: z.coerce.number().min(0).max(100_000).default(0),
   partnerFeePct: z.coerce.number().min(0).max(100).default(DEFAULT_PARTNER_FEE_PCT),
+  /** Selos que o benefício concede (além dos do parceiro). */
+  badges: badgesSchema.default([]),
 });
 
 // Na edição, campo ausente fica como está: sem os defaults do cadastro (o partial do zod 4 os aplicaria).
@@ -58,6 +62,7 @@ const updateSchema = benefitSchema.partial().extend({
   costPrice: z.coerce.number().min(0).max(100_000).optional(),
   prxRevenuePerRedemption: z.coerce.number().min(0).max(100_000).optional(),
   partnerFeePct: z.coerce.number().min(0).max(100).optional(),
+  badges: badgesSchema.optional(),
 });
 
 type Economics = Pick<Benefit, "pointsCost" | "costPrice" | "prxRevenuePerRedemption" | "partnerFeePct">;
@@ -114,6 +119,7 @@ function toRow(input: Partial<z.infer<typeof benefitSchema>>, partner?: Partner)
   if (input.costPrice !== undefined) row.cost_price = input.costPrice;
   if (input.prxRevenuePerRedemption !== undefined) row.prx_revenue_per_redemption = input.prxRevenuePerRedemption;
   if (input.partnerFeePct !== undefined) row.partner_fee_pct = input.partnerFeePct;
+  if (input.badges !== undefined) row.badges = input.badges;
   return row;
 }
 
@@ -134,6 +140,7 @@ function rowToMemory(row: Record<string, unknown>): Partial<Benefit> {
   if ("cost_price" in row) out.costPrice = Number(row.cost_price);
   if ("prx_revenue_per_redemption" in row) out.prxRevenuePerRedemption = Number(row.prx_revenue_per_redemption);
   if ("partner_fee_pct" in row) out.partnerFeePct = Number(row.partner_fee_pct);
+  if ("badges" in row) out.badges = normalizeBadges(row.badges);
   return out;
 }
 
@@ -163,6 +170,7 @@ export async function POST(req: NextRequest) {
     const row = toRow(parsed.data, partner);
 
     if (supabaseAdmin) {
+      await prepareBadgesWrite("benefits", row);
       const { data, error } = await supabaseAdmin.from("benefits").insert({ ...row, is_active: true }).select("*").single();
       if (error) throw writeError(error, "Não foi possível criar o benefício");
       const benefit = mapBenefitRow(data as BenefitRow);
@@ -202,6 +210,7 @@ export async function PUT(req: NextRequest) {
     const row = toRow(updates, partner);
 
     if (supabaseAdmin) {
+      await prepareBadgesWrite("benefits", row);
       const { data, error } = await supabaseAdmin.from("benefits").update(row).eq("id", id).select("*").maybeSingle();
       if (error) throw writeError(error, "Não foi possível atualizar o benefício");
       if (!data) throw new PartnerError("Benefício não encontrado.", 404);
