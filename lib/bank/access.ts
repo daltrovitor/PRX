@@ -5,7 +5,7 @@ import { PartnerError, dbError, isMissingTable } from "@/lib/partners/errors";
 import { ageGroup, ageOn } from "@/lib/family/age";
 import { MAX_MEMBER_AGE } from "@/lib/family/types";
 import { getFamilyRepository } from "@/lib/family/repository";
-import { buyerBirthDate } from "@/lib/live/buyer";
+import { buyerBirthDate, rememberBirthDate } from "@/lib/live/buyer";
 
 /**
  * Liberação do PRX BANK para maiores de 29 anos. O ecossistema PRX é para
@@ -129,14 +129,33 @@ export async function bankAgeAllowed(userId: string, birthDate: string, now = ne
   return Boolean(await activeGrant(userId));
 }
 
-export async function grantBankAccess(userId: string, note: string, actor: string, now = new Date()): Promise<BankAccessGrant> {
-  const birth = await verifiedBirthDate(userId);
-  if (!birth) throw new PartnerError("Esta pessoa não tem data de nascimento validada na conta. Peça para completar o cadastro antes de liberar.", 409);
-  const age = ageOn(birth.birthDate, now);
+/** AAAA-MM-DD de verdade, no passado e depois de 1900. */
+export function isPlausibleBirthDate(value: string, now = new Date()): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T12:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value) && date < now && date.getUTCFullYear() > 1900;
+}
+
+/**
+ * Libera a abertura. A idade vem da data validada na conta; sem ela, o admin
+ * informa a data do documento da pessoa (fica gravada no cadastro como
+ * informada pelo admin, sem sobrescrever uma data que já exista). A análise da
+ * identidade continua conferindo o documento depois.
+ */
+export async function grantBankAccess(userId: string, note: string, actor: string, now = new Date(), declaredBirthDate?: string): Promise<BankAccessGrant> {
+  const verified = await verifiedBirthDate(userId);
+  const declared = !verified && declaredBirthDate ? declaredBirthDate.trim() : "";
+  if (!verified && !declared) throw new PartnerError("Esta pessoa não tem data de nascimento validada na conta. Informe a data do documento dela para liberar.", 409);
+  if (declared && !isPlausibleBirthDate(declared, now)) throw new PartnerError("Data de nascimento inválida. Use a data do documento (dia, mês e ano).", 422);
+  const birthDate = verified?.birthDate ?? declared;
+  const age = ageOn(birthDate, now);
   if (age <= MAX_MEMBER_AGE) throw new PartnerError(`Esta pessoa tem ${age} anos: até ${MAX_MEMBER_AGE} anos a abertura já é permitida, sem liberação.`, 409);
   if (await activeGrant(userId)) throw new PartnerError("A abertura do PRX BANK já está liberada para esta pessoa.", 409);
 
-  const record = { userId, birthDate: birth.birthDate, ageAtGrant: age, note: note.trim().slice(0, 500), grantedBy: actor };
+  const cleanNote = note.trim();
+  const record = { userId, birthDate, ageAtGrant: age, note: (declared ? `Nascimento informado pelo admin.${cleanNote ? ` ${cleanNote}` : ""}` : cleanNote).slice(0, 500), grantedBy: actor };
+  // Sem data na conta: a do documento passa a valer no cadastro (abertura e prefill usam a mesma).
+  if (declared) await rememberBirthDate(userId, declared, { source: "admin", verified: false });
   if (!supabaseAdmin) {
     const created: BankAccessGrant = { ...record, id: crypto.randomUUID(), grantedAt: now.toISOString(), revokedBy: null, revokedAt: null, revokeNote: "" };
     memory().push(created);

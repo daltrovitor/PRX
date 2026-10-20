@@ -75,6 +75,17 @@ Ao abrir o PRX BANK com `ASAAS_ENVIRONMENT=production`:
 - Chaves Pix locais do sandbox não aparecem: valem só as registradas no Pix pela subconta.
 - Quem nunca enviou a abertura preenche o formulário. Nenhum dado é inventado.
 
+## Subconta padrão (criada antes do BaaS)
+
+Subcontas criadas antes de o gerente habilitar o BaaS na conta-pai (testes de outubro/2026) ficaram no modelo **padrão**, não white label. Nelas o Asaas recusa os documentos pela API ("Esse tipo de documento não pode ser enviado via API"), o histórico da abertura mostra `documents · blocked` e a análise para em "documentos pendente" e "dados bancários pendente". Pela API não dá para converter nem encerrar: o encerramento de subconta não-BaaS pela API só vale nas primeiras 48 h e antes de qualquer login.
+
+Duas saídas:
+
+1. **Aprovar como está (mais rápido):** no painel do Asaas, abra a subconta e use **Enviar e-mail de ativação**. O e-mail vai para o endereço da subconta. A pessoa cria a senha, entra no Asaas (site ou app) e envia lá a selfie, o documento e os dados bancários pendentes. A análise é do compliance do Asaas. Quando ele aprovar, o webhook `ACCOUNT_STATUS_GENERAL_APPROVAL_APPROVED` (ou a conciliação diária) abre a conta no app. Efeitos: a pessoa passa a ter login próprio no Asaas e vê a marca dele; saques feitos por lá continuam passando pela validação de saque da PRX, que só aprova o que foi confirmado no app. Para o app operar a conta (Pix, saldo), a PRX precisa da chave da subconta: confira "chave guardada" em Admin → Asaas.
+2. **Manter white label:** peça ao gerente do Asaas para converter a subconta em BaaS ou encerrá-la. Encerrada, use **Recomeçar abertura** em Admin → Asaas: o próximo envio cria a subconta já no BaaS e os documentos seguem pelo app.
+
+O Admin → Asaas mostra esse aviso no membro quando o histórico tem documento recusado pela API.
+
 ## Diagnóstico (Admin → Asaas)
 
 - **Registro de toda chamada** em `asaas_api_requests`: operação, método, caminho, corpo enviado e resposta (sem chaves, tokens ou senhas; CPF, e-mail, telefone e endereço mascarados), HTTP, duração, tentativas e desfecho (`success`, `http_error`, `rate_limited`, `timeout`, `network_error`, `invalid_response`, `not_sent`). O que o PRX decidiu não enviar também entra (`not_sent`). Segunda trilha: logs da Vercel em JSON (uma linha por evento, `"scope":"prx-bank"`), com `correlationId`, etapa, endpoint, método, HTTP, duração, código e mensagem de erro sanitizados, id interno do membro, id local e id no Asaas. Filtre por `correlationId` para ver um cadastro inteiro: KYC (`bank.kyc`), abertura (`bank.provisioning`), cada chamada (`asaas.request`). Webhooks: `webhook.asaas` e `webhook.validate_withdraw`. As linhas são escritas em stdout/stderr porque o build de produção apaga `console.*` (`compiler.removeConsole` no `next.config.ts`).

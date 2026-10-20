@@ -129,6 +129,16 @@ export function AdminAsaasMember({ onShowRequests }: { onShowRequests: (user: st
             </dl>
           )}
 
+          {/* Subconta criada antes de o BaaS ser habilitado: o Asaas recusa documento pela API e a aprovação só sai pela interface dele. */}
+          {sub?.generalStatus !== "APPROVED" && diag.provisioning.some((p) => /recusad[oa]\(?s?\)? pelo Asaas na API/i.test(p.detail ?? "")) && (
+            <Notice tone="warning">
+              Subconta padrão (fora do BaaS): o Asaas não aceita os documentos pela API. Para aprovar, no painel do Asaas abra esta subconta e use{" "}
+              <strong>Enviar e-mail de ativação</strong>. A pessoa cria a senha, entra no Asaas e envia lá os documentos e os dados bancários pendentes. Quando o Asaas aprovar, a
+              conta abre sozinha no app. Para manter tudo pelo app (white label), peça ao gerente do Asaas para converter ou encerrar esta subconta e depois use “Recomeçar
+              abertura”.
+            </Notice>
+          )}
+
           {status && (
             <div className="rounded-2xl border border-line p-4">
               <p className="text-[14px] font-semibold text-ink">No Asaas agora (GET /myAccount/status)</p>

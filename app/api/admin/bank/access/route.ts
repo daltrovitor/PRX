@@ -13,7 +13,6 @@ import { activeGrant, type AccessCandidate, grantBankAccess, grantHistory, listA
 
 const NO_STORE = { "Cache-Control": "no-store, private" };
 
-
 async function candidate(member: { id: string; name: string; email: string }): Promise<AccessCandidate> {
   const [birth, grant] = await Promise.all([verifiedBirthDate(member.id).catch(() => null), activeGrant(member.id).catch(() => null)]);
   const age = birth ? ageOn(birth.birthDate) : null;
@@ -23,7 +22,8 @@ async function candidate(member: { id: string; name: string; email: string }): P
     email: member.email,
     age,
     birthSource: birth?.source ?? null,
-    eligible: age !== null && age > MAX_MEMBER_AGE,
+    // Sem data validada também pode ser liberado: o admin informa a data do documento.
+    eligible: age === null || age > MAX_MEMBER_AGE,
     grant: grant ? { grantedBy: grant.grantedBy, grantedAt: grant.grantedAt, note: grant.note } : null,
   };
 }
@@ -56,7 +56,13 @@ export async function GET(req: NextRequest) {
 }
 
 const schema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("grant"), userId: z.string().trim().min(1).max(80), note: z.string().max(500).default("") }),
+  z.object({
+    action: z.literal("grant"),
+    userId: z.string().trim().min(1).max(80),
+    note: z.string().max(500).default(""),
+    /** Só quando a conta não tem data validada: a data do documento da pessoa (AAAA-MM-DD). */
+    birthDate: z.string().trim().max(10).optional(),
+  }),
   z.object({ action: z.literal("revoke"), userId: z.string().trim().min(1).max(80), note: z.string().max(500).default("") }),
 ]);
 
@@ -72,7 +78,10 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) throw new PartnerError(firstIssue(parsed.error), 400);
     const { action, userId, note } = parsed.data;
     const actor = admin.email || admin.sub;
-    const grant = action === "grant" ? await grantBankAccess(userId, note, actor) : await revokeBankAccess(userId, note, actor);
+    const grant =
+      parsed.data.action === "grant"
+        ? await grantBankAccess(userId, note, actor, new Date(), parsed.data.birthDate)
+        : await revokeBankAccess(userId, note, actor);
     await recordAdminAction(
       admin,
       {

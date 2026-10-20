@@ -415,6 +415,21 @@ describe("abertura do PRX BANK (KYC bancário)", () => {
     await expect(grantBankAccess(young.id, "", "admin@prx.dev", NOW)).rejects.toThrow(/sem liberação/);
   });
 
+  it("sem nascimento na conta, o admin libera com a data do documento (e ela passa a valer no cadastro)", async () => {
+    resetBankGrantsMemory();
+    const u = person();
+    const cpf = nextCpf();
+    await expect(grantBankAccess(u.id, "", "admin@prx.dev", NOW, "2099-01-01")).rejects.toThrow(/inválida/);
+    await expect(grantBankAccess(u.id, "", "admin@prx.dev", NOW, "2005-03-03")).rejects.toThrow(/sem liberação/);
+    const grant = await grantBankAccess(u.id, "Sócio fundador", "admin@prx.dev", NOW, "1985-07-20");
+    expect(grant).toMatchObject({ birthDate: "1985-07-20", ageAtGrant: 41, note: "Nascimento informado pelo admin. Sócio fundador" });
+    const { buyerBirthDate } = await import("@/lib/live/buyer");
+    expect(await buyerBirthDate(u.id)).toMatchObject({ birthDate: "1985-07-20", source: "admin", verified: false });
+    // Com a liberação, a abertura acima de 29 anos segue para a análise da identidade.
+    const app = await submitBankKyc(u, kycInput(u.id, cpf, "1985-07-20"), { ip: IP, userAgent: "" }, NOW);
+    expect(app.status).toBe("pending");
+  });
+
   it("menor só é aprovado depois do vínculo com consentimento parental", async () => {
     const { user } = await registerParent({ fullName: "Ana Responsável", email: `r${uniq()}@prx.dev`, password: "Senha1234", cpf: nextCpf(), birthDate: "1980-02-02", phone: "11988887777" }, NOW);
     const parent = { id: user.id, email: user.email, fullName: user.fullName };

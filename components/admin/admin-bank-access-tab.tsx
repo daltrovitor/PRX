@@ -23,6 +23,8 @@ export function AdminBankAccessTab() {
   const [grants, setGrants] = useState<{ items: GrantRow[]; total: number } | null>(null);
   const [page, setPage] = useState(1);
   const [notes, setNotes] = useState<Record<string, string>>({});
+  // Conta sem data validada: o admin informa a data do documento da pessoa.
+  const [births, setBirths] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -83,7 +85,11 @@ export function AdminBankAccessTab() {
     if (!ok) return;
     setBusy(userId);
     try {
-      const res = await fetch("/api/admin/bank/access", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, userId, note: notes[userId] ?? "" }) });
+      const res = await fetch("/api/admin/bank/access", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, userId, note: notes[userId] ?? "", ...(action === "grant" && births[userId] ? { birthDate: births[userId] } : {}) }),
+      });
       const json = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(json.error || "Não foi possível salvar.");
       showToast("success", action === "grant" ? "Abertura do PRX BANK liberada." : "Liberação revogada.");
@@ -102,8 +108,8 @@ export function AdminBankAccessTab() {
           Liberação do PRX BANK acima de 29 anos
         </h2>
         <p className="mt-1 max-w-2xl text-[13px] text-muted-foreground">
-          Busque a pessoa, confira a idade (da data de nascimento validada na conta) e libere. A regra vale no servidor: sem a liberação, a abertura é recusada mesmo
-          chamando a API direto.
+          Busque a pessoa, confira a idade (da data de nascimento validada na conta) e libere. Se a conta ainda não tem data validada, informe a data do documento da
+          pessoa. A regra vale no servidor: sem a liberação, a abertura é recusada mesmo chamando a API direto.
         </p>
       </div>
 
@@ -121,7 +127,7 @@ export function AdminBankAccessTab() {
                 <div className="min-w-0">
                   <p className="truncate text-[15px] font-semibold text-ink">{m.name}</p>
                   <p className="truncate text-[13px] text-muted-foreground">
-                    {m.email} · {m.age === null ? "sem data de nascimento validada" : `${m.age} anos (${m.birthSource === "identity" ? "identidade da conta" : "cadastro"})`}
+                    {m.email} · {m.age === null ? "sem data de nascimento validada: informe a do documento" : `${m.age} anos (${m.birthSource === "identity" ? "identidade da conta" : "cadastro"})`}
                   </p>
                   {m.grant && <p className="text-[13px] text-muted-foreground">Liberado por {m.grant.grantedBy} em {formatDateTimeBr(m.grant.grantedAt)}</p>}
                 </div>
@@ -134,13 +140,24 @@ export function AdminBankAccessTab() {
                   </div>
                 ) : m.eligible ? (
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    {m.age === null && (
+                      <Input
+                        type="date"
+                        value={births[m.userId] ?? ""}
+                        max={new Date().toISOString().slice(0, 10)}
+                        onChange={(e) => setBirths((b) => ({ ...b, [m.userId]: e.target.value }))}
+                        aria-label={`Data de nascimento do documento de ${m.name}`}
+                        title="Data de nascimento (do documento)"
+                        className="sm:w-44"
+                      />
+                    )}
                     <Input value={notes[m.userId] ?? ""} onChange={(e) => setNotes((n) => ({ ...n, [m.userId]: e.target.value }))} placeholder="Motivo (opcional)" aria-label={`Motivo da liberação de ${m.name}`} maxLength={500} />
-                    <Button size="sm" disabled={busy !== null} onClick={() => void change("grant", m.userId, m.name)}>
+                    <Button size="sm" disabled={busy !== null || (m.age === null && !births[m.userId])} onClick={() => void change("grant", m.userId, m.name)}>
                       Liberar PRX BANK
                     </Button>
                   </div>
                 ) : (
-                  <Tag>{m.age === null ? "Sem idade validada" : "Até 29 anos: não precisa"}</Tag>
+                  <Tag>Até 29 anos: não precisa</Tag>
                 )}
               </li>
             ))}
