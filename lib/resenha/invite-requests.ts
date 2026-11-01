@@ -24,6 +24,8 @@ const live = () => getLiveRepository();
 export interface CatalogInsider {
   participationId: string;
   name: string;
+  /** @ do Instagram (sem o @). */
+  handle: string;
   kind: InsiderKind;
   avatarUrl: string;
   /** Ainda tem PASS para liberar. */
@@ -78,7 +80,7 @@ async function catalogInsiders(editionId: string, exceptUserId: string): Promise
     // Insider desta edição não pede convite: ele já está na Resenha.
     if (insider.userId === exceptUserId) return null;
     const [profile, used] = await Promise.all([findMemberById(insider.userId), passesUsed(participation.id)]);
-    insiders.push({ participationId: participation.id, name: insider.name, kind: participation.kind, avatarUrl: profile?.avatarUrl ?? "", available: used.approved + used.invited < participation.quota });
+    insiders.push({ participationId: participation.id, name: insider.name, handle: insider.handle, kind: participation.kind, avatarUrl: insider.avatarUrl || (profile?.avatarUrl ?? ""), available: used.approved + used.invited < participation.quota });
   }
   return insiders.sort((a, b) => Number(b.available) - Number(a.available) || a.name.localeCompare(b.name, "pt-BR"));
 }

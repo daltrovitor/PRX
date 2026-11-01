@@ -93,7 +93,7 @@ function CatalogEntry({ entry, onRequested }: { entry: ResenhaCatalogEntry; onRe
                   <Avatar name={insider.name} src={insider.avatarUrl || null} size={48} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] font-semibold text-ink">{insider.name}</span>
-                    <span className="block text-[13px] text-muted-foreground">{insider.available ? INSIDER_KIND_LABEL[insider.kind] : "Sem convites disponíveis"}</span>
+                    <span className="block truncate text-[13px] text-muted-foreground">{insider.available ? [insider.handle && `@${insider.handle}`, INSIDER_KIND_LABEL[insider.kind]].filter(Boolean).join(" · ") : "Sem convites disponíveis"}</span>
                   </span>
                 </label>
               );

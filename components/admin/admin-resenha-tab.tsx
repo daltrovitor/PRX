@@ -5,13 +5,14 @@ import { useCallback, useEffect, useState } from "react";
 import { CopyButton } from "@/components/app/pass/voucher-sheet";
 import { Button, EmptyState, Input, Notice, Segmented, Tag } from "@/components/app/ui";
 import { EditionSheet, InsiderSheet, type EditionPayload, type InsiderPayload } from "@/components/admin/admin-resenha-forms";
+import { InsiderProfileSheet, InsiderRegistry, type InsiderProfilePayload, type RegistryInsider } from "@/components/admin/admin-resenha-insiders";
 import { RequestsSheet } from "@/components/admin/admin-resenha-requests";
 import type { AdminEditionView, AdminOverview, AdminParticipationView } from "@/lib/resenha/admin";
 import { formatDateTime } from "@/lib/live/format";
 import { EDITION_STATUS_LABEL, EDITION_STATUSES, INSIDER_KIND_LABEL, type Decision, type EditionStatus } from "@/lib/resenha/types";
 
 type Response = Partial<AdminOverview> & { success?: boolean; error?: string; temporaryPassword?: string | null };
-type Sheet = { kind: "edition"; edition: AdminEditionView | null } | { kind: "insider"; edition: AdminEditionView } | { kind: "requests"; edition: AdminEditionView };
+type Sheet = { kind: "edition"; edition: AdminEditionView | null } | { kind: "insider"; edition: AdminEditionView } | { kind: "requests"; edition: AdminEditionView } | { kind: "profile"; insider: RegistryInsider | null };
 
 async function call(init?: RequestInit): Promise<{ ok: boolean; data: Response }> {
   try {
@@ -207,6 +208,25 @@ export function AdminResenhaTab() {
     setCredentials(data.temporaryPassword ? { email: payload.email, password: data.temporaryPassword } : null);
   }
 
+  async function saveProfile(insider: RegistryInsider | null, payload: InsiderProfilePayload) {
+    const { failure, data } = await act(
+      insider
+        ? { action: "update_insider", insiderId: insider.id, insider: { name: payload.name, handle: payload.handle, avatarUrl: payload.avatarUrl } }
+        : { action: "create_insider", insider: payload }
+    );
+    setFormError(failure);
+    if (failure) return;
+    setSheet(null);
+    if (data.temporaryPassword) setCredentials({ email: payload.email, password: data.temporaryPassword });
+  }
+
+  async function resetPassword(insider: RegistryInsider) {
+    if (!window.confirm(`Gerar uma senha nova para ${insider.name}? A senha atual deixa de funcionar na hora.`)) return;
+    const { failure, data } = await act({ action: "reset_insider_password", insiderId: insider.id });
+    setError(failure);
+    if (!failure && data.temporaryPassword) setCredentials({ email: insider.email, password: data.temporaryPassword });
+  }
+
   const openSheet = (next: Sheet) => {
     setFormError(null);
     setSheet(next);
@@ -230,11 +250,11 @@ export function AdminResenhaTab() {
       {error && <Notice tone="error">{error}</Notice>}
       {credentials && (
         <Notice tone="success">
-          <span className="block font-medium">Acesso criado para {credentials.email}</span>
+          <span className="block font-medium">Senha individual de {credentials.email}</span>
           <span className="mt-1 block">
-            Senha temporária (aparece só agora): <span className="font-mono">{credentials.password}</span>
+            Senha (aparece só agora, anote ou copie): <span className="font-mono">{credentials.password}</span>
           </span>
-          <span className="mt-1 block text-[13px]">O Insider entra em insider.prx.app.br com este e-mail e esta senha. O app ainda não tem troca de senha pelo próprio usuário: se ele esquecer, a redefinição é pelo suporte.</span>
+          <span className="mt-1 block text-[13px]">O Insider entra em insider.prx.app.br com este e-mail e esta senha. Se esquecer, use “Nova senha” na lista de Insiders.</span>
           <span className="mt-2 flex flex-wrap gap-2">
             <CopyButton value={credentials.password} label="Copiar senha" />
             <Button size="sm" variant="ghost" onClick={() => setCredentials(null)}>
@@ -242,6 +262,17 @@ export function AdminResenhaTab() {
             </Button>
           </span>
         </Notice>
+      )}
+
+      {overview && (
+        <InsiderRegistry
+          insiders={overview.insiders}
+          busy={busy}
+          onNew={() => openSheet({ kind: "profile", insider: null })}
+          onEdit={(insider) => openSheet({ kind: "profile", insider })}
+          onReset={(insider) => void resetPassword(insider)}
+          onToggle={(insider) => void quick({ action: "set_insider_active", insiderId: insider.id, active: !insider.active })}
+        />
       )}
 
       {overview === null && !error ? (
@@ -265,6 +296,9 @@ export function AdminResenhaTab() {
       )}
 
       {sheet?.kind === "edition" && <EditionSheet edition={sheet.edition} busy={busy} error={formError} onClose={() => setSheet(null)} onSave={(payload) => void saveEdition(sheet.edition, payload)} />}
+      {sheet?.kind === "profile" && (
+        <InsiderProfileSheet key={sheet.insider?.id ?? "novo"} insider={sheet.insider} busy={busy} error={formError} onClose={() => setSheet(null)} onSave={(payload) => void saveProfile(sheet.insider, payload)} />
+      )}
       {sheet?.kind === "insider" && (
         <InsiderSheet edition={sheet.edition} existing={overview?.insiders ?? []} busy={busy} error={formError} onClose={() => setSheet(null)} onSave={(payload) => void saveInsider(sheet.edition, payload)} />
       )}

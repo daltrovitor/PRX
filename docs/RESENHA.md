@@ -90,3 +90,16 @@ Quem ainda não foi convidado também pode pedir: em **PRX LIVE → Resenha**, c
 - **18+:** menor de idade não vê o catálogo (o app avisa que a Resenha é só para maiores de 18).
 - O Insider não recebe notificação no celular do pedido (o aviso do celular abre o app, não o portal); o painel se atualiza sozinho a cada 20 s.
 - **Banco:** migração `20261101_prx_resenha_pedidos_app.sql` (`resenha_invite_requests`). Sem ela, o catálogo não aparece e o resto da Resenha segue igual.
+
+## Cadastro de Insiders no admin (desde 01/11/2026)
+
+**Admin → PRX LIVE → Resenha → Insiders** é o cadastro central. Cada Insider tem:
+
+- **Foto, nome e @ do Instagram:** aparecem para os membros no catálogo de Insiders da Resenha (sem foto, o app mostra as iniciais).
+- **Login do portal** (`insider.prx.app.br`) com **senha individual** gerada pelo sistema: quatro palavras fáceis + dois números, ex.: `Lobo-Mel-Pipa-Rio-47` (~38 bits, com trava de 10 tentativas por minuto no login). Aparece **uma única vez** no admin, com botão de copiar.
+- Ações: **Editar** (foto, nome, @), **Nova senha** (a anterior deixa de valer na hora) e **Desativar/Reativar**.
+
+Depois de cadastrado, o Insider entra em uma edição por **Adicionar Insider** (digite o e-mail e escolha o cadastrado; o formulário sugere os ativos) com a cota de PASSes.
+
+- **Banco:** migração `20261101_prx_resenha_insiders_foto.sql` (`resenha_insiders.avatar_url`). Sem ela, salvar com foto falha; o resto funciona.
+- Ações novas em `POST /api/admin/resenha`: `create_insider`, `update_insider`, `reset_insider_password`.

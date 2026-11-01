@@ -189,6 +189,16 @@ class UserStore {
     return user;
   }
 
+  /** Troca a senha (só a reserva em memória; no Supabase a troca é feita pela API de admin). */
+  setPassword(idOrEmail: string, plainPassword: string): boolean {
+    const user = this.findByEmail(idOrEmail) || this.findById(idOrEmail);
+    if (!user) return false;
+    user.salt = crypto.randomBytes(16).toString("hex");
+    user.passwordHash = this.hashPassword(plainPassword, user.salt);
+    this.users.set(user.email, user);
+    return true;
+  }
+
   createUser(email: string, fullName: string, plainPassword: string, cpf?: string, phone?: string): StoredUser {
     const normalizedEmail = email.toLowerCase().trim();
     if (this.users.has(normalizedEmail)) {

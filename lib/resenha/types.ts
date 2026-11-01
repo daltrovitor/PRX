@@ -45,6 +45,8 @@ export interface Insider {
   email: string;
   name: string;
   handle: string;
+  /** Foto que aparece no catálogo de Insiders do app (vazio = iniciais). */
+  avatarUrl: string;
   active: boolean;
   createdAt: string;
 }
@@ -182,6 +184,12 @@ export const editionInputSchema = z.object({
 });
 export type EditionInput = z.output<typeof editionInputSchema>;
 
+const photoUrl = z
+  .string()
+  .trim()
+  .max(2_000_000)
+  .refine((v) => v === "" || /^https:\/\//.test(v) || /^data:image\/(webp|jpeg|png);base64,/.test(v), "Foto inválida. Envie uma imagem.");
+
 export const insiderInputSchema = z.object({
   mode: z.enum(["create", "link"]).default("create"),
   name: cleanText(80).pipe(z.string().min(2, "Informe o nome do Insider.")),
@@ -244,3 +252,11 @@ export interface GuestView {
   address: string | null;
   ticket: { code: string; qr: string; used: boolean } | null;
 }
+
+/** Cadastro do Insider no admin: nome, @, foto e login (a senha é gerada pelo sistema). */
+export const insiderProfileSchema = z.object({
+  name: cleanText(80).pipe(z.string().min(2, "Informe o nome do Insider.")),
+  handle: instagram.default(""),
+  avatarUrl: photoUrl.default(""),
+});
+export type InsiderProfileInput = z.output<typeof insiderProfileSchema>;

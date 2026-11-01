@@ -8,7 +8,7 @@ import { padNumber, type AccessRequest, type EditionInsider, type Insider, type 
 export type NewEdition = Omit<ResenhaEdition, "id" | "slug" | "createdAt" | "updatedAt">;
 export type EditionPatch = Partial<Pick<ResenhaEdition, "hostName" | "hostArticle" | "status">>;
 export type NewInsider = Omit<Insider, "id" | "createdAt">;
-export type InsiderPatch = Partial<Pick<Insider, "name" | "handle" | "active">>;
+export type InsiderPatch = Partial<Pick<Insider, "name" | "handle" | "avatarUrl" | "active">>;
 export type NewParticipation = Omit<EditionInsider, "id" | "createdAt">;
 export type ParticipationPatch = Partial<Pick<EditionInsider, "kind" | "quota" | "active">>;
 export type NewRequest = Omit<AccessRequest, "id" | "createdAt" | "status" | "ticketId" | "decidedAt" | "decidedBy">;

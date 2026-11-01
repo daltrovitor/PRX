@@ -6,7 +6,8 @@ import { isRealActiveTicket } from "@/lib/live/rules";
 import { eventReadiness, type EventReadiness } from "@/lib/live/readiness";
 import { createEvent, setEventStatus, updateEvent } from "@/lib/live/service";
 import type { EventInput, LiveEvent } from "@/lib/live/types";
-import { provisionInsiderAccount } from "@/lib/resenha/access";
+import { provisionInsiderAccount, setInsiderPassword } from "@/lib/resenha/access";
+import { generateInsiderPassword } from "@/lib/resenha/password";
 import { insiderLink } from "@/lib/resenha/config";
 import { getResenhaRepository } from "@/lib/resenha/repository";
 import { linkStats } from "@/lib/resenha/service";
@@ -21,6 +22,7 @@ import {
   type EditionInsider,
   type Insider,
   type InsiderInput,
+  type InsiderProfileInput,
   type InsiderKind,
   type LinkStats,
   type RequestStatus,
@@ -34,7 +36,7 @@ const live = () => getLiveRepository();
 
 export interface AdminParticipationView {
   id: string;
-  insider: { id: string; name: string; email: string; handle: string; active: boolean };
+  insider: { id: string; name: string; email: string; handle: string; avatarUrl: string; active: boolean };
   kind: InsiderKind;
   code: string;
   quota: number;
@@ -74,7 +76,7 @@ export interface AdminEditionView {
 export interface AdminOverview {
   editions: AdminEditionView[];
   /** Insiders já cadastrados: dá para colocá-los em outra edição sem criar o login de novo. */
-  insiders: Array<Pick<Insider, "id" | "name" | "email" | "handle" | "active">>;
+  insiders: Array<Pick<Insider, "id" | "name" | "email" | "handle" | "avatarUrl" | "active">>;
 }
 
 export async function adminOverview(baseUrl: string): Promise<AdminOverview> {
@@ -117,7 +119,7 @@ export async function adminOverview(baseUrl: string): Promise<AdminOverview> {
           if (!insider) return [];
           const view: AdminParticipationView = {
             id: p.id,
-            insider: { id: insider.id, name: insider.name, email: insider.email, handle: insider.handle, active: insider.active },
+            insider: { id: insider.id, name: insider.name, email: insider.email, handle: insider.handle, avatarUrl: insider.avatarUrl, active: insider.active },
             kind: p.kind,
             code: p.code,
             quota: p.quota,
@@ -129,7 +131,7 @@ export async function adminOverview(baseUrl: string): Promise<AdminOverview> {
         }),
     });
   }
-  return { editions: views, insiders: insiders.map(({ id, name, email, handle, active }) => ({ id, name, email, handle, active })) };
+  return { editions: views, insiders: insiders.map(({ id, name, email, handle, avatarUrl, active }) => ({ id, name, email, handle, avatarUrl, active })) };
 }
 
 export interface AdminRequestView {
@@ -297,7 +299,7 @@ export async function addInsider(editionId: string, input: InsiderInput): Promis
   if (!insider) {
     const account = await provisionInsiderAccount(input.mode, input.email, input.name);
     temporaryPassword = account.temporaryPassword ?? null;
-    insider = await repo().insertInsider({ userId: account.userId, email: account.email, name: input.name, handle: input.handle, active: true });
+    insider = await repo().insertInsider({ userId: account.userId, email: account.email, name: input.name, handle: input.handle, avatarUrl: "", active: true });
   } else if (!insider.active) {
     insider = await repo().updateInsider(insider.id, { active: true });
   }
@@ -333,4 +335,34 @@ export async function updateParticipation(id: string, patch: { quota?: number; a
 export async function setInsiderActive(insiderId: string, active: boolean): Promise<Insider> {
   if (!(await repo().getInsider(insiderId))) throw new PartnerError("Insider não encontrado.", 404);
   return repo().updateInsider(insiderId, { active });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Cadastro de Insiders (foto, nome, @ e senha individual)                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Cadastra o Insider antes de colocá-lo em uma edição: nome, @ e foto aparecem no
+ * catálogo do app. Com "create", gera a senha individual (mostrada uma única vez).
+ */
+export async function createInsider(input: InsiderProfileInput & { mode: "create" | "link"; email: string }): Promise<{ insider: Insider; temporaryPassword: string | null }> {
+  const email = input.email.toLowerCase().trim();
+  if (await repo().getInsiderByEmail(email)) throw new PartnerError("Já existe um Insider com este e-mail.", 409);
+  const account = await provisionInsiderAccount(input.mode, email, input.name);
+  const insider = await repo().insertInsider({ userId: account.userId, email: account.email, name: input.name, handle: input.handle, avatarUrl: input.avatarUrl, active: true });
+  return { insider, temporaryPassword: account.temporaryPassword ?? null };
+}
+
+export async function updateInsiderProfile(id: string, input: InsiderProfileInput): Promise<Insider> {
+  if (!(await repo().getInsider(id))) throw new PartnerError("Insider não encontrado.", 404);
+  return repo().updateInsider(id, { name: input.name, handle: input.handle, avatarUrl: input.avatarUrl });
+}
+
+/** Gera uma senha individual nova (a antiga deixa de valer). Mostrada uma única vez ao admin. */
+export async function resetInsiderPassword(id: string): Promise<{ insider: Insider; temporaryPassword: string }> {
+  const insider = await repo().getInsider(id);
+  if (!insider) throw new PartnerError("Insider não encontrado.", 404);
+  const temporaryPassword = generateInsiderPassword();
+  await setInsiderPassword(insider.userId, insider.email, temporaryPassword);
+  return { insider, temporaryPassword };
 }

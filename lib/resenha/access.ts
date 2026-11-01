@@ -4,7 +4,7 @@ import { getCurrentUser, userStore, type StoredUser } from "@/lib/auth";
 import { isReservedAdminEmail } from "@/lib/admin-allowlist";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { PartnerError } from "@/lib/partners/errors";
-import { generateTemporaryPassword } from "@/lib/partners/access";
+import { generateInsiderPassword } from "@/lib/resenha/password";
 import { getResenhaRepository } from "@/lib/resenha/repository";
 import type { Insider } from "@/lib/resenha/types";
 
@@ -44,7 +44,7 @@ export async function provisionInsiderAccount(mode: "create" | "link", rawEmail:
   }
 
   if (isReservedAdminEmail(email)) throw new PartnerError("Este e-mail pertence a um administrador. Use “Vincular conta existente”.", 422);
-  const temporaryPassword = generateTemporaryPassword();
+  const temporaryPassword = generateInsiderPassword();
 
   if (supabaseAdmin) {
     const { data, error } = await supabaseAdmin.auth.admin.createUser({ email, password: temporaryPassword, email_confirm: true, user_metadata: { full_name: name } });
@@ -60,6 +60,16 @@ export async function provisionInsiderAccount(mode: "create" | "link", rawEmail:
   if (userStore.findByEmail(email)) throw new PartnerError("Já existe uma conta com este e-mail. Use “Vincular conta existente”.", 409);
   const user = userStore.createUser(email, name, temporaryPassword);
   return { userId: user.id, email, name, temporaryPassword };
+}
+
+/** Define uma senha nova para o login do Insider (a anterior deixa de valer na hora). */
+export async function setInsiderPassword(userId: string, email: string, password: string): Promise<void> {
+  if (supabaseAdmin) {
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, { password });
+    if (error) throw new PartnerError("Não foi possível trocar a senha.", 500);
+    return;
+  }
+  if (!userStore.setPassword(userId, password) && !userStore.setPassword(email, password)) throw new PartnerError("Conta do Insider não encontrada.", 404);
 }
 
 /** Cadastro de Insider ativo da conta (por id da conta ou, na falta, pelo e-mail). */

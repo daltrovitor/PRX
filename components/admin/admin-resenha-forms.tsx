@@ -147,7 +147,7 @@ export function InsiderSheet({ edition, existing, busy, error, onClose, onSave }
       open
       onClose={onClose}
       title="Adicionar Insider"
-      description={`${edition.title}: o Insider recebe um link próprio e libera só quem chegar por ele.`}
+      description={`${edition.title}: escolha um Insider já cadastrado (digite o e-mail) ou crie um novo. Ele recebe um link próprio e a cota de PASSes.`}
       footer={
         <Button block type="submit" form="resenha-insider-form" disabled={busy}>
           {busy ? "Salvando…" : "Adicionar à edição"}
@@ -169,7 +169,20 @@ export function InsiderSheet({ edition, existing, busy, error, onClose, onSave }
           </div>
         )}
         <Field label="E-mail do login" className="sm:col-span-2" hint={known ? `${known.name} já é Insider: ele só entra nesta edição, com o mesmo login.` : undefined}>
-          {(id, describedBy) => <Input id={id} aria-describedby={describedBy} type="email" inputMode="email" autoCapitalize="none" value={draft.email} onChange={(e) => set("email", e.target.value)} required />}
+          {(id, describedBy) => (
+            <>
+              <Input id={id} aria-describedby={describedBy} type="email" inputMode="email" autoCapitalize="none" list="resenha-insiders-cadastrados" value={draft.email} onChange={(e) => set("email", e.target.value)} required />
+              <datalist id="resenha-insiders-cadastrados">
+                {existing
+                  .filter((i) => i.active)
+                  .map((i) => (
+                    <option key={i.id} value={i.email}>
+                      {i.name}
+                    </option>
+                  ))}
+              </datalist>
+            </>
+          )}
         </Field>
         {!known && (
           <>

@@ -59,10 +59,11 @@ interface InsiderRow {
   email: string;
   name: string;
   handle: string | null;
+  avatar_url?: string | null;
   active: boolean;
   created_at: string;
 }
-const mapInsider = (r: InsiderRow): Insider => ({ id: r.id, userId: r.user_id, email: r.email, name: r.name, handle: r.handle ?? "", active: r.active, createdAt: r.created_at });
+const mapInsider = (r: InsiderRow): Insider => ({ id: r.id, userId: r.user_id, email: r.email, name: r.name, handle: r.handle ?? "", avatarUrl: r.avatar_url ?? "", active: r.active, createdAt: r.created_at });
 
 interface ParticipationRow {
   id: string;
@@ -195,7 +196,7 @@ export class SupabaseResenhaRepository implements ResenhaRepository {
   async insertInsider(insider: NewInsider) {
     const { data, error } = await this.db
       .from("resenha_insiders")
-      .insert({ user_id: insider.userId, email: insider.email, name: insider.name, handle: insider.handle || null, active: insider.active })
+      .insert({ user_id: insider.userId, email: insider.email, name: insider.name, handle: insider.handle || null, active: insider.active, ...(insider.avatarUrl && { avatar_url: insider.avatarUrl }) })
       .select("*")
       .single();
     if (error) throw dbError(error, "Não foi possível cadastrar o Insider");
@@ -203,7 +204,7 @@ export class SupabaseResenhaRepository implements ResenhaRepository {
   }
 
   async updateInsider(id: string, patch: InsiderPatch) {
-    const row = compact({ name: patch.name, handle: patch.handle === undefined ? undefined : patch.handle || null, active: patch.active, updated_at: new Date().toISOString() });
+    const row = compact({ name: patch.name, handle: patch.handle === undefined ? undefined : patch.handle || null, avatar_url: patch.avatarUrl === undefined ? undefined : patch.avatarUrl || null, active: patch.active, updated_at: new Date().toISOString() });
     const { data, error } = await this.db.from("resenha_insiders").update(row).eq("id", id).select("*").single();
     if (error) throw dbError(error, "Não foi possível atualizar o Insider");
     return mapInsider(data as InsiderRow);

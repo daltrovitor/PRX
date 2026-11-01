@@ -4,13 +4,14 @@ import { z } from "zod";
 import { PartnerError } from "@/lib/partners/errors";
 import { errorResponse, readJson, requireAdmin } from "@/lib/partners/http";
 import { firstIssue } from "@/lib/partners/types";
-import { addInsider, adminOverview, adminRequests, createEdition, setEditionStatus, setInsiderActive, updateEdition, updateParticipation } from "@/lib/resenha/admin";
+import { addInsider, adminOverview, adminRequests, createEdition, createInsider, resetInsiderPassword, setEditionStatus, setInsiderActive, updateEdition, updateInsiderProfile, updateParticipation } from "@/lib/resenha/admin";
 import { sendListEmail } from "@/lib/resenha/notify";
 import { decideRequest } from "@/lib/resenha/service";
 import { baseUrlFor } from "@/lib/resenha/session";
-import { EDITION_STATUSES, INSIDER_KINDS, decisionSchema, editionInputSchema, insiderInputSchema } from "@/lib/resenha/types";
+import { EDITION_STATUSES, INSIDER_KINDS, decisionSchema, editionInputSchema, insiderInputSchema, insiderProfileSchema } from "@/lib/resenha/types";
 
 const NO_STORE = { "Cache-Control": "no-store" };
+const insiderCreateSchema = insiderProfileSchema.extend({ mode: z.enum(["create", "link"]).default("create"), email: insiderInputSchema.shape.email });
 
 /** GET /api/admin/resenha[?edition=<id>] — edições, Insiders e cotas; com `edition`, também os pedidos dela. */
 export async function GET(req: NextRequest) {
@@ -36,6 +37,9 @@ const bodySchema = z.discriminatedUnion("action", [
     active: z.boolean().optional(),
     kind: z.enum(INSIDER_KINDS).optional(),
   }),
+  z.object({ action: z.literal("create_insider"), insider: z.unknown() }),
+  z.object({ action: z.literal("update_insider"), insiderId: z.string().min(1), insider: z.unknown() }),
+  z.object({ action: z.literal("reset_insider_password"), insiderId: z.string().min(1) }),
   z.object({ action: z.literal("set_insider_active"), insiderId: z.string().min(1), active: z.boolean() }),
   z.object({ action: z.literal("decide_request"), requestId: z.string().min(1), decision: decisionSchema.shape.action }),
 ]);
@@ -69,6 +73,17 @@ export async function POST(req: NextRequest) {
         break;
       case "add_insider":
         temporaryPassword = (await addInsider(input.editionId, parse(insiderInputSchema, input.insider))).temporaryPassword;
+        break;
+      case "create_insider": {
+        const data = parse(insiderCreateSchema, input.insider);
+        temporaryPassword = (await createInsider(data)).temporaryPassword;
+        break;
+      }
+      case "update_insider":
+        await updateInsiderProfile(input.insiderId, parse(insiderProfileSchema, input.insider));
+        break;
+      case "reset_insider_password":
+        temporaryPassword = (await resetInsiderPassword(input.insiderId)).temporaryPassword;
         break;
       case "update_participation":
         await updateParticipation(input.id, { quota: input.quota, active: input.active, kind: input.kind });

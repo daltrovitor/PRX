@@ -5,12 +5,15 @@ import { rememberBirthDate } from "@/lib/live/buyer";
 import { reserveTicket } from "@/lib/live/service";
 import { memberCodeOf } from "@/lib/members/member-code";
 import { resetPushMemory } from "@/lib/push/repository";
-import { addInsider, createEdition, setEditionStatus } from "@/lib/resenha/admin";
+import { addInsider, createEdition, createInsider, resetInsiderPassword, setEditionStatus, updateInsiderProfile } from "@/lib/resenha/admin";
+import { verifyAccountPassword } from "@/lib/partners/access";
+import { PASSWORD_WORDS, generateInsiderPassword } from "@/lib/resenha/password";
 import { cancelInvite, insiderInvites, inviteMember, memberResenhas } from "@/lib/resenha/invites";
 import { resetInvitesMemory } from "@/lib/resenha/invites-repository";
 import { decideInviteRequest, insiderInviteRequests, memberResenhaCatalog, requestInvite } from "@/lib/resenha/invite-requests";
 import { resetInviteRequestsMemory } from "@/lib/resenha/invite-requests-repository";
 import { getResenhaRepository, resetResenhaMemory } from "@/lib/resenha/repository";
+import { insiderProfileSchema } from "@/lib/resenha/types";
 
 const DAY = 86_400_000;
 const PARTY = new Date(Date.now() + 14 * DAY).toISOString();
@@ -125,5 +128,44 @@ describe("pedido de convite da Resenha pelo app", () => {
 
     expect((await memberResenhaCatalog(guest.user.id)).entries[0].request?.status).toBe("cancelled");
     await expect(requestInvite(guest.user.id, leo.link)).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe("cadastro de Insiders no admin", () => {
+  it("senha individual: palavras fáceis, sem repetir, e cada Insider tem a sua", () => {
+    const first = generateInsiderPassword();
+    expect(first).toMatch(/^([A-Z][a-z]+-){4}\d{2}$/);
+    expect(new Set(first.split("-").slice(0, 4)).size).toBe(4);
+    expect(new Set(Array.from({ length: 50 }, () => generateInsiderPassword())).size).toBe(50);
+    expect(new Set(PASSWORD_WORDS).size).toBe(PASSWORD_WORDS.length);
+    expect(PASSWORD_WORDS.every((w) => /^[A-Za-z]+$/.test(w))).toBe(true);
+  });
+
+  it("cadastra com foto e @, aparece no catálogo e a senha gerada entra no login", async () => {
+    const photo = "https://exemplo.com/manu.webp";
+    const profile = insiderProfileSchema.parse({ name: "Ana Foto", handle: "@AnaFoto", avatarUrl: photo });
+    const created = await createInsider({ ...profile, mode: "create", email: `ana${uniq()}@exemplo.com` });
+    expect(created.insider).toMatchObject({ name: "Ana Foto", handle: "anafoto", avatarUrl: photo });
+    expect(created.temporaryPassword).toMatch(/^([A-Z][a-z]+-){4}\d{2}$/);
+    expect(await verifyAccountPassword(created.insider.email, created.temporaryPassword!)).toBe(true);
+
+    const edition = await createEdition({ hostName: "Bia", hostArticle: "da", startsAt: PARTY, endsAt: null, venue: "Casa", city: "Goiânia, GO", address: "Rua A, 1", capacity: null, ...POLICY }, "admin@prx.dev");
+    await setEditionStatus(edition.id, "open");
+    await addInsider(edition.id, { mode: "create", name: "Ana Foto", email: created.insider.email, handle: "", kind: "insider", quota: 3 });
+    const guest = await member("Hugo Catalogo");
+    const [entry] = (await memberResenhaCatalog(guest.user.id)).entries;
+    expect(entry.insiders[0]).toMatchObject({ name: "Ana Foto", handle: "anafoto", avatarUrl: photo });
+  });
+
+  it("editar muda foto, nome e @; nova senha troca o login", async () => {
+    const created = await createInsider({ mode: "create", email: `bia${uniq()}@exemplo.com`, name: "Bia Antiga", handle: "", avatarUrl: "" });
+    const updated = await updateInsiderProfile(created.insider.id, { name: "Bia Nova", handle: "bianova", avatarUrl: "https://exemplo.com/bia.webp" });
+    expect(updated).toMatchObject({ name: "Bia Nova", handle: "bianova", avatarUrl: "https://exemplo.com/bia.webp" });
+
+    const reset = await resetInsiderPassword(created.insider.id);
+    expect(reset.temporaryPassword).not.toBe(created.temporaryPassword);
+    expect(await verifyAccountPassword(created.insider.email, created.temporaryPassword!)).toBe(false);
+    expect(await verifyAccountPassword(created.insider.email, reset.temporaryPassword)).toBe(true);
+    await expect(createInsider({ mode: "create", email: created.insider.email, name: "Outra", handle: "", avatarUrl: "" })).rejects.toMatchObject({ status: 409 });
   });
 });
