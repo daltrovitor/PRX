@@ -68,6 +68,7 @@ export function LiveScreen({ member }: { member: User }) {
           {section === "resenha" && (
             <ResenhaPanel
               resenhas={resenha.resenhas}
+              catalog={resenha.catalog}
               member={member}
               reserve={live.reserve}
               quote={live.quote}

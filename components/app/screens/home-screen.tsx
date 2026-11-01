@@ -76,7 +76,8 @@ export function HomeScreen({ pass }: { pass: PassData }) {
   const transactions = account?.transactions ?? [];
   const banners = useHomeBanners(member.id);
   // Banner da Resenha sempre na Home; os detalhes da festa só para quem um Insider convidou.
-  const { resenhas } = useResenhas(member.id);
+  const { resenhas, catalog } = useResenhas(member.id);
+  const pendingWith = catalog.entries.find((e) => e.request?.status === "pending")?.request?.insiderName ?? null;
 
   const balanceActions: ReadonlyArray<ObsidianAction> = [
     { key: "pix", label: "Pix", Icon: IconPixDiamonds, onClick: () => go("bank", "chaves") },
@@ -126,7 +127,7 @@ export function HomeScreen({ pass }: { pass: PassData }) {
         >
           <ObsidianSectionHeader id="home-events" title="Próximos eventos" actionLabel="Ver todos" onAction={() => go("live")} />
           {/* Resenha em destaque logo abaixo do título: festa por convite, à parte da agenda aberta. */}
-          <ResenhaHomeCard resenhas={resenhas} onOpen={() => go("live", "resenha")} />
+          <ResenhaHomeCard resenhas={resenhas} pendingWith={pendingWith} canRequest={catalog.entries.some((e) => !e.request)} onOpen={() => go("live", "resenha")} />
           {upcoming.length === 0 ? (
             <div className="glass flex min-h-[112px] flex-1 items-center rounded-[24px] p-5 text-[14px] leading-relaxed text-muted-foreground">
               Novos eventos PRX LIVE aparecem aqui assim que forem anunciados.

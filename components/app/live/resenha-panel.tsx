@@ -6,27 +6,24 @@ import type { User } from "@/hooks/use-auth";
 import type { ActionResult, QuoteResult } from "@/components/app/use-prx-stores";
 import { EventPurchaseSheet } from "@/components/app/live/event-purchase-sheet";
 import { ResenhaLogo } from "@/components/app/live/resenha-card";
-import { Button, Tag, formatBRL } from "@/components/app/ui";
+import { ResenhaCatalog, priceOf } from "@/components/app/live/resenha-catalog";
+import { Button, Notice, Tag } from "@/components/app/ui";
 import { MemberId } from "@/components/app/profile/member-id";
 import { formatDateTime } from "@/lib/live/format";
 import type { MemberResenhaView } from "@/lib/resenha/invites";
+import type { MemberResenhaCatalog } from "@/lib/resenha/invite-requests";
 
 type Reserve = (input: { eventId: string; batchId: string; promoCode?: string; birthDate?: string; parentEmail?: string }) => Promise<ActionResult>;
 type Quote = (input: { eventId: string; batchId: string; promoCode?: string }) => Promise<QuoteResult>;
 
-function priceOf(r: MemberResenhaView): string {
-  const open = r.event.batches.filter((b) => b.available);
-  if (open.length === 0) return r.event.salesOpen ? "Esgotado" : "Vendas encerradas";
-  const from = Math.min(...open.map((b) => b.price));
-  return from === 0 ? "Gratuito" : `a partir de ${formatBRL(from)}`;
-}
-
 /**
- * Área exclusiva do PRX LIVE: só quem um Insider convidou chega aqui e garante
- * o ingresso da Resenha (pago ou gratuito, conforme o lote do evento).
+ * Área exclusiva do PRX LIVE: quem um Insider convidou garante o ingresso da
+ * Resenha (pago ou gratuito, conforme o lote do evento); quem ainda não foi
+ * convidado escolhe um Insider no catálogo e pede para comprar o convite.
  */
 export function ResenhaPanel({
   resenhas,
+  catalog,
   member,
   reserve,
   quote,
@@ -34,6 +31,7 @@ export function ResenhaPanel({
   onChanged,
 }: {
   resenhas: MemberResenhaView[];
+  catalog: MemberResenhaCatalog;
   member: User;
   reserve: Reserve;
   quote: Quote;
@@ -43,13 +41,18 @@ export function ResenhaPanel({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = resenhas.find((r) => r.inviteId === selectedId) ?? null;
 
-  if (resenhas.length === 0) {
-    return (
-      <section aria-label="Resenha" className="space-y-4">
-        <div className="rounded-3xl border border-white/10 bg-black px-6 py-8 sm:px-10">
-          <ResenhaLogo className="mx-auto max-w-[460px]" priority />
-          <p className="mt-5 text-center text-sm text-white/70">Acesso exclusivo por convite.</p>
-        </div>
+  const nothing = resenhas.length === 0 && catalog.entries.length === 0;
+
+  return (
+    <section aria-label="Resenha" className="space-y-4">
+      <div className="rounded-3xl border border-white/10 bg-black px-6 py-8 sm:px-10">
+        <ResenhaLogo className="mx-auto max-w-[460px]" priority />
+        <p className="mt-5 text-center text-sm text-white/70">{resenhas.length > 0 ? "Acesso exclusivo por convite. Seu nome está na lista." : "Acesso exclusivo por convite."}</p>
+      </div>
+
+      {catalog.minor && resenhas.length === 0 && <Notice tone="warning">A Resenha é só para maiores de 18 anos.</Notice>}
+
+      {nothing && !catalog.minor && (
         <div className="space-y-4 rounded-3xl glass p-5 sm:p-6">
           <h2 className="text-lg font-semibold tracking-[-0.02em] text-ink">Você ainda não foi convidado</h2>
           <p className="text-sm text-muted-foreground">
@@ -57,18 +60,9 @@ export function ResenhaPanel({
           </p>
           <MemberId />
         </div>
-      </section>
-    );
-  }
+      )}
 
-  return (
-    <section aria-label="Resenha" className="space-y-4">
-      <div className="rounded-3xl border border-white/10 bg-black px-6 py-8 sm:px-10">
-        <ResenhaLogo className="mx-auto max-w-[460px]" priority />
-        <p className="mt-5 text-center text-sm text-white/70">Acesso exclusivo por convite. Seu nome está na lista.</p>
-      </div>
-
-      <ul className="space-y-3">
+      <ul className="space-y-3 empty:hidden">
         {resenhas.map((r) => {
           const has = r.ticket === "valid" || r.ticket === "used";
           const paying = r.ticket === "pending_payment";
@@ -100,6 +94,8 @@ export function ResenhaPanel({
           );
         })}
       </ul>
+
+      <ResenhaCatalog entries={catalog.entries} onRequested={onChanged} />
 
       <EventPurchaseSheet
         key={selected?.inviteId ?? "nenhum"}

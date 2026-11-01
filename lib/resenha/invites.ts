@@ -8,6 +8,7 @@ import { findMemberByCode, findMemberById, searchMembers, type MemberMatch } fro
 import { sendPushToUser } from "@/lib/push/send";
 import { getResenhaRepository } from "@/lib/resenha/repository";
 import { getInvite, insertInvite, listInvites, revokeInvite, type InviteStatus, type MemberInvite } from "@/lib/resenha/invites-repository";
+import { listInviteRequests, settleInviteRequest } from "@/lib/resenha/invite-requests-repository";
 import { MIN_AGE, ageAt, editionHeadline, editionTitle, type EditionInsider, type Insider, type ResenhaEdition } from "@/lib/resenha/types";
 
 /**
@@ -50,7 +51,7 @@ export interface MemberResenhaView {
   ticket: InviteTicketState;
 }
 
-async function ownParticipation(insider: Insider, participationId: string): Promise<{ participation: EditionInsider; edition: ResenhaEdition; event: LiveEvent }> {
+export async function ownParticipation(insider: Insider, participationId: string): Promise<{ participation: EditionInsider; edition: ResenhaEdition; event: LiveEvent }> {
   const participation = await repo().getParticipation(participationId);
   if (!participation || participation.insiderId !== insider.id || !participation.active) throw new PartnerError("Resenha não encontrada.", 404);
   const edition = await repo().getEdition(participation.editionId);
@@ -114,9 +115,13 @@ export async function inviteMember(insider: Insider, participationId: string, me
     throw new PartnerError(`Seus PASSes acabaram (${participation.quota}/${participation.quota}).`, 409);
   }
 
+  // Pedido feito pelo app (a qualquer Insider desta edição) fecha como aprovado.
+  const [asked] = await listInviteRequests({ editionId: edition.id, userId: member.userId, status: "pending" });
+  if (asked) await settleInviteRequest(asked.id, "approved", `insider:${insider.email}`, invite.id);
+
   await sendPushToUser(member.userId, {
-    title: "Você foi convidado para a Resenha",
-    body: `${insider.name} te colocou na ${editionHeadline(edition)}. Garanta seu ingresso no app.`,
+    title: asked ? "Seu pedido para a Resenha foi aprovado" : "Você foi convidado para a Resenha",
+    body: `${insider.name} ${asked ? "liberou a compra do seu convite para a" : "te colocou na"} ${editionHeadline(edition)}. Garanta seu ingresso no app.`,
     url: "/#live/resenha",
     tag: `resenha-${edition.id}`,
   });

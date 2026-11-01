@@ -73,5 +73,20 @@ Além do link, o Insider convida **membros do app** direto no portal (`insider.p
 |---|---|---|
 | `GET /api/insider/members?link=&q=` | Insider | Busca membros por nome (3+ letras) ou ID PRX |
 | `GET/POST/DELETE /api/insider/invites` | Insider | Lista, cria e cancela convites |
-| `GET /api/live/resenha` | membro | Resenhas para as quais foi convidado |
+| `GET /api/live/resenha` | membro | Resenhas para as quais foi convidado + catálogo de Insiders para pedir convite |
+| `POST /api/live/resenha` | membro | Pede a um Insider autorização para comprar o convite (`{ link }`) |
+| `GET/POST /api/insider/invite-requests` | Insider | Lista e decide (aprovar/recusar) os pedidos feitos pelo app |
 | `GET /api/profile/code` | membro | ID PRX da conta |
+
+## Pedido de convite pelo app (desde 01/11/2026)
+
+Quem ainda não foi convidado também pode pedir: em **PRX LIVE → Resenha**, cada edição com a lista aberta mostra o **catálogo de Insiders** (foto e nome). O membro escolhe um e toca em **"Pedir a <nome> para comprar o convite"**.
+
+- O pedido fica **"Aguardando aprovação"** no app (e no card da Home) até o Insider decidir no portal, em **Pedidos pelo app**.
+- **Aprovar** = convidar: usa um PASS, libera a compra no PRX LIVE e avisa a pessoa no celular. Insider sem PASS aparece como "Sem convites disponíveis" e não recebe pedidos.
+- **Recusar** encerra: **um pedido por pessoa e edição**, a qualquer Insider. Recusado, não dá para pedir de novo nem a outro Insider na mesma edição (índice único `edition_id, user_id`). Na próxima edição, pode pedir de novo.
+- Se um Insider convidar direto quem tinha pedido pendente (a ele ou a outro), o pedido fecha como aprovado.
+- Se o Insider cancelar o convite depois de aprovar, o app mostra "Convite cancelado" e a pessoa não pede de novo nessa edição.
+- **18+:** menor de idade não vê o catálogo (o app avisa que a Resenha é só para maiores de 18).
+- O Insider não recebe notificação no celular do pedido (o aviso do celular abre o app, não o portal); o painel se atualiza sozinho a cada 20 s.
+- **Banco:** migração `20261101_prx_resenha_pedidos_app.sql` (`resenha_invite_requests`). Sem ela, o catálogo não aparece e o resto da Resenha segue igual.
