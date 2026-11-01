@@ -76,7 +76,13 @@ export async function setInsiderPassword(userId: string, email: string, password
 export async function insiderForUser(user: Pick<StoredUser, "id" | "email">): Promise<Insider | null> {
   const repo = getResenhaRepository();
   const insider = (await repo.getInsiderByUser(user.id)) ?? (user.email ? await repo.getInsiderByEmail(user.email) : null);
-  return insider && insider.active ? insider : null;
+  return insider && insider.active && insider.status === "approved" ? insider : null;
+}
+
+/** Cadastro de Insider da conta em qualquer situação (aguardando, recusado, desativado). */
+export async function insiderRecordForUser(user: Pick<StoredUser, "id" | "email">): Promise<Insider | null> {
+  const repo = getResenhaRepository();
+  return (await repo.getInsiderByUser(user.id)) ?? (user.email ? await repo.getInsiderByEmail(user.email) : null);
 }
 
 /** Sessão do portal: conta logada com cadastro de Insider ativo. */

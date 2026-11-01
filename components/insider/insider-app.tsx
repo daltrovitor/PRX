@@ -5,6 +5,7 @@ import { useCallback, useState } from "react";
 import { PanelLogin } from "@/components/admin/admin-login";
 import { DashboardBackdrop, DashboardHeader } from "@/components/app/dashboard-header";
 import { Button, IconButton } from "@/components/app/ui";
+import { InsiderSignupForm } from "@/components/insider/insider-signup";
 import { InsiderDashboard } from "@/components/insider/insider-dashboard";
 import { PrxLogo } from "@/components/brand/prx-logo";
 import { IconLogout } from "@/components/icons/prx-icons";
@@ -25,6 +26,7 @@ async function fetchAuth(): Promise<InsiderAuthResult> {
 export function InsiderApp({ initial }: { initial: InsiderAuthResult }) {
   useThemeScope("app");
   const [auth, setAuth] = useState<InsiderAuthResult>(initial);
+  const [signingUp, setSigningUp] = useState(false);
   const refresh = useCallback(() => fetchAuth().then(setAuth), []);
 
   async function logout() {
@@ -33,6 +35,23 @@ export function InsiderApp({ initial }: { initial: InsiderAuthResult }) {
     } finally {
       setAuth({ status: "unauthenticated" });
     }
+  }
+
+  if (auth.status === "unauthenticated" && signingUp) {
+    return (
+      <PanelLogin
+        endpoint="/api/insider/login"
+        title="Seja Insider"
+        description="Mande seus dados: a equipe PRX aprova e o acesso ao portal abre."
+        sideTitle="Sua conta vale nos dois lados."
+        sideBody="O mesmo e-mail e a mesma senha entram no app como membro e no portal como Insider. A sua foto já vai para o seu perfil."
+        emailPlaceholder="voce@email.com"
+        submitLabel="Entrar"
+        onSuccess={() => void refresh()}
+      >
+        <InsiderSignupForm onBack={() => setSigningUp(false)} />
+      </PanelLogin>
+    );
   }
 
   if (auth.status === "unauthenticated") {
@@ -46,6 +65,11 @@ export function InsiderApp({ initial }: { initial: InsiderAuthResult }) {
         emailPlaceholder="voce@email.com"
         submitLabel="Entrar"
         onSuccess={() => void refresh()}
+        footer={
+          <button type="button" onClick={() => setSigningUp(true)} className="inline-flex min-h-12 w-full cursor-pointer items-center justify-center rounded-xl bg-surface px-4 text-sm font-medium text-ink transition-colors hover:bg-line">
+            Quero ser Insider: cadastrar
+          </button>
+        }
       />
     );
   }

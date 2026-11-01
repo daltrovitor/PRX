@@ -4,7 +4,7 @@ import { z } from "zod";
 import { PartnerError } from "@/lib/partners/errors";
 import { errorResponse, readJson, requireAdmin } from "@/lib/partners/http";
 import { firstIssue } from "@/lib/partners/types";
-import { addInsider, adminOverview, adminRequests, createEdition, createInsider, resetInsiderPassword, setEditionStatus, setInsiderActive, updateEdition, updateInsiderProfile, updateParticipation } from "@/lib/resenha/admin";
+import { addInsider, adminOverview, adminRequests, createEdition, createInsider, decideInsiderSignup, resetInsiderPassword, setEditionStatus, setInsiderActive, updateEdition, updateInsiderProfile, updateParticipation } from "@/lib/resenha/admin";
 import { sendListEmail } from "@/lib/resenha/notify";
 import { decideRequest } from "@/lib/resenha/service";
 import { baseUrlFor } from "@/lib/resenha/session";
@@ -40,6 +40,7 @@ const bodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("create_insider"), insider: z.unknown() }),
   z.object({ action: z.literal("update_insider"), insiderId: z.string().min(1), insider: z.unknown() }),
   z.object({ action: z.literal("reset_insider_password"), insiderId: z.string().min(1) }),
+  z.object({ action: z.literal("decide_insider"), insiderId: z.string().min(1), decision: z.enum(["approve", "reject"]) }),
   z.object({ action: z.literal("set_insider_active"), insiderId: z.string().min(1), active: z.boolean() }),
   z.object({ action: z.literal("decide_request"), requestId: z.string().min(1), decision: decisionSchema.shape.action }),
 ]);
@@ -87,6 +88,9 @@ export async function POST(req: NextRequest) {
         break;
       case "update_participation":
         await updateParticipation(input.id, { quota: input.quota, active: input.active, kind: input.kind });
+        break;
+      case "decide_insider":
+        await decideInsiderSignup(input.insiderId, input.decision);
         break;
       case "set_insider_active":
         await setInsiderActive(input.insiderId, input.active);

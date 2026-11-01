@@ -272,6 +272,7 @@ export function AdminResenhaTab() {
           onEdit={(insider) => openSheet({ kind: "profile", insider })}
           onReset={(insider) => void resetPassword(insider)}
           onToggle={(insider) => void quick({ action: "set_insider_active", insiderId: insider.id, active: !insider.active })}
+          onDecide={(insider, decision) => void quick({ action: "decide_insider", insiderId: insider.id, decision })}
         />
       )}
 

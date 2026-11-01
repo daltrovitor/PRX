@@ -39,6 +39,10 @@ export interface ResenhaEdition {
   updatedAt: string;
 }
 
+/** Cadastro feito pelo próprio Insider no portal fica "pending" até o admin aprovar. */
+export const INSIDER_STATUSES = ["pending", "approved", "rejected"] as const;
+export type InsiderStatus = (typeof INSIDER_STATUSES)[number];
+
 export interface Insider {
   id: string;
   userId: string;
@@ -48,6 +52,7 @@ export interface Insider {
   /** Foto que aparece no catálogo de Insiders do app (vazio = iniciais). */
   avatarUrl: string;
   active: boolean;
+  status: InsiderStatus;
   createdAt: string;
 }
 
@@ -146,7 +151,7 @@ const isoDay = z
 
 const instagram = z
   .string()
-  .transform((v) => v.trim().replace(/^@+/, "").toLowerCase())
+  .transform((v) => v.replace(/@/g, "").trim().toLowerCase())
   .refine((v) => v === "" || /^[a-z0-9._]{1,30}$/.test(v), "Instagram inválido. Use só o usuário, ex.: @bia");
 
 const whatsapp = z

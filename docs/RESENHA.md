@@ -103,3 +103,14 @@ Depois de cadastrado, o Insider entra em uma edição por **Adicionar Insider** 
 
 - **Banco:** migração `20261101_prx_resenha_insiders_foto.sql` (`resenha_insiders.avatar_url`). Sem ela, salvar com foto falha; o resto funciona.
 - Ações novas em `POST /api/admin/resenha`: `create_insider`, `update_insider`, `reset_insider_password`.
+
+## Auto-cadastro do Insider no portal (desde 01/11/2026)
+
+Em **insider.prx.app.br**, o botão **Quero ser Insider: cadastrar** abre o formulário: foto, nome, @ do Instagram, e-mail e senha.
+
+- **Conta única:** o cadastro cria uma conta PRX comum. O mesmo e-mail e a mesma senha entram no app como membro e no portal como Insider, e a foto vira a **foto de perfil** do app. Quem já tem conta PRX usa o mesmo e-mail e a senha dela (sem a senha certa, não vincula). A senha nova segue a regra forte dos cadastros PRX.
+- **@ sem o arroba:** quem digita `@` a mais é ignorado; o app mostra `@usuario`.
+- **Aprovação:** o cadastro nasce **pendente** e sem acesso. O admin aprova ou recusa em **PRX LIVE → Resenha → Insiders → Aguardando aprovação**. Pendente ou recusado, o login do portal explica o motivo; aprovado, entra na hora. Recusado ainda pode ser aprovado depois.
+- Aprovar não coloca o Insider em edição: isso continua em **Adicionar Insider** (cota de PASSes).
+- **Banco:** migração `20261101_prx_resenha_insiders_cadastro.sql` (`resenha_insiders.status`: pending/approved/rejected; os existentes ficam aprovados). Sem ela, o auto-cadastro falha ao salvar; o resto funciona.
+- Rota pública `POST /api/insider/signup` (5 envios por 10 min por IP); ação nova no admin: `decide_insider` (`approve` | `reject`).

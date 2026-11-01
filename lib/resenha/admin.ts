@@ -76,7 +76,7 @@ export interface AdminEditionView {
 export interface AdminOverview {
   editions: AdminEditionView[];
   /** Insiders já cadastrados: dá para colocá-los em outra edição sem criar o login de novo. */
-  insiders: Array<Pick<Insider, "id" | "name" | "email" | "handle" | "avatarUrl" | "active">>;
+  insiders: Array<Pick<Insider, "id" | "name" | "email" | "handle" | "avatarUrl" | "active" | "status">>;
 }
 
 export async function adminOverview(baseUrl: string): Promise<AdminOverview> {
@@ -131,7 +131,7 @@ export async function adminOverview(baseUrl: string): Promise<AdminOverview> {
         }),
     });
   }
-  return { editions: views, insiders: insiders.map(({ id, name, email, handle, avatarUrl, active }) => ({ id, name, email, handle, avatarUrl, active })) };
+  return { editions: views, insiders: insiders.map(({ id, name, email, handle, avatarUrl, active, status }) => ({ id, name, email, handle, avatarUrl, active, status })) };
 }
 
 export interface AdminRequestView {
@@ -301,7 +301,7 @@ export async function addInsider(editionId: string, input: InsiderInput): Promis
     temporaryPassword = account.temporaryPassword ?? null;
     insider = await repo().insertInsider({ userId: account.userId, email: account.email, name: input.name, handle: input.handle, avatarUrl: "", active: true });
   } else if (!insider.active) {
-    insider = await repo().updateInsider(insider.id, { active: true });
+    insider = await repo().updateInsider(insider.id, { active: true, status: "approved" });
   }
   if ((await repo().listParticipations({ editionId, insiderId: insider.id })).length > 0) throw new PartnerError("Este Insider já está nesta edição.", 409);
 
@@ -333,7 +333,9 @@ export async function updateParticipation(id: string, patch: { quota?: number; a
 
 /** Desliga (ou religa) o Insider em todas as edições: ele perde o acesso ao portal na hora. */
 export async function setInsiderActive(insiderId: string, active: boolean): Promise<Insider> {
-  if (!(await repo().getInsider(insiderId))) throw new PartnerError("Insider não encontrado.", 404);
+  const insider = await repo().getInsider(insiderId);
+  if (!insider) throw new PartnerError("Insider não encontrado.", 404);
+  if (active && insider.status !== "approved") throw new PartnerError("Este cadastro ainda não foi aprovado. Aprove primeiro.", 409);
   return repo().updateInsider(insiderId, { active });
 }
 
@@ -351,6 +353,14 @@ export async function createInsider(input: InsiderProfileInput & { mode: "create
   const account = await provisionInsiderAccount(input.mode, email, input.name);
   const insider = await repo().insertInsider({ userId: account.userId, email: account.email, name: input.name, handle: input.handle, avatarUrl: input.avatarUrl, active: true });
   return { insider, temporaryPassword: account.temporaryPassword ?? null };
+}
+
+/** Decide o cadastro que o Insider fez no portal: aprovar libera o login; recusar mantém fechado. */
+export async function decideInsiderSignup(id: string, action: "approve" | "reject"): Promise<Insider> {
+  const insider = await repo().getInsider(id);
+  if (!insider) throw new PartnerError("Insider não encontrado.", 404);
+  if (insider.status === "approved") throw new PartnerError("Este Insider já está aprovado.", 409);
+  return repo().updateInsider(id, action === "approve" ? { status: "approved", active: true } : { status: "rejected", active: false });
 }
 
 export async function updateInsiderProfile(id: string, input: InsiderProfileInput): Promise<Insider> {

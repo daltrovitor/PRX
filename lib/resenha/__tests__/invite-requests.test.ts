@@ -5,7 +5,7 @@ import { rememberBirthDate } from "@/lib/live/buyer";
 import { reserveTicket } from "@/lib/live/service";
 import { memberCodeOf } from "@/lib/members/member-code";
 import { resetPushMemory } from "@/lib/push/repository";
-import { addInsider, createEdition, createInsider, resetInsiderPassword, setEditionStatus, updateInsiderProfile } from "@/lib/resenha/admin";
+import { addInsider, createEdition, createInsider, decideInsiderSignup, resetInsiderPassword, setEditionStatus, updateInsiderProfile } from "@/lib/resenha/admin";
 import { verifyAccountPassword } from "@/lib/partners/access";
 import { PASSWORD_WORDS, generateInsiderPassword } from "@/lib/resenha/password";
 import { cancelInvite, insiderInvites, inviteMember, memberResenhas } from "@/lib/resenha/invites";
@@ -14,6 +14,9 @@ import { decideInviteRequest, insiderInviteRequests, memberResenhaCatalog, reque
 import { resetInviteRequestsMemory } from "@/lib/resenha/invite-requests-repository";
 import { getResenhaRepository, resetResenhaMemory } from "@/lib/resenha/repository";
 import { insiderProfileSchema } from "@/lib/resenha/types";
+import { insiderForUser } from "@/lib/resenha/access";
+import { insiderDenial, INSIDER_PENDING, INSIDER_REJECTED } from "@/lib/resenha/session";
+import { insiderSignupSchema, signupInsider } from "@/lib/resenha/signup";
 
 const DAY = 86_400_000;
 const PARTY = new Date(Date.now() + 14 * DAY).toISOString();
@@ -167,5 +170,62 @@ describe("cadastro de Insiders no admin", () => {
     expect(await verifyAccountPassword(created.insider.email, created.temporaryPassword!)).toBe(false);
     expect(await verifyAccountPassword(created.insider.email, reset.temporaryPassword)).toBe(true);
     await expect(createInsider({ mode: "create", email: created.insider.email, name: "Outra", handle: "", avatarUrl: "" })).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe("auto-cadastro do Insider no portal", () => {
+  const PIXEL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const signup = (over: Record<string, unknown> = {}) => insiderSignupSchema.parse({ name: "Caio Novo", handle: "@@CaioNovo", email: `caio${uniq()}@exemplo.com`, password: "Senha#2026x", photo: PIXEL, ...over });
+
+  it("@ digitado a mais é ignorado e a foto vai para o perfil da conta", async () => {
+    const input = signup();
+    expect(input.handle).toBe("caionovo");
+    expect(insiderSignupSchema.parse({ ...input, handle: "caio@novo" }).handle).toBe("caionovo");
+    const { insider } = await signupInsider(input);
+    expect(insider).toMatchObject({ status: "pending", active: false, handle: "caionovo" });
+    expect(insider.avatarUrl).toMatch(/^data:image\/webp;base64,/);
+    expect(userStore.findByEmail(input.email)?.avatarUrl).toBe(insider.avatarUrl);
+  });
+
+  it("fica sem acesso até o admin aprovar; a mesma conta vale como membro", async () => {
+    const input = signup();
+    const { insider } = await signupInsider(input);
+    const user = userStore.findByEmail(input.email)!;
+    expect(await verifyAccountPassword(input.email, input.password)).toBe(true);
+    expect(await insiderForUser(user)).toBeNull();
+    expect(await insiderDenial(user)).toBe(INSIDER_PENDING);
+    await expect(signupInsider(input)).rejects.toMatchObject({ status: 409 });
+
+    await decideInsiderSignup(insider.id, "approve");
+    expect(await insiderForUser(user)).toMatchObject({ name: "Caio Novo", status: "approved" });
+    await expect(decideInsiderSignup(insider.id, "approve")).rejects.toMatchObject({ status: 409 });
+  });
+
+  it("recusado continua fora e o admin ainda pode aprovar depois", async () => {
+    const input = signup({ photo: "" });
+    const { insider } = await signupInsider(input);
+    await decideInsiderSignup(insider.id, "reject");
+    const user = userStore.findByEmail(input.email)!;
+    expect(await insiderForUser(user)).toBeNull();
+    expect(await insiderDenial(user)).toBe(INSIDER_REJECTED);
+    await decideInsiderSignup(insider.id, "approve");
+    expect(await insiderForUser(user)).not.toBeNull();
+  });
+
+  it("conta PRX existente exige a senha dela; senha fraca não cria conta", async () => {
+    const existing = await member("Dani Conta");
+    await expect(signupInsider(signup({ email: existing.user.email, password: "errada" }))).rejects.toMatchObject({ status: 401 });
+    const { insider, existingAccount } = await signupInsider(signup({ email: existing.user.email, password: "Senha#2026x" }));
+    expect(existingAccount).toBe(true);
+    expect(insider.userId).toBe(existing.user.id);
+
+    const weak = signup({ password: "abc" });
+    await expect(signupInsider(weak)).rejects.toMatchObject({ status: 422 });
+    expect(userStore.findByEmail(weak.email)).toBeUndefined();
+  });
+
+  it("pendente não aparece no catálogo e não pode ser reativado sem aprovação", async () => {
+    const { insider } = await signupInsider(signup());
+    await expect(import("@/lib/resenha/admin").then((m) => m.setInsiderActive(insider.id, true))).rejects.toMatchObject({ status: 409 });
   });
 });

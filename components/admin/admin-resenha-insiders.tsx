@@ -24,6 +24,7 @@ export function InsiderRegistry({
   onEdit,
   onReset,
   onToggle,
+  onDecide,
 }: {
   insiders: RegistryInsider[];
   busy: boolean;
@@ -31,7 +32,9 @@ export function InsiderRegistry({
   onEdit: (insider: RegistryInsider) => void;
   onReset: (insider: RegistryInsider) => void;
   onToggle: (insider: RegistryInsider) => void;
+  onDecide: (insider: RegistryInsider, decision: "approve" | "reject") => void;
 }) {
+  const pending = insiders.filter((i) => i.status === "pending");
   return (
     <section aria-labelledby="insiders-title" className="space-y-3 rounded-3xl border border-line p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -45,18 +48,49 @@ export function InsiderRegistry({
         </div>
         <Button onClick={onNew}>Cadastrar Insider</Button>
       </div>
-      {insiders.length === 0 ? (
-        <Notice>Nenhum Insider cadastrado ainda.</Notice>
+      {pending.length > 0 && (
+        <div className="space-y-2" role="region" aria-label="Cadastros aguardando aprovação">
+          <p className="text-[13px] font-medium text-ink">Aguardando aprovação ({pending.length})</p>
+          <ul className="space-y-2">
+            {pending.map((insider) => (
+              <li key={insider.id} className="flex flex-col gap-3 rounded-2xl bg-surface p-3 sm:flex-row sm:items-center">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <Avatar name={insider.name} src={insider.avatarUrl || null} size={48} />
+                  <div className="min-w-0">
+                    <p className="truncate text-[15px] font-medium text-ink">{insider.name}</p>
+                    <p className="truncate text-[13px] text-muted-foreground">
+                      {insider.handle ? `@${insider.handle} · ` : ""}
+                      {insider.email}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" onClick={() => onDecide(insider, "approve")} disabled={busy}>
+                    Aprovar
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => onDecide(insider, "reject")} disabled={busy}>
+                    Recusar
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {insiders.length === pending.length ? (
+        pending.length === 0 ? (
+          <Notice>Nenhum Insider cadastrado ainda.</Notice>
+        ) : null
       ) : (
         <ul className="space-y-2">
-          {insiders.map((insider) => (
+          {insiders.filter((i) => i.status !== "pending").map((insider) => (
             <li key={insider.id} className="flex flex-col gap-3 rounded-2xl bg-surface p-3 sm:flex-row sm:items-center">
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 <Avatar name={insider.name} src={insider.avatarUrl || null} size={48} />
                 <div className="min-w-0">
                   <p className="flex flex-wrap items-center gap-2 text-[15px] font-medium text-ink">
                     <span className="truncate">{insider.name}</span>
-                    {!insider.active && <Tag tone="warning">Desativado</Tag>}
+                    {insider.status === "rejected" ? <Tag tone="warning">Recusado</Tag> : !insider.active && <Tag tone="warning">Desativado</Tag>}
                   </p>
                   <p className="truncate text-[13px] text-muted-foreground">
                     {insider.handle ? `@${insider.handle} · ` : ""}
@@ -71,9 +105,15 @@ export function InsiderRegistry({
                 <Button size="sm" variant="secondary" onClick={() => onReset(insider)} disabled={busy}>
                   Nova senha
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => onToggle(insider)} disabled={busy}>
-                  {insider.active ? "Desativar" : "Reativar"}
-                </Button>
+                {insider.status === "rejected" ? (
+                  <Button size="sm" variant="ghost" onClick={() => onDecide(insider, "approve")} disabled={busy}>
+                    Aprovar
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="ghost" onClick={() => onToggle(insider)} disabled={busy}>
+                    {insider.active ? "Desativar" : "Reativar"}
+                  </Button>
+                )}
               </div>
             </li>
           ))}
@@ -97,7 +137,7 @@ export function InsiderProfileSheet({
   onClose: () => void;
   onSave: (payload: InsiderProfilePayload) => void;
 }) {
-  const [draft, setDraft] = useState<InsiderProfilePayload>({ mode: "create", name: insider?.name ?? "", handle: insider?.handle ? `@${insider.handle}` : "", avatarUrl: insider?.avatarUrl ?? "", email: insider?.email ?? "" });
+  const [draft, setDraft] = useState<InsiderProfilePayload>({ mode: "create", name: insider?.name ?? "", handle: insider?.handle ?? "", avatarUrl: insider?.avatarUrl ?? "", email: insider?.email ?? "" });
   const [photoError, setPhotoError] = useState<string | null>(null);
   const set = <K extends keyof InsiderProfilePayload>(key: K, value: InsiderProfilePayload[K]) => setDraft((prev) => ({ ...prev, [key]: value }));
   const upload = useImageUpload((url) => set("avatarUrl", url), setPhotoError);
@@ -134,7 +174,16 @@ export function InsiderProfileSheet({
           {photoError && <p className="mt-1.5 text-[13px] text-destructive">{photoError}</p>}
         </div>
         <Field label="Nome (aparece no catálogo)">{(id) => <Input id={id} value={draft.name} onChange={(e) => set("name", e.target.value)} maxLength={80} required />}</Field>
-        <Field label="@ do Instagram (aparece no catálogo)">{(id) => <Input id={id} autoCapitalize="none" placeholder="@usuario" value={draft.handle} onChange={(e) => set("handle", e.target.value)} />}</Field>
+        <Field label="@ do Instagram (aparece no catálogo)" hint="Sem o @: ele aparece como @usuario.">
+          {(id, describedBy) => (
+            <div className="flex items-center gap-2">
+              <span aria-hidden className="text-ink">
+                @
+              </span>
+              <Input id={id} aria-describedby={describedBy} autoCapitalize="none" autoCorrect="off" placeholder="usuario" value={draft.handle} onChange={(e) => set("handle", e.target.value.replace(/@/g, ""))} />
+            </div>
+          )}
+        </Field>
         {!insider && (
           <>
             <div className="sm:col-span-2">

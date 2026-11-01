@@ -1,7 +1,7 @@
 // Hello World
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { PrxLogo } from "@/components/brand/prx-logo";
 import { Button, Field, Input, Notice } from "@/components/app/ui";
 import { useMainSiteUrl } from "@/lib/site";
@@ -28,6 +28,8 @@ export function PanelLogin({
   emailPlaceholder,
   submitLabel,
   onSuccess,
+  footer,
+  children,
 }: PanelLoginProps & {
   endpoint: string;
   title: string;
@@ -36,6 +38,10 @@ export function PanelLogin({
   sideBody: string;
   emailPlaceholder: string;
   submitLabel: string;
+  /** Link extra abaixo do formulário (ex.: cadastro). */
+  footer?: ReactNode;
+  /** Substitui o formulário de entrada (ex.: formulário de cadastro). */
+  children?: ReactNode;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -91,7 +97,8 @@ export function PanelLogin({
             <p className="mt-3 text-[15px] text-muted-foreground">{description}</p>
           </div>
 
-          <form onSubmit={submit} className="space-y-5">
+          {children ?? (
+            <form onSubmit={submit} className="space-y-5">
             <Field label="E-mail">
               {(id) => (
                 <Input id={id} type="email" autoComplete="email" required value={email} placeholder={emailPlaceholder} onChange={(e) => setEmail(e.target.value)} />
@@ -105,6 +112,8 @@ export function PanelLogin({
               {loading ? "Entrando…" : submitLabel}
             </Button>
           </form>
+          )}
+          {footer}
 
           <a href={homeUrl} className="inline-flex min-h-12 cursor-pointer items-center text-sm text-muted-foreground underline-offset-4 hover:text-ink hover:underline">
             ← Voltar para o app PRX

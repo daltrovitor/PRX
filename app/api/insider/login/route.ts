@@ -6,7 +6,7 @@ import { PartnerError } from "@/lib/partners/errors";
 import { clientIp, errorResponse, readJson } from "@/lib/partners/http";
 import { verifyAccountPassword } from "@/lib/partners/access";
 import { findAccountByEmail, insiderForUser } from "@/lib/resenha/access";
-import { NOT_INSIDER } from "@/lib/resenha/session";
+import { insiderDenial } from "@/lib/resenha/session";
 
 /** Insider entra pelo celular: sessão de 7 dias, só neste subdomínio (cookie sem domínio). */
 const SESSION_SECONDS = 7 * 24 * 60 * 60;
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     const account = await findAccountByEmail(email);
     if (!account) throw new PartnerError("E-mail ou senha incorretos.", 401);
     const insider = await insiderForUser({ id: account.id, email });
-    if (!insider) throw new PartnerError(NOT_INSIDER, 403);
+    if (!insider) throw new PartnerError(await insiderDenial({ id: account.id, email }), 403);
 
     const token = createSessionToken(
       { id: account.id, email, fullName: insider.name, role: "user", passwordHash: "", salt: "", prxScore: 0, prxLevel: 1, avatarUrl: "", walletBalance: 0, emailConfirmed: true, createdAt: new Date().toISOString() },

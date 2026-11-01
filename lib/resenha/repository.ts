@@ -7,8 +7,8 @@ import { padNumber, type AccessRequest, type EditionInsider, type Insider, type 
 
 export type NewEdition = Omit<ResenhaEdition, "id" | "slug" | "createdAt" | "updatedAt">;
 export type EditionPatch = Partial<Pick<ResenhaEdition, "hostName" | "hostArticle" | "status">>;
-export type NewInsider = Omit<Insider, "id" | "createdAt">;
-export type InsiderPatch = Partial<Pick<Insider, "name" | "handle" | "avatarUrl" | "active">>;
+export type NewInsider = Omit<Insider, "id" | "createdAt" | "status"> & { status?: Insider["status"] };
+export type InsiderPatch = Partial<Pick<Insider, "name" | "handle" | "avatarUrl" | "active" | "status">>;
 export type NewParticipation = Omit<EditionInsider, "id" | "createdAt">;
 export type ParticipationPatch = Partial<Pick<EditionInsider, "kind" | "quota" | "active">>;
 export type NewRequest = Omit<AccessRequest, "id" | "createdAt" | "status" | "ticketId" | "decidedAt" | "decidedBy">;
@@ -107,7 +107,7 @@ class MemoryResenhaRepository implements ResenhaRepository {
   }
   async insertInsider(insider: NewInsider) {
     if (this.state.insiders.some((i) => i.email === insider.email || i.userId === insider.userId)) throw conflict("Este Insider já está cadastrado.");
-    const row: Insider = { ...insider, id: crypto.randomUUID(), createdAt: now() };
+    const row: Insider = { ...insider, status: insider.status ?? "approved", id: crypto.randomUUID(), createdAt: now() };
     this.state.insiders.push(row);
     return structuredClone(row);
   }
