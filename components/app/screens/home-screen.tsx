@@ -125,6 +125,8 @@ export function HomeScreen({ pass }: { pass: PassData }) {
           className="order-5 min-w-0 space-y-3 lg:order-3 lg:col-span-5 lg:flex lg:flex-col"
         >
           <ObsidianSectionHeader id="home-events" title="Próximos eventos" actionLabel="Ver todos" onAction={() => go("live")} />
+          {/* Resenha em destaque logo abaixo do título: festa por convite, à parte da agenda aberta. */}
+          <ResenhaHomeCard resenhas={resenhas} onOpen={() => go("live", "resenha")} />
           {upcoming.length === 0 ? (
             <div className="glass flex min-h-[112px] flex-1 items-center rounded-[24px] p-5 text-[14px] leading-relaxed text-muted-foreground">
               Novos eventos PRX LIVE aparecem aqui assim que forem anunciados.
@@ -176,11 +178,6 @@ export function HomeScreen({ pass }: { pass: PassData }) {
             ))}
           </ul>
         </motion.section>
-
-        {/* Resenha logo abaixo dos Módulos PRX (celular e desktop). */}
-        <motion.div initial="hidden" animate="show" custom={3} variants={reveal} className="order-4 min-w-0 lg:order-5 lg:col-span-12">
-          <ResenhaHomeCard resenhas={resenhas} onOpen={() => go("live", "resenha")} />
-        </motion.div>
 
         {/* Banner de parceiro (Destaque de imagem cadastrado no admin), logo abaixo dos eventos. */}
         {banners.length > 0 && (

@@ -27,11 +27,13 @@ export function ResenhaHomeCard({ resenhas, onOpen }: { resenhas: MemberResenhaV
     <button
       type="button"
       onClick={onOpen}
-      className="group relative flex w-full cursor-pointer flex-col gap-6 overflow-hidden rounded-3xl border border-white/10 bg-black p-6 text-left text-white transition-transform duration-300 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white sm:p-8"
-      aria-label={first ? `Resenha: convite de ${first.insiderName}. ${cta}` : `Resenha: só por convite. ${cta}`}
+      className="group relative flex w-full cursor-pointer flex-col overflow-hidden rounded-3xl border border-white/10 bg-black text-left text-white transition-transform duration-300 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+      aria-label={first ? `Resenha, evento exclusivo: convite de ${first.insiderName}. ${cta}` : `Resenha, evento exclusivo: só por convite. ${cta}`}
     >
-      <ResenhaLogo className="max-w-[420px]" priority />
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      {/* Arte oficial da edição (Resenha · 20/11 · Antonieta Club), já em fundo preto. */}
+      <Image src="/brand/resenha-banner.webp" alt="" width={2172} height={724} priority sizes="(min-width: 1024px) 40vw, 100vw" className="h-auto w-full" />
+      <span className="mx-5 mt-4 self-start rounded-md border border-white/25 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] sm:mx-6">Evento exclusivo</span>
+      <div className="flex flex-wrap items-end justify-between gap-4 p-5 pt-3 sm:p-6 sm:pt-3">
         {first ? (
           <div className="min-w-0 space-y-1">
             <p className="text-[13px] font-medium uppercase tracking-[0.14em] text-white/60">Convite de {first.insiderName}</p>
