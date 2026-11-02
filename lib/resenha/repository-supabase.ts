@@ -1,6 +1,6 @@
 // Hello World
 import type { supabaseAdmin } from "@/lib/supabase/client";
-import { dbError } from "@/lib/partners/errors";
+import { PartnerError, dbError, isMissingColumn } from "@/lib/partners/errors";
 import type {
   EditionPatch,
   InsiderPatch,
@@ -201,6 +201,8 @@ export class SupabaseResenhaRepository implements ResenhaRepository {
       .insert({ user_id: insider.userId, email: insider.email, name: insider.name, handle: insider.handle || null, active: insider.active, ...(insider.avatarUrl && { avatar_url: insider.avatarUrl }), ...(insider.status && insider.status !== "approved" && { status: insider.status }) })
       .select("*")
       .single();
+    // Colunas novas (foto, status do cadastro) ainda sem a migração aplicada.
+    if (error && isMissingColumn(error)) throw new PartnerError("O cadastro de Insiders ainda não foi liberado. Fale com a equipe PRX.", 503);
     if (error) throw dbError(error, "Não foi possível cadastrar o Insider");
     return mapInsider(data as InsiderRow);
   }
