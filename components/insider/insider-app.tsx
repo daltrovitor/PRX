@@ -5,6 +5,7 @@ import { useCallback, useState } from "react";
 import { PanelLogin } from "@/components/admin/admin-login";
 import { DashboardBackdrop, DashboardHeader } from "@/components/app/dashboard-header";
 import { Button, IconButton } from "@/components/app/ui";
+import { InsiderProfileCard } from "@/components/insider/insider-profile";
 import { InsiderSignupForm } from "@/components/insider/insider-signup";
 import { InsiderDashboard } from "@/components/insider/insider-dashboard";
 import { PrxLogo } from "@/components/brand/prx-logo";
@@ -96,6 +97,7 @@ export function InsiderApp({ initial }: { initial: InsiderAuthResult }) {
         name={auth.insider.name}
         subtitle={auth.insider.handle ? `@${auth.insider.handle}` : auth.insider.email}
         area="Insider"
+        avatarUrl={auth.insider.avatarUrl}
         actions={
           <>
             <ThemeToggle variant="app" />
@@ -107,6 +109,7 @@ export function InsiderApp({ initial }: { initial: InsiderAuthResult }) {
       />
       <main className="relative z-10 mx-auto max-w-3xl space-y-6 px-4 pb-20 pt-6 sm:px-6 lg:pt-10">
         <h1 className="sr-only">Portal do Insider</h1>
+        <InsiderProfileCard insider={auth.insider} onSaved={refresh} />
         <InsiderDashboard editions={auth.editions} onChanged={refresh} />
       </main>
     </div>

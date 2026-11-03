@@ -114,3 +114,7 @@ Em **insider.prx.app.br**, o botão **Quero ser Insider: cadastrar** abre o form
 - Aprovar não coloca o Insider em edição: isso continua em **Adicionar Insider** (cota de PASSes).
 - **Banco:** migração `20261101_prx_resenha_insiders_cadastro.sql` (`resenha_insiders.status`: pending/approved/rejected; os existentes ficam aprovados). Sem ela, o auto-cadastro falha ao salvar; o resto funciona.
 - Rota pública `POST /api/insider/signup` (5 envios por 10 min por IP); ação nova no admin: `decide_insider` (`approve` | `reject`).
+
+## Insider edita os próprios dados (desde 03/11/2026)
+
+No portal, o cartão **Seus dados** mostra foto, nome e @ (a foto cadastrada pelo admin também aparece no cabeçalho). **Editar meus dados** troca foto (ou remove), nome, @ e a senha (exige a senha atual e a regra forte). A foto nova também vira a foto de perfil do app. Rota: `PATCH /api/insider/profile`. O e-mail de login só o admin altera.

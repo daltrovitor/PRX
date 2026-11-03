@@ -16,7 +16,7 @@ import { insiderInputSchema, insiderProfileSchema, type Insider } from "@/lib/re
  * Insider. O cadastro nasce "pending" e só entra no portal depois que o admin aprova.
  */
 
-const PHOTO_PATTERN = /^data:(image\/(?:webp|jpeg|png));base64,([A-Za-z0-9+/=]+)$/;
+export const PHOTO_PATTERN = /^data:(image\/(?:webp|jpeg|png));base64,([A-Za-z0-9+/=]+)$/;
 
 export const insiderSignupSchema = z.object({
   name: insiderProfileSchema.shape.name,

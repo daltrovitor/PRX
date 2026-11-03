@@ -17,12 +17,15 @@ export function DashboardHeader({
   subtitle,
   area,
   actions,
+  avatarUrl,
 }: {
   name: string;
   subtitle?: string | null;
   /** Nome da área ao lado da marca ("Admin", nome do parceiro, "Conta Pai"). */
   area: string;
   actions: ReactNode;
+  /** Foto da pessoa (sem ela, as iniciais). */
+  avatarUrl?: string | null;
 }) {
   const first = (name || "").trim().split(/\s+/)[0] || "equipe";
   return (
@@ -38,7 +41,7 @@ export function DashboardHeader({
             <p className="ob-label truncate text-[11px] text-ink">Oi, {first}</p>
             {subtitle && <p className="mt-0.5 max-w-[240px] truncate text-[12px] text-muted-foreground">{subtitle}</p>}
           </div>
-          <Avatar name={name} size={40} className="hidden ring-1 ring-black/10 dark:ring-white/[0.18] min-[380px]:inline-flex" />
+          <Avatar name={name} src={avatarUrl} size={40} className="hidden ring-1 ring-black/10 dark:ring-white/[0.18] min-[380px]:inline-flex" />
           {actions}
         </div>
       </div>

@@ -1,10 +1,9 @@
 // Hello World
 "use client";
 
-import { useState, type ChangeEvent, type FormEvent } from "react";
-import { Avatar, Button, Field, Input, Notice } from "@/components/app/ui";
-import { IconUpload } from "@/components/icons/prx-icons";
-import { compressImageFile } from "@/lib/media/compression";
+import { useState, type FormEvent } from "react";
+import { Button, Field, Input, Notice } from "@/components/app/ui";
+import { PhotoPicker } from "@/components/insider/photo-picker";
 import { PASSWORD_HINT } from "@/lib/password-policy";
 
 interface SignupResponse {
@@ -12,14 +11,6 @@ interface SignupResponse {
   existingAccount?: boolean;
   error?: string;
 }
-
-const readAsDataUrl = (file: File) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 
 /** Cadastro do Insider no portal: foto, nome, @, e-mail e senha. Fica aguardando a aprovação da equipe PRX. */
 export function InsiderSignupForm({ onBack }: { onBack: () => void }) {
@@ -29,18 +20,6 @@ export function InsiderSignupForm({ onBack }: { onBack: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<{ existingAccount: boolean } | null>(null);
   const set = (key: keyof typeof draft, value: string) => setDraft((prev) => ({ ...prev, [key]: value }));
-
-  async function pickPhoto(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    setError(null);
-    try {
-      setPhoto(await readAsDataUrl(await compressImageFile(file, { maxWidth: 800, maxHeight: 800, quality: 0.82, minBytesToCompress: 0 })));
-    } catch {
-      setError("Não conseguimos ler esta imagem. Escolha outra foto.");
-    }
-  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -77,14 +56,15 @@ export function InsiderSignupForm({ onBack }: { onBack: () => void }) {
 
   return (
     <form onSubmit={submit} className="space-y-5">
-      <div className="flex items-center gap-4">
-        <Avatar name={draft.name || "Insider"} src={photo || null} size={64} />
-        <label className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-xl bg-surface px-4 text-sm text-ink transition-colors hover:bg-line has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring">
-          <IconUpload size={16} />
-          {photo ? "Trocar foto" : "Enviar foto"}
-          <input type="file" accept="image/*" className="sr-only" onChange={(e) => void pickPhoto(e)} />
-        </label>
-      </div>
+      <PhotoPicker
+        name={draft.name}
+        src={photo || null}
+        onPick={(url) => {
+          setError(null);
+          setPhoto(url);
+        }}
+        onError={setError}
+      />
       <Field label="Nome (aparece para os membros)">{(id) => <Input id={id} autoComplete="name" required maxLength={80} value={draft.name} onChange={(e) => set("name", e.target.value)} />}</Field>
       <Field label="Seu @ do Instagram" hint="Sem o @: ele aparece como @usuario.">
         {(id, describedBy) => (

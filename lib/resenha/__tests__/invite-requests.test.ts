@@ -17,6 +17,7 @@ import { insiderProfileSchema } from "@/lib/resenha/types";
 import { insiderForUser } from "@/lib/resenha/access";
 import { insiderDenial, INSIDER_PENDING, INSIDER_REJECTED } from "@/lib/resenha/session";
 import { insiderSignupSchema, signupInsider } from "@/lib/resenha/signup";
+import { insiderSelfEditSchema, updateOwnProfile } from "@/lib/resenha/profile";
 
 const DAY = 86_400_000;
 const PARTY = new Date(Date.now() + 14 * DAY).toISOString();
@@ -227,5 +228,34 @@ describe("auto-cadastro do Insider no portal", () => {
   it("pendente não aparece no catálogo e não pode ser reativado sem aprovação", async () => {
     const { insider } = await signupInsider(signup());
     await expect(import("@/lib/resenha/admin").then((m) => m.setInsiderActive(insider.id, true))).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe("Insider edita os próprios dados", () => {
+  const PIXEL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const edit = (over: Record<string, unknown> = {}) => insiderSelfEditSchema.parse({ name: "Edu Editado", handle: "@@EduEd", ...over });
+
+  it("foto posta pelo admin aparece no portal; editar troca nome, @ e foto (e a foto do perfil)", async () => {
+    const created = await createInsider({ mode: "create", email: `edu${uniq()}@exemplo.com`, name: "Edu Antigo", handle: "", avatarUrl: "https://exemplo.com/edu.webp" });
+    const user = userStore.findByEmail(created.insider.email)!;
+    expect(await insiderForUser(user)).toMatchObject({ avatarUrl: "https://exemplo.com/edu.webp" });
+
+    const updated = await updateOwnProfile(created.insider, edit({ photo: PIXEL }));
+    expect(updated).toMatchObject({ name: "Edu Editado", handle: "eduEd".toLowerCase() });
+    expect(updated.avatarUrl).toMatch(/^data:image\/webp;base64,/);
+    expect(userStore.findByEmail(created.insider.email)?.avatarUrl).toBe(updated.avatarUrl);
+
+    const removed = await updateOwnProfile(updated, edit({ removePhoto: true }));
+    expect(removed.avatarUrl).toBe("");
+  });
+
+  it("troca de senha exige a senha atual e respeita a regra forte", async () => {
+    const created = await createInsider({ mode: "create", email: `fer${uniq()}@exemplo.com`, name: "Fer Senha", handle: "", avatarUrl: "" });
+    const current = created.temporaryPassword!;
+    await expect(updateOwnProfile(created.insider, edit({ currentPassword: "errada", newPassword: "Nova#Senha2026" }))).rejects.toMatchObject({ status: 401 });
+    await expect(updateOwnProfile(created.insider, edit({ currentPassword: current, newPassword: "fraca" }))).rejects.toMatchObject({ status: 422 });
+    await updateOwnProfile(created.insider, edit({ currentPassword: current, newPassword: "Nova#Senha2026" }));
+    expect(await verifyAccountPassword(created.insider.email, current)).toBe(false);
+    expect(await verifyAccountPassword(created.insider.email, "Nova#Senha2026")).toBe(true);
   });
 });
