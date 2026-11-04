@@ -10,12 +10,15 @@ import { LIVE_STATUSES, SUBSCRIPTIONS_MIGRATION, type MemberSubscription, type P
  * colunas são simples, então um conversor camelCase ⇄ snake_case serve às
  * quatro tabelas. Memória no desenvolvimento e nos testes, com as mesmas
  * regras de unicidade (uma assinatura viva por pessoa e plano; pagamento
- * único pelo id do Asaas).
+ * único pelo id do provedor de pagamentos).
  */
 
 type Row = Record<string, unknown>;
-const snake = (k: string) => k.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
-const camel = (k: string) => k.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+/** Colunas históricas asaas_* guardam o id no provedor de pagamentos (nome mantido para não exigir migração). */
+const LEGACY_COLUMNS: Record<string, string> = { gatewayPaymentId: "asaas_payment_id", gatewaySubscriptionId: "asaas_subscription_id" };
+const LEGACY_FIELDS: Record<string, string> = Object.fromEntries(Object.entries(LEGACY_COLUMNS).map(([field, column]) => [column, field]));
+const snake = (k: string) => LEGACY_COLUMNS[k] ?? k.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+const camel = (k: string) => LEGACY_FIELDS[k] ?? k.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
 const NUMERIC = new Set(["price", "value"]);
 function toRow(data: Row): Row {
   const row: Row = {};
@@ -40,7 +43,7 @@ export interface SubscriptionsRepository {
 
   insertSubscription(s: NewSubscription): Promise<MemberSubscription>;
   getSubscription(id: string): Promise<MemberSubscription | null>;
-  findByAsaasId(asaasId: string): Promise<MemberSubscription | null>;
+  findByGatewayId(gatewayId: string): Promise<MemberSubscription | null>;
   updateSubscription(id: string, patch: SubscriptionPatch): Promise<MemberSubscription>;
   deleteSubscription(id: string): Promise<void>;
   listForUser(userId: string): Promise<MemberSubscription[]>;
@@ -110,9 +113,9 @@ function supabaseRepo(): SubscriptionsRepository {
       fail(error, "Não foi possível ler a assinatura");
       return data ? fromRow<MemberSubscription>(data as Row) : null;
     },
-    async findByAsaasId(asaasId) {
+    async findByGatewayId(gatewayId) {
       await need();
-      const { data, error } = await db.from("member_subscriptions").select("*").eq("asaas_subscription_id", asaasId).maybeSingle();
+      const { data, error } = await db.from("member_subscriptions").select("*").eq("asaas_subscription_id", gatewayId).maybeSingle();
       fail(error, "Não foi possível ler a assinatura");
       return data ? fromRow<MemberSubscription>(data as Row) : null;
     },
@@ -151,7 +154,7 @@ function supabaseRepo(): SubscriptionsRepository {
     },
     async upsertPayment(p) {
       await need();
-      const before = await db.from("subscription_payments").select("status").eq("asaas_payment_id", p.asaasPaymentId).maybeSingle();
+      const before = await db.from("subscription_payments").select("status").eq("asaas_payment_id", p.gatewayPaymentId).maybeSingle();
       fail(before.error, "Não foi possível ler o pagamento");
       const { data, error } = await db
         .from("subscription_payments")
@@ -224,8 +227,8 @@ const memoryRepo: SubscriptionsRepository = {
   async getSubscription(id) {
     return clone(state().subs.find((s) => s.id === id) ?? null);
   },
-  async findByAsaasId(asaasId) {
-    return clone(state().subs.find((s) => s.asaasSubscriptionId === asaasId) ?? null);
+  async findByGatewayId(gatewayId) {
+    return clone(state().subs.find((s) => s.gatewaySubscriptionId === gatewayId) ?? null);
   },
   async updateSubscription(id, patch) {
     const found = state().subs.find((s) => s.id === id);
@@ -250,7 +253,7 @@ const memoryRepo: SubscriptionsRepository = {
   },
   async upsertPayment(p) {
     const s = state();
-    const found = s.payments.find((x) => x.asaasPaymentId === p.asaasPaymentId);
+    const found = s.payments.find((x) => x.gatewayPaymentId === p.gatewayPaymentId);
     if (found) {
       const previousStatus = found.status;
       Object.assign(found, clone(p));

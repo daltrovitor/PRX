@@ -16,8 +16,8 @@ export { ORDER_STATUSES, ORDER_STATUS_LABEL, type LiveOrder, type OrderStatus };
 
 export const CHECKOUT_MIGRATION = "20261016_prx_checkout.sql";
 
-export type NewOrder = Omit<LiveOrder, "id" | "createdAt" | "updatedAt" | "paidAt" | "reviewNote" | "asaasPaymentId" | "invoiceUrl">;
-export type OrderPatch = Partial<Pick<LiveOrder, "status" | "asaasPaymentId" | "invoiceUrl" | "paidAt" | "reviewNote">>;
+export type NewOrder = Omit<LiveOrder, "id" | "createdAt" | "updatedAt" | "paidAt" | "reviewNote" | "gatewayPaymentId" | "invoiceUrl">;
+export type OrderPatch = Partial<Pick<LiveOrder, "status" | "gatewayPaymentId" | "invoiceUrl" | "paidAt" | "reviewNote">>;
 
 export interface OrdersRepository {
   insert(order: NewOrder): Promise<LiveOrder>;
@@ -43,7 +43,7 @@ const map = (r: Row): LiveOrder => ({
   discounts: (r.discounts as AppliedDiscount[]) ?? [],
   status: r.status as OrderStatus,
   environment: r.environment as LiveOrder["environment"],
-  asaasPaymentId: (r.asaas_payment_id as string | null) ?? null,
+  gatewayPaymentId: (r.asaas_payment_id as string | null) ?? null,
   invoiceUrl: (r.invoice_url as string | null) ?? null,
   paidAt: (r.paid_at as string | null) ?? null,
   reviewNote: String(r.review_note ?? ""),
@@ -53,7 +53,7 @@ const map = (r: Row): LiveOrder => ({
 const patchRow = (p: OrderPatch): Row => {
   const row: Row = { updated_at: new Date().toISOString() };
   if (p.status !== undefined) row.status = p.status;
-  if (p.asaasPaymentId !== undefined) row.asaas_payment_id = p.asaasPaymentId;
+  if (p.gatewayPaymentId !== undefined) row.asaas_payment_id = p.gatewayPaymentId;
   if (p.invoiceUrl !== undefined) row.invoice_url = p.invoiceUrl;
   if (p.paidAt !== undefined) row.paid_at = p.paidAt;
   if (p.reviewNote !== undefined) row.review_note = p.reviewNote.slice(0, 500);
@@ -138,7 +138,7 @@ const memoryRepo: OrdersRepository = {
   async insert(o) {
     if (o.status === "awaiting_payment" && memory().some((x) => x.ticketId === o.ticketId && x.status === "awaiting_payment")) throw new PartnerError("Já existe um pagamento em aberto para este ingresso.", 409);
     const now = new Date().toISOString();
-    const created: LiveOrder = { ...clone(o), id: crypto.randomUUID(), asaasPaymentId: null, invoiceUrl: null, paidAt: null, reviewNote: "", createdAt: now, updatedAt: now };
+    const created: LiveOrder = { ...clone(o), id: crypto.randomUUID(), gatewayPaymentId: null, invoiceUrl: null, paidAt: null, reviewNote: "", createdAt: now, updatedAt: now };
     memory().push(created);
     return clone(created);
   },

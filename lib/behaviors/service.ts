@@ -1,12 +1,8 @@
 // Hello World
 import { PartnerError } from "@/lib/partners/errors";
-import { readAsaasConfig, type AsaasEnvironment } from "@/lib/asaas/config";
-import { asaasEnabled } from "@/lib/asaas/client";
-import { getAsaasBankStore } from "@/lib/bank/asaas/store";
-import type { AsaasBankStore, Subaccount } from "@/lib/bank/asaas/types";
 import { getWalletRepository } from "@/lib/points/repository";
 import { getBehaviorsRepository } from "@/lib/behaviors/repository";
-import { evaluateBehavior, evaluationWindow } from "@/lib/behaviors/engine";
+import { evaluateBehavior, evaluationWindow, type OutgoingPayment } from "@/lib/behaviors/engine";
 import { companyInputSchema, ruleInputSchema, type BehaviorCompany, type BehaviorEvaluation, type BehaviorResult, type BehaviorRule, type CompanyInput, type ImportRun } from "@/lib/behaviors/types";
 
 /**
@@ -107,22 +103,21 @@ async function targetCompanies(rule: BehaviorRule): Promise<BehaviorCompany[]> {
 /* Avaliação                                                                   */
 /* -------------------------------------------------------------------------- */
 
+/** Onde a avaliação lê as contas PRX BANK e os pagamentos feitos por elas (vem do banco parceiro). */
 export interface EvaluationDeps {
-  store: AsaasBankStore;
-  environment: AsaasEnvironment;
+  /** Contas PRX BANK deste ambiente; activeSince = desde quando estão ativas (null = ainda não ativa). */
+  listAccounts(limit: number): Promise<Array<{ userId: string; activeSince: string | null }>>;
+  /** Pix e contas pagos pela conta do membro e concluídos no período. */
+  listPayments(userId: string, startIso: string, endIso: string): Promise<OutgoingPayment[]>;
   now: () => Date;
 }
 
-/** Banco parceiro deste deploy. null quando o Asaas está desligado (não há dado verificável). */
+/**
+ * Fonte dos pagamentos deste deploy. null enquanto nenhum banco parceiro estiver ligado:
+ * sem dado verificável, as regras ficam "não verificável". Ponto de ligação do provedor novo.
+ */
 export function evaluationDeps(): EvaluationDeps | null {
-  const config = readAsaasConfig();
-  return config && asaasEnabled() ? { store: getAsaasBankStore(), environment: config.environment, now: () => new Date() } : null;
-}
-
-/** Desde quando a conta está aprovada pelo banco (conservador: a última mudança de situação). */
-export function activeSince(sub: Subaccount | null): string | null {
-  if (!sub || sub.status !== "active") return null;
-  return sub.statusUpdatedAt ?? sub.accountCreatedAt ?? sub.createdAt;
+  return null;
 }
 
 /** Credita coins/XP de comportamento positivo identificado (uma vez por avaliação). */
@@ -134,12 +129,11 @@ async function applyReward(rule: BehaviorRule, ev: BehaviorEvaluation): Promise<
 }
 
 /** Avalia uma pessoa numa regra (idempotente por dia). */
-export async function evaluateMember(rule: BehaviorRule, sub: Subaccount | null, userId: string, deps: EvaluationDeps, companies?: BehaviorCompany[]): Promise<BehaviorEvaluation | null> {
+export async function evaluateMember(rule: BehaviorRule, activeSince: string | null, userId: string, deps: EvaluationDeps, companies?: BehaviorCompany[]): Promise<BehaviorEvaluation | null> {
   const window = evaluationWindow(rule, deps.now());
   if (!window) return null;
-  const since = activeSince(sub);
-  const payments = since ? await deps.store.listDoneOutgoing(userId, window.start, window.end) : [];
-  const outcome = evaluateBehavior({ rule, companies: companies ?? (await targetCompanies(rule)), payments, accountActiveSince: since, periodStart: window.start, periodEnd: window.end });
+  const payments = activeSince ? await deps.listPayments(userId, window.start, window.end) : [];
+  const outcome = evaluateBehavior({ rule, companies: companies ?? (await targetCompanies(rule)), payments, accountActiveSince: activeSince, periodStart: window.start, periodEnd: window.end });
   const { evaluation, created } = await repo().insertEvaluation({
     ruleId: rule.id,
     userId,
@@ -161,10 +155,10 @@ export async function evaluateRule(ruleId: string, deps: EvaluationDeps | null, 
   if (!deps) return { evaluated: 0, identified: 0, review: 0, unverifiable: 0, skipped: "Banco parceiro desligado neste ambiente: não há pagamentos verificáveis." };
   if (rule.status !== "active") return { evaluated: 0, identified: 0, review: 0, unverifiable: 0, skipped: "Ative a regra para avaliar." };
   const companies = await targetCompanies(rule);
-  const subs = (await deps.store.listSubaccounts(deps.environment, limit)).filter((s) => s.asaasAccountId);
+  const accounts = await deps.listAccounts(limit);
   const totals = { evaluated: 0, identified: 0, review: 0, unverifiable: 0, skipped: null as string | null };
-  for (const sub of subs) {
-    const ev = await evaluateMember(rule, sub, sub.userId, deps, companies);
+  for (const account of accounts) {
+    const ev = await evaluateMember(rule, account.activeSince, account.userId, deps, companies);
     if (!ev) continue;
     totals.evaluated += 1;
     if (ev.status === "under_review") totals.review += 1;

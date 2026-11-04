@@ -415,59 +415,6 @@ export const INITIAL_BENEFITS: Benefit[] = [];
 export const INITIAL_VOUCHERS: UserVoucher[] = [];
 export const PASS_MISSIONS: PassMission[] = [];
 
-/**
- * Serializa metadados da missão (tipo de verificação, vertical e ação) dentro da descrição
- * para persistência segura no Supabase sem depender de alterações no schema da tabela.
- */
-export function encodeMissionDescription(
-  rawDescription: string,
-  meta: {
-    verificationType?: MissionVerificationType;
-    category?: string;
-    targetAction?: string;
-  }
-): string {
-  const cleanDesc = (rawDescription || "").replace(/\n?<!--(?:nxt|prx)-meta:[\s\S]*?-->$/, "").trim();
-  const metaObj: Record<string, string> = {};
-  if (meta.verificationType) metaObj.verificationType = meta.verificationType;
-  if (meta.category) metaObj.category = meta.category;
-  if (meta.targetAction) metaObj.targetAction = meta.targetAction;
-
-  if (Object.keys(metaObj).length === 0) return cleanDesc;
-  return `${cleanDesc}\n<!--prx-meta:${JSON.stringify(metaObj)}-->`;
-}
-
-/**
- * Faz o parse da descrição com metadados opcionais. Retorna a descrição limpa
- * e os metadados extraídos.
- */
-export function parseMissionDescription(descWithMeta?: string): {
-  cleanDescription: string;
-  verificationType?: MissionVerificationType;
-  category?: string;
-  targetAction?: string;
-} {
-  if (!descWithMeta) return { cleanDescription: "" };
-  // \x3c e \x3e são "<" e ">": escritos assim para os analisadores estáticos lerem o regex (e não um comentário HTML).
-  const match = descWithMeta.match(/\x3c!--(?:nxt|prx)-meta:(.*?)--\x3e/);
-  if (!match) {
-    return { cleanDescription: descWithMeta.trim() };
-  }
-  // "nxt-meta" is the legacy marker still stored in rows created before the PRX rebrand.
-  const cleanDescription = descWithMeta.replace(/\n?\x3c!--(?:nxt|prx)-meta:.*?--\x3e/g, "").trim();
-  try {
-    const parsed = JSON.parse(match[1]);
-    return {
-      cleanDescription,
-      verificationType: parsed.verificationType,
-      category: parsed.category,
-      targetAction: parsed.targetAction,
-    };
-  } catch {
-    return { cleanDescription };
-  }
-}
-
 
 /*
  * Régua do PRX SCORE: níveis infinitos por uma curva contínua.

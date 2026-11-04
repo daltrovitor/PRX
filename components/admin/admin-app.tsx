@@ -12,7 +12,6 @@ import { AdminEventsTab } from "@/components/admin/admin-events-tab";
 import { AdminFoundersTab } from "@/components/admin/admin-founders-tab";
 import { AdminStaffTab } from "@/components/admin/admin-staff-tab";
 import { AdminFinanceTab } from "@/components/admin/admin-finance-tab";
-import { AdminBankStatus } from "@/components/admin/admin-bank-status";
 import { AdminResenhaTab } from "@/components/admin/admin-resenha-tab";
 import { AdminPointsTab } from "@/components/admin/admin-points-tab";
 import { AdminReelsTab } from "@/components/admin/admin-reels-tab";
@@ -20,7 +19,6 @@ import { AdminFamilyTab } from "@/components/admin/admin-family-tab";
 import { AdminWaitlistTab } from "@/components/admin/admin-waitlist-tab";
 import { AdminLegalTab } from "@/components/admin/admin-legal-tab";
 import { AdminNotificationsTab } from "@/components/admin/admin-notifications-tab";
-import { AdminAsaasTab } from "@/components/admin/admin-asaas-tab";
 import { AdminIdentityTab } from "@/components/admin/admin-identity-tab";
 import { AdminBankAccessTab } from "@/components/admin/admin-bank-access-tab";
 import { AdminBehaviorsTab } from "@/components/admin/admin-behaviors-tab";
@@ -81,7 +79,6 @@ type TabKey =
   | "audit"
   | "validations"
   | "notifications"
-  | "asaas"
   | "identity"
   | "bankAccess"
   | "behaviors"
@@ -159,7 +156,6 @@ const MODULES: ReadonlyArray<{ key: ModuleKey; label: string; tabs: ReadonlyArra
     tabs: [
       { key: "identity", label: "Identidade" },
       { key: "bankAccess", label: "Liberação +29" },
-      { key: "asaas", label: "Asaas" },
     ],
   },
   {
@@ -437,7 +433,6 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
                 onDraftConsumed={() => setBenefitDraft(null)}
               />
             )}
-            {tab === "finance" && <AdminBankStatus />}
             {tab === "finance" && (
               <AdminFinanceTab
                 economy={economy}
@@ -459,7 +454,6 @@ export function AdminApp({ initialAdmin }: { initialAdmin: AdminIdentity | null 
             {tab === "waitlist" && <AdminWaitlistTab onCount={setWaitlistCount} />}
             {tab === "legal" && <AdminLegalTab onMetrics={onLegalMetrics} />}
             {tab === "notifications" && <AdminNotificationsTab />}
-            {tab === "asaas" && <AdminAsaasTab />}
             {tab === "identity" && <AdminIdentityTab />}
             {tab === "bankAccess" && <AdminBankAccessTab />}
             {tab === "behaviors" && <AdminBehaviorsTab />}

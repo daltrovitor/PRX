@@ -26,7 +26,7 @@ export interface LiveOrder {
   discounts: AppliedDiscount[];
   status: OrderStatus;
   environment: "sandbox" | "production";
-  asaasPaymentId: string | null;
+  gatewayPaymentId: string | null;
   invoiceUrl: string | null;
   paidAt: string | null;
   reviewNote: string;

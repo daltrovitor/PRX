@@ -20,18 +20,6 @@ export function ageRatingLabel(minAge: number | null): string {
   return `${minAge}+`;
 }
 
-export function ageRatingSentence(minAge: number | null): string {
-  if (minAge === null) return "A classificação etária deste evento ainda não foi definida.";
-  if (minAge === 0) return "Classificação livre.";
-  if (minAge >= 18) return `Proibida a entrada de menores de ${minAge} anos.`;
-  return `Classificação: ${minAge} anos (menores de 18 anos exigem liberação do responsável legal).`;
-}
-
-export function isMinorOn(birthDate: string, referenceDate: Date | string = new Date()): boolean {
-  const ref = typeof referenceDate === "string" ? new Date(referenceDate) : referenceDate;
-  return ageOn(birthDate, ref) < 18;
-}
-
 export type AgeCheck =
   | { ok: true; isMinor: boolean; requiresParentEmail: boolean }
   | { ok: false; code: "BIRTH_DATE_REQUIRED" | "UNDER_AGE"; reason: string };

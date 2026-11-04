@@ -51,8 +51,8 @@ describe("conta PRX BANK aberta e funcionando", () => {
     expect(await bankAccountIsActive(id)).toBe(true);
   });
 
-  it("em produção com o Asaas, conta ativa sem vínculo com a subconta é resto de sandbox e não conta", async () => {
-    vi.stubEnv("ASAAS_ENVIRONMENT", "production");
+  it("em produção, conta ativa sem vínculo com o banco parceiro é resto de sandbox e não conta", async () => {
+    vi.stubEnv("BANK_ENVIRONMENT", "production");
     const id = newUser();
     sandboxActivate(id);
     expect(await bankAccountIsActive(id)).toBe(false);

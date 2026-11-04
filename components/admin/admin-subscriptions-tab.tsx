@@ -7,7 +7,7 @@ import { useConfirmToast } from "@/components/ui/confirm-toast";
 import { Pager, formatDateTimeBr } from "@/components/admin/pager";
 import { AdminPlanForm } from "@/components/admin/admin-plan-form";
 import { adminGet, adminPost, errorText } from "@/components/admin/admin-api";
-import { BILLING_TYPE_LABEL, CYCLE_LABEL } from "@/lib/asaas/billing";
+import { BILLING_TYPE_LABEL, CYCLE_LABEL } from "@/lib/billing/gateway";
 import { PLAN_STATUS_LABEL, SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS_LABEL, type MemberSubscription, type SubscriptionEvent, type SubscriptionPayment, type SubscriptionPlan } from "@/lib/subscriptions/types";
 
 type Sub = MemberSubscription & { memberName: string; memberEmail: string };
@@ -15,8 +15,8 @@ const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", curren
 
 /**
  * Assinaturas: planos criados aqui (nada fixo no código) e os assinantes, com
- * pagamentos e histórico. "Conferir no Asaas" corrige divergências quando um
- * aviso do Asaas se perdeu.
+ * pagamentos e histórico. "Conferir no provedor de pagamentos" corrige divergências quando um
+ * aviso do provedor de pagamentos se perdeu.
  */
 export function AdminSubscriptionsTab({ view }: { view: "plans" | "subscribers" }) {
   const { confirmDelete, showToast } = useConfirmToast();
@@ -72,7 +72,7 @@ export function AdminSubscriptionsTab({ view }: { view: "plans" | "subscribers" 
   return (
     <section aria-label={view === "plans" ? "Planos de assinatura" : "Assinantes"} className="space-y-6">
       {error && <Notice tone="error">{error}</Notice>}
-      {data && !data.paymentsOnline && <Notice tone="warning">Pagamentos desligados neste ambiente (Asaas sem chave): dá para criar planos, mas ninguém consegue assinar.</Notice>}
+      {data && !data.paymentsOnline && <Notice tone="warning">Pagamentos desligados neste ambiente (provedor sem chave): dá para criar planos, mas ninguém consegue assinar.</Notice>}
 
       {view === "plans" ? (
         <>
@@ -190,8 +190,8 @@ export function AdminSubscriptionsTab({ view }: { view: "plans" | "subscribers" 
               {detail.subscription.currentPeriodEnd ? ` · pago até ${formatDateTimeBr(detail.subscription.currentPeriodEnd)}` : ""}
             </p>
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="secondary" onClick={() => void act({ action: "sync", id: detail.subscription.id }, "Assinatura conferida com o Asaas.")}>
-                Conferir no Asaas
+              <Button size="sm" variant="secondary" onClick={() => void act({ action: "sync", id: detail.subscription.id }, "Assinatura conferida com o provedor.")}>
+                Conferir no provedor de pagamentos
               </Button>
             </div>
             <div className="space-y-2">
@@ -231,7 +231,7 @@ export function AdminSubscriptionsTab({ view }: { view: "plans" | "subscribers" 
                 <Button
                   variant="danger"
                   onClick={async () => {
-                    if (await confirmDelete({ title: "Cancelar assinatura", message: "Cancelar as próximas cobranças desta pessoa no Asaas?", confirmText: "Cancelar assinatura", type: "danger" }))
+                    if (await confirmDelete({ title: "Cancelar assinatura", message: "Cancelar as próximas cobranças desta pessoa no provedor de pagamentos?", confirmText: "Cancelar assinatura", type: "danger" }))
                       await act({ action: "cancel", id: detail.subscription.id, reason }, "Assinatura cancelada.");
                   }}
                 >

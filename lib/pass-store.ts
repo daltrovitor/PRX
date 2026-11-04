@@ -2,11 +2,6 @@ import {
   Benefit,
   UserVoucher,
   PassMission,
-  INITIAL_BENEFITS,
-  INITIAL_VOUCHERS,
-  PASS_MISSIONS,
-  PDF_MISSION_TEMPLATES,
-  ReferralInfo,
   ReferralRecord,
 } from "./pass-data";
 

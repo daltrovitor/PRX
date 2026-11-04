@@ -4,7 +4,7 @@ import { getLiveRepository } from "@/lib/live/repository";
 import { ticketsWithExpiry, toPublicEvent, type PublicEvent } from "@/lib/live/service";
 import { isRealActiveTicket } from "@/lib/live/rules";
 import type { LiveEvent, TicketStatus } from "@/lib/live/types";
-import { findMemberByCode, findMemberById, searchMembers, type MemberMatch } from "@/lib/members/member-code";
+import { findMemberByCode, searchMembers, type MemberMatch } from "@/lib/members/member-code";
 import { sendPushToUser } from "@/lib/push/send";
 import { getResenhaRepository } from "@/lib/resenha/repository";
 import { getInvite, insertInvite, listInvites, revokeInvite, type InviteStatus, type MemberInvite } from "@/lib/resenha/invites-repository";
@@ -168,9 +168,4 @@ export async function memberResenhas(userId: string): Promise<MemberResenhaView[
     })
   );
   return views.filter((v): v is MemberResenhaView => v !== null).sort((a, b) => a.event.startsAt.localeCompare(b.event.startsAt));
-}
-
-/** Nome do membro para a tela do Insider (convite feito pelo id interno, ex.: testes). */
-export async function memberLabel(userId: string): Promise<string> {
-  return (await findMemberById(userId))?.name ?? "Membro PRX";
 }

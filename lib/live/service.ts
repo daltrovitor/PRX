@@ -24,7 +24,6 @@ import { buyerBirthDate, confirmBuyerBirthDate } from "@/lib/live/buyer";
 import { getFamilyRepository } from "@/lib/family/repository";
 import { isValidCpf } from "@/lib/prx/pix";
 import { ageOn, maskCpf } from "@/lib/family/age";
-import { assertCpfMatchesBirth } from "@/lib/cpf/verify";
 import { activeConsentDocument, documentHash, type ConsentDocument } from "@/lib/live/consent-documents";
 import { checkRateLimit } from "@/lib/security";
 import { maskEmail } from "@/lib/notifications/format";
@@ -743,8 +742,6 @@ export async function respondGuardianAuthorization(
     if (ageOn(birth) < 18) throw new PartnerError("A liberação precisa ser feita por um responsável maior de idade.", 422);
     if (rawCpf === (await accountCpf(ticket.userId))) throw new PartnerError("O CPF do responsável precisa ser diferente do CPF do menor.", 422);
     if (input.consentAccepted !== true) throw new PartnerError("Leia e aceite o termo para liberar.", 422);
-    // Receita (Serpro), quando configurada: CPF e nascimento precisam bater. Sem Serpro, fica registrado como autodeclarado.
-    const check = await assertCpfMatchesBirth(rawCpf, birth, "guardian_consent");
     const doc = await activeConsentDocument();
 
     updatedConsent = {
@@ -758,7 +755,7 @@ export async function respondGuardianAuthorization(
       ip: meta.ip ?? null,
       userAgent: meta.userAgent ?? null,
       guardianBirthDate: birth,
-      identityCheck: check === "verified" ? "receita" : "autodeclarado",
+      identityCheck: "autodeclarado",
       documentVersion: doc.version,
       documentHash: documentHash(doc),
       documentLegalStatus: doc.legalStatus,

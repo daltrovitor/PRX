@@ -1,12 +1,11 @@
 // Hello World
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { PartnerError, dbError, isMissingTable } from "@/lib/partners/errors";
-import { createBillingCustomer, findCustomerByReference } from "@/lib/asaas/billing";
-import type { AsaasClient } from "@/lib/asaas/client";
+import type { PaymentGateway } from "@/lib/billing/gateway";
 import { isValidCpf } from "@/lib/prx/pix";
 
 /**
- * Cliente do membro na conta principal do Asaas (cobranças da PRX). Um por
+ * Cliente do membro na conta principal do provedor de pagamentos (cobranças da PRX). Um por
  * pessoa e ambiente: antes de criar, procura pela referência externa
  * "prx:<id>" (uma tentativa anterior pode ter criado sem a PRX saber). Nunca
  * cria cliente a cada visita.
@@ -41,18 +40,18 @@ async function remember(userId: string, environment: string, customerId: string)
   if (error) throw dbError(error, "Não foi possível salvar o cliente de cobrança");
 }
 
-export async function ensureBillingCustomer(payer: Payer, client: AsaasClient): Promise<string> {
-  const env = client.environment;
+export async function ensureBillingCustomer(payer: Payer, gateway: PaymentGateway): Promise<string> {
+  const env = gateway.environment;
   const known = await saved(payer.id, env);
   if (known) return known;
   const cpf = (payer.cpf ?? "").replace(/\D/g, "");
   if (!isValidCpf(cpf)) throw new PartnerError(CPF_REQUIRED_FOR_BILLING, 409);
   const reference = `prx:${payer.id}`;
-  const existing = await findCustomerByReference(client, reference);
+  const existing = await gateway.findCustomerByReference(reference);
   const id =
     existing ??
     (
-      await createBillingCustomer(client, {
+      await gateway.createCustomer({
         name: payer.fullName || payer.email,
         cpfCnpj: cpf,
         email: payer.email,

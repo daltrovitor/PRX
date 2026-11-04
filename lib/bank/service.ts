@@ -2,7 +2,6 @@
 import crypto from "crypto";
 import { z } from "zod";
 import { PartnerError } from "@/lib/partners/errors";
-import { errorMessage } from "@/lib/errors";
 import { getBankRepository, isSandboxMode, repoSendPix, sandboxActivate, sandboxCategorize, usesSupabaseBank } from "@/lib/bank/repository";
 import { ACTIVATION_REQUIRED, MAX_PIX_KEYS, type BankAccountView, type PixCharge, type PixKey } from "@/lib/prx/bank";
 import { detectPixKeyType, isValidCpf } from "@/lib/prx/pix";
@@ -10,11 +9,8 @@ import { DEMO_ACCOUNTS_ENABLED } from "@/lib/server-secrets";
 import { processPartnerPixTransfer, type PartnerPixResult } from "@/lib/points/service";
 import { assertCanHoldMoney, assertMinorSpend } from "@/lib/family/guards";
 import { assertBankKycApproved, bankKycState } from "@/lib/kyc/guards";
-import { asaasActiveFor, asaasDeps } from "@/lib/bank/asaas/deps";
-import { providerSnapshot } from "@/lib/bank/asaas/view";
 import { bankActivation } from "@/lib/bank/activation";
-import { createProviderCharge, createProviderPixKey, removeProviderPixKey } from "@/lib/bank/asaas/cash-in";
-import { assertNightLimit } from "@/lib/bank/asaas/limits";
+import { assertNightLimit } from "@/lib/bank/limits";
 
 /**
  * Regras do PRX BANK antes da ativação do banco parceiro: a conta existe,
@@ -39,48 +35,34 @@ export function sandboxEnabled(userId?: string): boolean {
 export async function accountView(userId: string): Promise<BankAccountView> {
   const repo = getBankRepository(userId);
   let account = await repo.getOrCreateAccount(userId);
-  const isAsaas = asaasActiveFor(userId);
-
-  if (isAsaas) {
-    try {
-      // A abertura só segue ao Asaas depois da aprovação da PRX (admin) ou quando o membro toca em
-      // "Abrir conta": dados e documentos antigos (às vezes de teste) nunca vão sozinhos ao banco parceiro.
-      const deps = asaasDeps();
-      const { reconcileLegacyAccount } = await import("@/lib/bank/asaas/legacy");
-      if (await reconcileLegacyAccount(userId, account, deps)) account = await repo.getOrCreateAccount(userId);
-    } catch (err) {
-      console.warn("[bank] Aviso ao sincronizar Asaas no accountView:", errorMessage(err));
-    }
-  }
   const kyc = await bankKycState(userId);
 
-  const isSandbox = !isAsaas && sandboxEnabled(userId);
-  // Conta real sem o banco parceiro ligado: o que estiver no espelho veio do sandbox (saldo fictício).
-  const preActivation = !isAsaas && !isSandbox && usesSupabaseBank(userId);
+  const isSandbox = sandboxEnabled(userId);
+  // Conta real sem banco parceiro: o que estiver no espelho veio do sandbox (saldo fictício).
+  const preActivation = !isSandbox && usesSupabaseBank(userId);
   if (preActivation && account.status === "active") {
     account = { ...account, status: "pending_activation", balance: 0, agency: null, accountNumber: null, activatedAt: null, virtualCard: null };
   }
-  const [rawTransactions, localKeys, cardRequest, rawCharges, live] = await Promise.all([
+  const [rawTransactions, pixKeys, cardRequest, rawCharges] = await Promise.all([
     repo.listTransactions(userId, 200),
     repo.listPixKeys(userId),
     repo.getOpenCardRequest(userId),
     repo.listCharges(userId, 20),
-    isAsaas ? providerSnapshot(userId) : Promise.resolve(null),
   ]);
   const transactions = preActivation ? [] : rawTransactions;
   const charges = preActivation ? [] : rawCharges;
 
-  // Com o Asaas, só valem as chaves registradas no Pix pela subconta (as locais são do sandbox).
-  const pixKeys = isAsaas ? (live?.pixKeys ?? []) : localKeys;
-  const provider = isAsaas ? (live?.provider ?? null) : null;
-  const status = isSandbox && account.status === "pending_activation" ? "active" : (live?.provider?.state === "active" ? "active" : account.status);
+  // Sem banco parceiro ligado, a conta só fica ativa no sandbox. Ao ligar um provedor, devolva aqui o
+  // BankProviderView dele (estado da conta, saldo e chaves oficiais) e passe bankOnline: true.
+  const provider: BankAccountView["provider"] = null;
+  const status = isSandbox && account.status === "pending_activation" ? "active" : account.status;
   const virtualCard = account.virtualCard ?? (isSandbox ? { last4: "4242", expiry: "12/30", locked: false } : null);
   const kycState = isSandbox && kyc.status !== "approved" ? { ...kyc, status: "approved" as const } : kyc;
-  const activation = bankActivation({ kyc: kycState.status, bankOnline: isAsaas, sandbox: isSandbox, provider: provider?.state ?? null, accountStatus: status });
+  const activation = bankActivation({ kyc: kycState.status, bankOnline: false, sandbox: isSandbox, provider: null, accountStatus: status });
 
   return {
     status,
-    balance: live?.balance ?? account.balance,
+    balance: account.balance,
     agency: account.agency || (isSandbox ? "0001" : null),
     accountNumber: account.accountNumber || (isSandbox ? `1000${userId.replace(/\D/g, "").slice(-4) || "0101"}` : null),
     activatedAt: account.activatedAt || (isSandbox ? new Date().toISOString() : null),
@@ -119,8 +101,6 @@ export async function sendPix(userId: string, input: z.output<typeof sendPixSche
   // Defesa em profundidade: movimentação só com abertura aprovada e conta ativa.
   await assertBankKycApproved(userId);
   await assertAccountActive(userId);
-  // Com o banco parceiro, o Pix sai por /api/bank/outgoing (revisão + biometria ou senha).
-  if (asaasActiveFor(userId)) throw new PartnerError("Atualize o app para enviar Pix com confirmação por biometria.", 409);
   if (!sandboxEnabled(userId)) return assertBankOperational(userId);
   const keyType = detectPixKeyType(input.key);
   if (!keyType) throw new PartnerError("Chave Pix inválida.", 422);
@@ -184,9 +164,6 @@ export async function addPixKey(userId: string, input: z.output<typeof pixKeyInp
   const repo = getBankRepository(userId);
   const account = await repo.getOrCreateAccount(userId);
   if (account.status === "blocked") throw new PartnerError("Conta bloqueada. Fale com o suporte PRX.", 403);
-  // Com o banco parceiro, a chave vai direto ao Pix (DICT) pelo Asaas, só com a conta aprovada.
-  // Nada de pré-cadastro local: pela API o Asaas registra só a chave aleatória.
-  if (asaasActiveFor(userId)) return createProviderPixKey(userId, input.type, asaasDeps());
   const keys = await repo.listPixKeys(userId);
   if (keys.length >= MAX_PIX_KEYS) throw new PartnerError(`Limite de ${MAX_PIX_KEYS} chaves Pix por conta.`, 409);
   if (keys.some((k) => k.value === input.value)) throw new PartnerError("Esta chave já está cadastrada.", 409);
@@ -204,7 +181,6 @@ export const chargeSchema = z.object({
 export async function createCharge(userId: string, input: z.output<typeof chargeSchema>): Promise<PixCharge> {
   await assertBankKycApproved(userId);
   await assertAccountActive(userId);
-  if (asaasActiveFor(userId)) return createProviderCharge(userId, { amount: input.amount ?? null, description: input.description }, asaasDeps());
   if (!sandboxEnabled(userId)) return assertBankOperational(userId);
   const repo = getBankRepository(userId);
   const amt = input.amount ? input.amount.toFixed(2) : "";
@@ -213,7 +189,6 @@ export async function createCharge(userId: string, input: z.output<typeof charge
 }
 
 export async function removePixKey(userId: string, keyId: string): Promise<void> {
-  if (asaasActiveFor(userId)) return removeProviderPixKey(userId, keyId, asaasDeps());
   const removed = await getBankRepository(userId).deletePixKey(userId, keyId);
   if (!removed) throw new PartnerError("Chave não encontrada.", 404);
 }

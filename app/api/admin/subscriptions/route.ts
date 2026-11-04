@@ -7,7 +7,7 @@ import { firstIssue } from "@/lib/partners/types";
 import { recordAdminAction } from "@/lib/admin/audit";
 import { pageParams } from "@/lib/admin/paging";
 import { memberContacts } from "@/lib/admin/members";
-import { getAsaasClient } from "@/lib/asaas/client";
+import { getPaymentGateway } from "@/lib/billing/gateway";
 import { getSubscriptionsRepository } from "@/lib/subscriptions/repository";
 import { cancelSubscription, deletePlan, savePlan } from "@/lib/subscriptions/service";
 import { syncSubscription } from "@/lib/subscriptions/payments";
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     ]);
     const contacts = await memberContacts(subs.items.map((s) => s.userId));
     const items = subs.items.map((s) => ({ ...s, memberName: contacts.get(s.userId)?.name ?? "Conta excluída", memberEmail: contacts.get(s.userId)?.email ?? "" }));
-    return NextResponse.json({ success: true, plans, items, total: subs.total, page, pageSize, paymentsOnline: getAsaasClient() !== null }, { headers: NO_STORE });
+    return NextResponse.json({ success: true, plans, items, total: subs.total, page, pageSize, paymentsOnline: getPaymentGateway() !== null }, { headers: NO_STORE });
   } catch (error) {
     return errorResponse(error, "Erro ao carregar as assinaturas.");
   }
@@ -58,7 +58,7 @@ const schema = z.discriminatedUnion("action", [
  * POST /api/admin/subscriptions
  *   save_plan    cria ou edita um plano (o preço novo vale para novas contratações)
  *   delete_plan  exclui plano sem assinaturas
- *   sync         confere a assinatura com o Asaas e corrige divergências
+ *   sync         confere a assinatura com o provedor e corrige divergências
  *   cancel       cancela a assinatura de um membro (motivo obrigatório)
  */
 export async function POST(req: NextRequest) {
@@ -78,16 +78,16 @@ export async function POST(req: NextRequest) {
       await recordAdminAction(admin, { action: "subscriptions.plan_deleted", targetType: "subscription_plan", targetId: body.id, summary: "Plano excluído" }, req);
       return NextResponse.json({ success: true }, { headers: NO_STORE });
     }
-    const client = getAsaasClient();
+    const gateway = getPaymentGateway();
     if (body.action === "sync") {
-      if (!client) throw new PartnerError("Pagamentos indisponíveis neste ambiente.", 503);
-      const subscription = await syncSubscription(body.id, client);
-      await recordAdminAction(admin, { action: "subscriptions.synced", targetType: "member_subscription", targetId: body.id, summary: `Assinatura conferida com o Asaas: ${subscription?.status ?? "—"}` }, req);
+      if (!gateway) throw new PartnerError("Pagamentos indisponíveis neste ambiente.", 503);
+      const subscription = await syncSubscription(body.id, gateway);
+      await recordAdminAction(admin, { action: "subscriptions.synced", targetType: "member_subscription", targetId: body.id, summary: `Assinatura conferida com o provedor: ${subscription?.status ?? "—"}` }, req);
       return NextResponse.json({ success: true, subscription }, { headers: NO_STORE });
     }
     const sub = await getSubscriptionsRepository().getSubscription(body.id);
     if (!sub) throw new PartnerError("Assinatura não encontrada.", 404);
-    const subscription = await cancelSubscription(sub.userId, sub.id, body.reason, actor, client);
+    const subscription = await cancelSubscription(sub.userId, sub.id, body.reason, actor, gateway);
     await recordAdminAction(admin, { action: "subscriptions.cancelled", targetType: "member_subscription", targetId: sub.id, summary: `Assinatura cancelada pelo admin: ${body.reason}` }, req);
     return NextResponse.json({ success: true, subscription }, { headers: NO_STORE });
   } catch (error) {

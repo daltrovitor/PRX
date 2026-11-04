@@ -5,7 +5,7 @@ import { PartnerError } from "@/lib/partners/errors";
 import { errorResponse } from "@/lib/partners/http";
 import { tableReady } from "@/lib/db-features";
 import { memberBehaviors } from "@/lib/behaviors/service";
-import { getAsaasBankStore } from "@/lib/bank/asaas/store";
+import { bankAccountIsActive } from "@/lib/bank/lock";
 
 /**
  * GET /api/behaviors — comportamentos ativos e o último resultado da pessoa.
@@ -17,10 +17,7 @@ export async function GET(req: NextRequest) {
     const user = await getCurrentUser(req);
     if (!user) throw new PartnerError("Não autenticado.", 401);
     if (!(await tableReady("behavior_rules"))) return NextResponse.json({ success: true, behaviors: [] }, { headers: { "Cache-Control": "no-store" } });
-    const sub = await getAsaasBankStore()
-      .getSubaccount(user.id)
-      .catch(() => null);
-    const behaviors = await memberBehaviors(user.id, sub?.status === "active");
+    const behaviors = await memberBehaviors(user.id, await bankAccountIsActive(user.id));
     return NextResponse.json({ success: true, behaviors }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return errorResponse(error, "Erro ao carregar seus comportamentos.");

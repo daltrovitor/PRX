@@ -3,9 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { PrxLogo } from "@/components/brand/prx-logo";
 import { AppThemeScope } from "@/components/marketing/app-theme-scope";
-import { ViraWebCredit } from "@/components/brand/viraweb-credit";
 import { CRYSTAL_HERO, ObsidianCrystal } from "@/components/obsidian/obsidian-ui";
-import { COMPANY } from "@/lib/company";
 import { cn } from "@/lib/utils";
 
 /*

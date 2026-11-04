@@ -151,21 +151,6 @@ export function Panel({
   return <Tag className={cn("rounded-3xl p-5 sm:p-6", tone === "glass" ? "glass" : "bg-surface", className)}>{children}</Tag>;
 }
 
-/** Ação rápida: bloco cinza arredondado com ícone e rótulo embaixo (Enviar, Receber, Área Pix…). */
-export function ActionTile({ label, icon, onClick, badge }: { label: string; icon: ReactNode; onClick: () => void; badge?: string }) {
-  return (
-    <button type="button" onClick={onClick} className="group flex min-w-0 cursor-pointer flex-col items-center gap-2 text-center">
-      <span className="glass-chip glass-lift relative flex h-14 w-full items-center justify-center rounded-[20px] text-ink group-active:scale-95">
-        {icon}
-        {badge && (
-          <span className="absolute right-2 top-2 rounded-full bg-primary px-1.5 text-[10px] font-semibold leading-4 text-white">{badge}</span>
-        )}
-      </span>
-      <span className="w-full truncate text-[13px] text-ink">{label}</span>
-    </button>
-  );
-}
-
 const brlFormat = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 /**
@@ -469,29 +454,6 @@ export function Segmented<T extends string>({ value, onChange, options, label, c
 /* -------------------------------------------------------------------------- */
 /* Pequenos blocos                                                            */
 /* -------------------------------------------------------------------------- */
-
-export function SectionHeader({
-  title,
-  action,
-  as: Heading = "h2",
-  id,
-  className,
-}: {
-  title: string;
-  action?: ReactNode;
-  as?: "h2" | "h3";
-  id?: string;
-  className?: string;
-}) {
-  return (
-    <div className={cn("flex items-center justify-between gap-4", className)}>
-      <Heading id={id} className="text-lg font-semibold leading-tight tracking-[-0.02em] text-ink sm:text-xl">
-        {title}
-      </Heading>
-      {action}
-    </div>
-  );
-}
 
 export function Tag({ children, tone = "neutral", className }: { children: ReactNode; tone?: "neutral" | "accent" | "success" | "warning" | "ink"; className?: string }) {
   const tones = {

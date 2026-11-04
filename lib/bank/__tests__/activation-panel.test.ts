@@ -32,7 +32,7 @@ function account(activation: BankActivation, provider: BankProviderView["state"]
     charges: [],
     sandbox: false,
     kyc: approved,
-    provider: provider ? { name: "asaas", environment: "production", state: provider, rejectReason: null } : null,
+    provider: provider ? { name: "banco-parceiro", environment: "production", state: provider, rejectReason: null } : null,
     activation,
   };
 }
@@ -79,7 +79,7 @@ describe("tela de ativação por etapa", () => {
     const group = { id: "g", type: "IDENTIFICATION", title: "Doc", description: "", status: "NOT_SENT", onboardingUrl: null, canUpload: false };
     const pending = memberDocuments([
       { ...group, id: "enviado", status: "PENDING" },
-      { ...group, id: "link", onboardingUrl: "https://asaas.test/onboarding" },
+      { ...group, id: "link", onboardingUrl: "https://banco.test/onboarding" },
       { ...group, id: "upload", canUpload: true },
     ]);
     expect(pending.map((g) => g.id)).toEqual(["link", "upload"]);

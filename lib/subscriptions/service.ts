@@ -1,22 +1,21 @@
 // Hello World
 import { PartnerError } from "@/lib/partners/errors";
 import { TechnicalError } from "@/lib/error-messages";
-import type { AsaasClient } from "@/lib/asaas/client";
-import { CYCLE_LABEL, createSubscription, deleteSubscription, dueDateIn, getPaymentPixQr, listSubscriptionPayments, type BillingType, type PixQr } from "@/lib/asaas/billing";
+import { CYCLE_LABEL, dueDateIn, type BillingType, type PaymentGateway, type PixQr } from "@/lib/billing/gateway";
 import { ensureBillingCustomer, type Payer } from "@/lib/billing/customers";
 import { ageOn } from "@/lib/family/age";
 import { verifiedBirthDate } from "@/lib/bank/access";
 import { isActiveFounder } from "@/lib/founders/members";
-import { getAsaasBankStore } from "@/lib/bank/asaas/store";
+import { bankAccountIsActive } from "@/lib/bank/lock";
 import { getSubscriptionsRepository } from "@/lib/subscriptions/repository";
 import { recordPayment } from "@/lib/subscriptions/payments";
 import { LIVE_STATUSES, planInputSchema, subscriptionGrantsAccess, type MemberSubscription, type SubscriptionPayment, type SubscriptionPlan } from "@/lib/subscriptions/types";
 
 /**
- * Regras das assinaturas. Contratar cria a assinatura no Asaas (conta
+ * Regras das assinaturas. Contratar cria a assinatura no provedor de pagamentos (conta
  * principal) e devolve a fatura; a assinatura só fica ativa quando o webhook
  * confirma o pagamento (lib/subscriptions/payments.ts). Cancelar para as
- * próximas cobranças no Asaas e segue a política do plano.
+ * próximas cobranças no provedor de pagamentos e segue a política do plano.
  */
 
 const repo = () => getSubscriptionsRepository();
@@ -62,10 +61,7 @@ export async function planEligibility(plan: SubscriptionPlan, userId: string, no
     if (plan.maxAge !== null && age > plan.maxAge) return { eligible: false, reason: `Plano até ${plan.maxAge} anos.` };
   }
   if (plan.requiresActiveBank) {
-    const sub = await getAsaasBankStore()
-      .getSubaccount(userId)
-      .catch(() => null);
-    if (sub?.status !== "active") return { eligible: false, reason: "Plano exclusivo para quem tem a conta PRX BANK ativa." };
+    if (!(await bankAccountIsActive(userId))) return { eligible: false, reason: "Plano exclusivo para quem tem a conta PRX BANK ativa." };
   }
   if (plan.foundersOnly && !(await isActiveFounder(userId, now))) return { eligible: false, reason: "Plano exclusivo para Founders da PRX." };
   return { eligible: true, reason: null };
@@ -97,12 +93,12 @@ async function log(sub: MemberSubscription, actor: string, action: string, detai
 }
 
 /**
- * Contrata: confere elegibilidade, cria a assinatura no Asaas (referência
+ * Contrata: confere elegibilidade, cria a assinatura no provedor de pagamentos (referência
  * "sub:<id>") e devolve a primeira fatura. Com teste grátis, a primeira
- * cobrança vence no fim do teste. Falha no Asaas desfaz o registro local.
+ * cobrança vence no fim do teste. Falha no provedor de pagamentos desfaz o registro local.
  */
-export async function subscribe(payer: Payer, planId: string, billingType: BillingType, client: AsaasClient | null, now = new Date()): Promise<CheckoutInfo> {
-  if (!client) throw new PartnerError(PAYMENTS_OFF, 503);
+export async function subscribe(payer: Payer, planId: string, billingType: BillingType, gateway: PaymentGateway | null, now = new Date()): Promise<CheckoutInfo> {
+  if (!gateway) throw new PartnerError(PAYMENTS_OFF, 503);
   const plan = await repo().getPlan(planId);
   if (!plan) throw new PartnerError("Plano não encontrado.", 404);
   if (!plan.paymentMethods.includes(billingType)) throw new PartnerError("Forma de pagamento não disponível neste plano.", 422);
@@ -110,7 +106,7 @@ export async function subscribe(payer: Payer, planId: string, billingType: Billi
   if (!eligibility.eligible) throw new PartnerError(eligibility.reason ?? "Você não pode assinar este plano.", 403);
   if (await repo().liveFor(payer.id, plan.id)) throw new PartnerError("Você já tem uma assinatura deste plano em andamento.", 409);
 
-  const customer = await ensureBillingCustomer(payer, client);
+  const customer = await ensureBillingCustomer(payer, gateway);
   const trialEndsAt = plan.trialDays > 0 ? new Date(now.getTime() + plan.trialDays * 86_400_000).toISOString() : null;
   const local = await repo().insertSubscription({
     userId: payer.id,
@@ -120,8 +116,8 @@ export async function subscribe(payer: Payer, planId: string, billingType: Billi
     cycle: plan.cycle,
     billingType,
     status: plan.trialDays > 0 ? "trialing" : "pending_payment",
-    environment: client.environment,
-    asaasSubscriptionId: null,
+    environment: gateway.environment,
+    gatewaySubscriptionId: null,
     currentPeriodEnd: null,
     nextDueDate: dueDateIn(plan.trialDays, now),
     trialEndsAt,
@@ -132,7 +128,7 @@ export async function subscribe(payer: Payer, planId: string, billingType: Billi
   const value = plan.introDiscountPercent > 0 ? Math.round(plan.price * (100 - plan.introDiscountPercent)) / 100 : plan.price;
   let created;
   try {
-    created = await createSubscription(client, {
+    created = await gateway.createSubscription({
       customer,
       billingType,
       value,
@@ -143,42 +139,42 @@ export async function subscribe(payer: Payer, planId: string, billingType: Billi
     });
   } catch (err) {
     await repo().deleteSubscription(local.id);
-    throw new TechnicalError(`Assinatura no Asaas: ${err instanceof Error ? err.message : String(err)}`, 503);
+    throw new TechnicalError(`Assinatura no provedor de pagamentos: ${err instanceof Error ? err.message : String(err)}`, 503);
   }
-  const sub = await repo().updateSubscription(local.id, { asaasSubscriptionId: created.id, nextDueDate: created.nextDueDate ?? local.nextDueDate });
+  const sub = await repo().updateSubscription(local.id, { gatewaySubscriptionId: created.id, nextDueDate: created.nextDueDate ?? local.nextDueDate });
   await log(sub, payer.email, "subscribed", `${plan.name} · ${billingType} · R$ ${value.toFixed(2)}${plan.trialDays ? ` · teste de ${plan.trialDays} dia(s)` : ""}`);
-  return { subscription: sub, ...(await firstInvoice(sub, client)) };
+  return { subscription: sub, ...(await firstInvoice(sub, gateway)) };
 }
 
-/** Primeira fatura gerada pelo Asaas (para a pessoa pagar agora). */
-async function firstInvoice(sub: MemberSubscription, client: AsaasClient): Promise<{ payment: SubscriptionPayment | null; pix: PixQr | null }> {
-  if (!sub.asaasSubscriptionId) return { payment: null, pix: null };
-  const payments = await listSubscriptionPayments(client, sub.asaasSubscriptionId).catch(() => []);
+/** Primeira fatura gerada pelo provedor de pagamentos (para a pessoa pagar agora). */
+async function firstInvoice(sub: MemberSubscription, gateway: PaymentGateway): Promise<{ payment: SubscriptionPayment | null; pix: PixQr | null }> {
+  if (!sub.gatewaySubscriptionId) return { payment: null, pix: null };
+  const payments = await gateway.listSubscriptionPayments(sub.gatewaySubscriptionId).catch(() => []);
   const open = payments.sort((a, b) => a.dueDate.localeCompare(b.dueDate)).find((p) => p.status === "PENDING" || p.status === "OVERDUE");
   if (!open) return { payment: null, pix: null };
-  const { payment } = await recordPayment(sub, open, client);
-  const pix = sub.billingType === "PIX" ? await getPaymentPixQr(client, open.id).catch(() => null) : null;
+  const { payment } = await recordPayment(sub, open, gateway);
+  const pix = sub.billingType === "PIX" ? await gateway.getPaymentPixQr(open.id).catch(() => null) : null;
   return { payment, pix };
 }
 
 /** Pix da fatura em aberto (só do próprio membro). */
-export async function invoicePix(userId: string, subscriptionId: string, paymentId: string, client: AsaasClient | null): Promise<PixQr> {
-  if (!client) throw new PartnerError(PAYMENTS_OFF, 503);
+export async function invoicePix(userId: string, subscriptionId: string, paymentId: string, gateway: PaymentGateway | null): Promise<PixQr> {
+  if (!gateway) throw new PartnerError(PAYMENTS_OFF, 503);
   const sub = await repo().getSubscription(subscriptionId);
   if (!sub || sub.userId !== userId) throw new PartnerError("Assinatura não encontrada.", 404);
   const payment = (await repo().listPayments(sub.id)).find((p) => p.id === paymentId);
   if (!payment || (payment.status !== "PENDING" && payment.status !== "OVERDUE")) throw new PartnerError("Esta fatura não está em aberto.", 409);
-  return getPaymentPixQr(client, payment.asaasPaymentId);
+  return gateway.getPaymentPixQr(payment.gatewayPaymentId);
 }
 
-/** Cancela as próximas cobranças no Asaas e aplica a política do plano. */
-export async function cancelSubscription(userId: string, subscriptionId: string, reason: string, actor: string, client: AsaasClient | null, now = new Date()): Promise<MemberSubscription> {
+/** Cancela as próximas cobranças no provedor de pagamentos e aplica a política do plano. */
+export async function cancelSubscription(userId: string, subscriptionId: string, reason: string, actor: string, gateway: PaymentGateway | null, now = new Date()): Promise<MemberSubscription> {
   const sub = await repo().getSubscription(subscriptionId);
   if (!sub || sub.userId !== userId) throw new PartnerError("Assinatura não encontrada.", 404);
   if (!LIVE_STATUSES.includes(sub.status)) throw new PartnerError("Esta assinatura já está encerrada.", 409);
-  if (sub.asaasSubscriptionId) {
-    if (!client) throw new PartnerError(PAYMENTS_OFF, 503);
-    await deleteSubscription(client, sub.asaasSubscriptionId);
+  if (sub.gatewaySubscriptionId) {
+    if (!gateway) throw new PartnerError(PAYMENTS_OFF, 503);
+    await gateway.deleteSubscription(sub.gatewaySubscriptionId);
   }
   const plan = await repo().getPlan(sub.planId);
   const immediate = plan?.cancellationPolicy === "immediate" || sub.status !== "active";

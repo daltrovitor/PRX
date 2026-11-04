@@ -8,10 +8,10 @@ import { SelfieCapture } from "@/components/app/bank/selfie-capture";
 import type { BankProviderView } from "@/lib/prx/bank";
 
 /**
- * Abertura da conta no banco parceiro (Asaas) depois do KYC aprovado pela PRX:
+ * Abertura da conta no banco parceiro depois do KYC aprovado pela PRX:
  * cria a subconta, reaproveita os documentos já enviados e lista o que o
- * parceiro ainda pede. Tudo passa pelas rotas da PRX; o navegador nunca fala
- * com o Asaas.
+ * parceiro ainda pede. Tudo passa pelas rotas da PRX (/api/bank/accounts, a criar com o
+ * provedor: docs/BANCO_PROVEDOR.md); o navegador nunca fala com o banco parceiro.
  */
 
 interface DocumentGroup {
@@ -61,7 +61,7 @@ export function ProviderOnboarding({ provider, onChanged }: { provider: BankProv
 
   useEffect(() => {
     if (!hasAccount) return;
-    // Consulta inicial dos documentos pendentes no banco parceiro (sincroniza a tela com o Asaas).
+    // Consulta inicial dos documentos pendentes no banco parceiro (sincroniza a tela com o banco parceiro).
     let cancelled = false;
     void call("/api/bank/accounts/documents").then(({ ok, json }) => {
       if (cancelled) return;

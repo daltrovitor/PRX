@@ -21,7 +21,6 @@ import { ReactLenis, type LenisRef } from "lenis/react";
 import { Moon, Sun } from "lucide-react";
 import type { LenisOptions } from "lenis";
 import { PrxLogo } from "@/components/brand/prx-logo";
-import { ViraWebCredit } from "@/components/brand/viraweb-credit";
 import { OBSIDIAN_IMAGES } from "@/components/obsidian/obsidian-ui";
 import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";

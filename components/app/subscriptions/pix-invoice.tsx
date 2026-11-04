@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/app/ui";
-import type { PixQr } from "@/lib/asaas/billing";
+import type { PixQr } from "@/lib/billing/gateway";
 
 /** QR Code e Pix copia e cola de uma cobrança da PRX (assinatura ou ingresso). */
 export function PixInvoice({ pix }: { pix: PixQr }) {

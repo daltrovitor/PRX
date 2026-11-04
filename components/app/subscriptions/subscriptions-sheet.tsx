@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button, EmptyState, Notice, Segmented, Sheet, Tag, Textarea } from "@/components/app/ui";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
-import { BILLING_TYPE_LABEL, CYCLE_LABEL, type BillingType, type PixQr } from "@/lib/asaas/billing";
+import { BILLING_TYPE_LABEL, CYCLE_LABEL, type BillingType, type PixQr } from "@/lib/billing/gateway";
 import { CANCELLATION_LABEL, SUBSCRIPTION_STATUS_LABEL, type MemberSubscription, type SubscriptionEvent, type SubscriptionPayment, type SubscriptionPlan } from "@/lib/subscriptions/types";
 import { PixInvoice } from "@/components/app/subscriptions/pix-invoice";
 

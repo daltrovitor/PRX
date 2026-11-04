@@ -61,7 +61,7 @@ export function AdminOrdersTab() {
           <h2 id="orders-title" className="text-lg font-semibold tracking-[-0.02em] text-ink sm:text-xl">
             Pedidos de ingresso
           </h2>
-          <p className="mt-1 max-w-2xl text-[13px] text-muted-foreground">O ingresso só fica válido quando o pagamento é confirmado pelo parceiro de pagamentos. Cartão de débito não é oferecido (o Asaas não permite pela API).</p>
+          <p className="mt-1 max-w-2xl text-[13px] text-muted-foreground">O ingresso só fica válido quando o pagamento é confirmado pelo parceiro de pagamentos. Cartão de débito não é oferecido (o provedor não permite pela API).</p>
         </div>
         <Select value={status} onChange={(e) => (setStatus(e.target.value), setPage(1))} aria-label="Filtrar pedidos por situação" className="sm:max-w-xs">
           <option value="">Todas as situações</option>
@@ -97,8 +97,8 @@ export function AdminOrdersTab() {
                 <Tag tone={o.status === "paid" ? "success" : o.status === "paid_needs_review" ? "warning" : "neutral"}>{ORDER_STATUS_LABEL[o.status]}</Tag>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Button size="sm" variant="secondary" onClick={() => void act({ action: "sync", id: o.id }, "Pedido conferido com o Asaas.")}>
-                  Conferir no Asaas
+                <Button size="sm" variant="secondary" onClick={() => void act({ action: "sync", id: o.id }, "Pedido conferido com o provedor.")}>
+                  Conferir no provedor de pagamentos
                 </Button>
                 {o.status === "paid_needs_review" && (
                   <>
@@ -109,7 +109,7 @@ export function AdminOrdersTab() {
                   </>
                 )}
                 {(o.status === "paid" || o.status === "paid_needs_review") && (
-                  <Button size="sm" variant="danger" onClick={() => void act({ action: "refund", id: o.id, reason: notes[o.id] ?? "" }, "Estorno pedido ao Asaas.", "Estornar este pagamento? O ingresso é cancelado quando o estorno for confirmado.")}>
+                  <Button size="sm" variant="danger" onClick={() => void act({ action: "refund", id: o.id, reason: notes[o.id] ?? "" }, "Estorno pedido ao provedor de pagamentos.", "Estornar este pagamento? O ingresso é cancelado quando o estorno for confirmado.")}>
                     Estornar
                   </Button>
                 )}

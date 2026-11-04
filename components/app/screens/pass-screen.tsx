@@ -2,7 +2,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import { PrxImage } from "@/components/ui/prx-image";
 import type { PassData } from "@/components/app/use-pass-data";
 import { useAppNav } from "@/components/app/app-nav";

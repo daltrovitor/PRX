@@ -181,11 +181,6 @@ export interface ContractAcceptance {
 /* -------------------------------------------------------------------------- */
 
 const trimmed = (max: number) => z.string().trim().max(max, `Máximo de ${max} caracteres.`);
-const optionalUrl = z
-  .string()
-  .trim()
-  .max(1000)
-  .refine((v) => v === "" || /^https?:\/\//i.test(v), "Use um endereço http(s).");
 const optionalImageUrl = z
   .string()
   .trim()

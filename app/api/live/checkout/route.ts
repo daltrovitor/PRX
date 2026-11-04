@@ -6,7 +6,7 @@ import { checkRateLimit } from "@/lib/security";
 import { PartnerError } from "@/lib/partners/errors";
 import { errorResponse, readJson } from "@/lib/partners/http";
 import { firstIssue } from "@/lib/partners/types";
-import { getAsaasClient } from "@/lib/asaas/client";
+import { getPaymentGateway } from "@/lib/billing/gateway";
 import { CHECKOUT_METHODS } from "@/lib/live/promo";
 import { cancelCheckout, checkoutState, startCheckout } from "@/lib/checkout/service";
 
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     if (!user) throw new PartnerError("Não autenticado.", 401);
     const ticketId = (req.nextUrl.searchParams.get("ticketId") ?? "").slice(0, 80);
     if (!ticketId) throw new PartnerError("Ingresso não informado.", 400);
-    return NextResponse.json({ success: true, ...(await checkoutState(user.id, ticketId, getAsaasClient())) }, { headers: NO_STORE });
+    return NextResponse.json({ success: true, ...(await checkoutState(user.id, ticketId, getPaymentGateway())) }, { headers: NO_STORE });
   } catch (error) {
     return errorResponse(error, "Erro ao carregar o pagamento.");
   }
@@ -34,7 +34,7 @@ const schema = z.discriminatedUnion("action", [
  * POST /api/live/checkout
  *   start   cria (ou devolve) a cobrança da forma escolhida; o preço é recalculado aqui
  *   cancel  cancela a cobrança em aberto (a reserva é cancelada pela rota do ingresso)
- * O ingresso só fica válido quando o Asaas confirma o pagamento (webhook).
+ * O ingresso só fica válido quando o provedor confirma o pagamento (webhook).
  */
 export async function POST(req: NextRequest) {
   try {
@@ -45,12 +45,12 @@ export async function POST(req: NextRequest) {
     const parsed = schema.safeParse(await readJson(req));
     if (!parsed.success) throw new PartnerError(firstIssue(parsed.error), 400);
     const body = parsed.data;
-    const client = getAsaasClient();
+    const gateway = getPaymentGateway();
     if (body.action === "cancel") {
-      await cancelCheckout(user.id, body.ticketId, client);
+      await cancelCheckout(user.id, body.ticketId, gateway);
       return NextResponse.json({ success: true }, { headers: NO_STORE });
     }
-    const result = await startCheckout({ id: user.id, fullName: user.fullName, email: user.email, cpf: user.cpf, phone: user.phone }, body.ticketId, body.method, client);
+    const result = await startCheckout({ id: user.id, fullName: user.fullName, email: user.email, cpf: user.cpf, phone: user.phone }, body.ticketId, body.method, gateway);
     return NextResponse.json({ success: true, ...result }, { headers: NO_STORE });
   } catch (error) {
     return errorResponse(error, "Não foi possível iniciar o pagamento.");

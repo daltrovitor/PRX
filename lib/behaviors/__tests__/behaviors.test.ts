@@ -1,6 +1,5 @@
 // Hello World
 import { beforeEach, describe, expect, it } from "vitest";
-import { MemoryAsaasBankStore } from "@/lib/bank/asaas/store-memory";
 import { evaluateBehavior, evaluationWindow, type OutgoingPayment } from "@/lib/behaviors/engine";
 import { resetBehaviorsMemory, getBehaviorsRepository } from "@/lib/behaviors/repository";
 import { evaluateRule, importCompanies, memberBehaviors, reviewEvaluation, saveCompany, saveRule, type EvaluationDeps } from "@/lib/behaviors/service";
@@ -111,17 +110,20 @@ describe("empresas e regras", () => {
     await expect(saveRule({ name: "Errada", polarity: "negative", comparator: "at_least", observationDays: 30, categories: ["apostas"], coins: 5 }, "a")).rejects.toThrow(/positivo/);
     const rule = await saveRule({ name: "30 dias sem bets", polarity: "positive", comparator: "none", observationDays: 30, companyIds: [bet.id], coins: 20, xp: 100, status: "active" }, "admin@prx.dev");
 
-    const store = new MemoryAsaasBankStore();
     const clean = "33333333-3333-4333-8333-333333333333";
     const better = "44444444-4444-4444-8444-444444444444";
     const fresh = "55555555-5555-4555-8555-555555555555";
-    for (const [id, status, since] of [[clean, "active", "2026-01-01T00:00:00.000Z"], [better, "active", "2026-01-01T00:00:00.000Z"], [fresh, "pending_activation", null]] as const) {
-      await store.reserveSubaccount(id, "sandbox", new Date().toISOString());
-      await store.saveSubaccount(id, { asaasAccountId: `acc_${id.slice(0, 4)}`, status, statusUpdatedAt: since });
-    }
-    const out = await store.insertOutgoing({ userId: better, kind: "pix_key", amount: 30, counterparty: "CNPJ", target: BET, description: "" });
-    await store.transitionOutgoing(out.id, ["awaiting_confirmation"], "done");
-    const deps: EvaluationDeps = { store, environment: "sandbox", now: () => new Date() };
+    const since = "2026-01-01T00:00:00.000Z";
+    const payment = { id: "pay-1", kind: "pix_key" as const, amount: 30, counterparty: "CNPJ", target: BET, counterpartyDocument: null, createdAt: new Date().toISOString() };
+    const deps: EvaluationDeps = {
+      listAccounts: async () => [
+        { userId: clean, activeSince: since },
+        { userId: better, activeSince: since },
+        { userId: fresh, activeSince: null },
+      ],
+      listPayments: async (userId) => (userId === better ? [payment] : []),
+      now: () => new Date(),
+    };
 
     expect(await evaluateRule(rule.id, deps)).toMatchObject({ evaluated: 3, identified: 1, unverifiable: 1 });
     // Avaliar de novo no mesmo dia não duplica nem credita duas vezes.

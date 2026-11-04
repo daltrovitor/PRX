@@ -1,11 +1,11 @@
 // Hello World
 import { z } from "zod";
-import { BILLING_TYPES, CYCLES, type BillingType, type Cycle } from "@/lib/asaas/billing";
+import { BILLING_TYPES, CYCLES, type BillingType, type Cycle } from "@/lib/billing/gateway";
 
 /**
  * Assinaturas da PRX: planos criados no admin e a assinatura de cada membro,
- * cobrada pela conta principal do Asaas. A assinatura só fica "ativa" quando o
- * Asaas confirma o pagamento (webhook); o retorno visual da fatura não conta.
+ * cobrada pela conta principal do provedor de pagamentos. A assinatura só fica "ativa" quando o
+ * provedor confirma o pagamento (webhook); o retorno visual da fatura não conta.
  */
 
 export const SUBSCRIPTIONS_MIGRATION = "20261016_prx_subscriptions.sql";
@@ -69,7 +69,7 @@ export interface MemberSubscription {
   billingType: BillingType;
   status: SubscriptionStatus;
   environment: "sandbox" | "production";
-  asaasSubscriptionId: string | null;
+  gatewaySubscriptionId: string | null;
   currentPeriodEnd: string | null;
   nextDueDate: string | null;
   trialEndsAt: string | null;
@@ -83,7 +83,7 @@ export interface MemberSubscription {
 export interface SubscriptionPayment {
   id: string;
   subscriptionId: string;
-  asaasPaymentId: string;
+  gatewayPaymentId: string;
   value: number;
   dueDate: string;
   status: string;
@@ -117,7 +117,7 @@ export const planInputSchema = z
   .object({
     name: z.string().trim().min(2, "Dê um nome ao plano.").max(80),
     description: z.string().trim().max(1000).default(""),
-    // O Asaas não cobra menos de R$ 5,00.
+    // O provedor não cobra menos de R$ 5,00.
     price: z.coerce.number().min(5, "O preço mínimo é R$ 5,00.").max(100_000),
     cycle: z.enum(CYCLES),
     benefits: z

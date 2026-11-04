@@ -48,7 +48,6 @@ export async function compressImageDataUrl(dataUrl: string): Promise<string> {
   if (!match) return dataUrl;
 
   const mime = match[1];
-  const base64Data = match[2];
 
   // Node.js environment
   if (typeof window === "undefined" || typeof zlib?.gzipSync === "function") {
@@ -249,18 +248,4 @@ export async function compressImageFile(file: File, options?: CompressImageOptio
     console.warn("Compressão de imagem falhou; enviando arquivo original:", err);
     return file;
   }
-}
-
-/**
- * Converte um File em uma Data URL já compactada com gzip pronta para salvar diretamente no banco.
- */
-export async function fileToCompressedDataUrl(file: File, options?: CompressImageOptions): Promise<string> {
-  const optimizedFile = await compressImageFile(file, options);
-  const dataUrl = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
-    reader.readAsDataURL(optimizedFile);
-  });
-  return compressImageDataUrl(dataUrl);
 }

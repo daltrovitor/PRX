@@ -13,7 +13,7 @@ Tudo vive na zona `prx.app.br`. O mapa fica em `lib/domains.ts` (uma fonte só) 
 | `insider.prx.app.br` | Portal dos Insiders da Resenha |
 | `show.prx.app.br` | Apresentação do ecossistema |
 
-- **`/api/*` responde em todos os domínios.** Webhooks (Asaas) e o login Google não dependem do subdomínio do app.
+- **`/api/*` responde em todos os domínios.** Webhooks (banco parceiro e pagamentos) e o login Google não dependem do subdomínio do app.
 - **Endereços antigos:** `adminprx.`, `adminng.`, `partnerprx.`, `partnerng.`, `staffprx.` e `show.` (inclusive `show.prx.app.br`) continuam abrindo os portais enquanto o DNS antigo existir. Os links gerados a partir deles já apontam para o domínio novo.
 - **Desenvolvimento:** `localhost:3100` é o app; `admin.localhost:3100`, `partner.localhost:3100`, `staff.localhost:3100`, `insider.localhost:3100` e `show.localhost:3100` são os portais (o Chrome resolve `*.localhost` sozinho).
 
@@ -23,7 +23,7 @@ Tudo vive na zona `prx.app.br`. O mapa fica em `lib/domains.ts` (uma fonte só) 
 2. **Vercel → Domains:** adicione os seis domínios ao projeto.
 3. **Variáveis na Vercel** (depois, faça um novo deploy: as `NEXT_PUBLIC_*` entram no build):
    - `NEXT_PUBLIC_SITE_URL=https://teste.prx.app.br`: links entre painéis e o app, e-mails e metadados.
-   - `NEXT_PUBLIC_APP_URL`: base dos webhooks do Asaas. Pode continuar `https://prx.app.br`, o `/api/*` responde lá.
+   - `NEXT_PUBLIC_APP_URL`: base dos webhooks do banco parceiro e do provedor de pagamentos. Pode continuar `https://prx.app.br`, o `/api/*` responde lá.
    - `RESENHA_PUBLIC_URL`: opcional, sem ela o link da Resenha já sai em `https://prx.app.br`.
    - `PRX_WEBAUTHN_RP_ID` e `PRX_WEBAUTHN_ORIGINS`: se existirem apontando para o domínio antigo, apague. Em `prx.app.br` o RP ID já é `prx.app.br`.
 4. **Supabase → Authentication → URL Configuration:** Site URL `https://teste.prx.app.br` e, em Redirect URLs, `https://teste.prx.app.br/**`. O Google volta para o domínio de onde o login começou.

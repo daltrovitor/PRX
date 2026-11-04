@@ -15,7 +15,7 @@ import type { BankKycApplication, DocumentReview, DocumentReviews, IdentityDocum
  * pessoa troca só aquele arquivo, sem refazer a abertura. A identidade só é
  * aprovada com todos os documentos aprovados, por decisão explícita de um
  * admin. Isso não substitui o banco parceiro: depois da aprovação, os mesmos
- * documentos seguem ao Asaas, que faz a análise dele.
+ * documentos seguem ao banco parceiro.
  * Tudo fica no histórico (bank_kyc_events): quem, o quê, quando, inclusive
  * cada vez que um documento é aberto.
  */
@@ -195,8 +195,8 @@ export async function identityHistory(id: string): Promise<KycEvent[]> {
 /** Aviso no sino do app (o mesmo dos avisos do PRX BANK). Nunca derruba a ação. */
 export async function notifyMember(userId: string, eventId: string, title: string, body: string): Promise<void> {
   try {
-    const { getAsaasBankStore } = await import("@/lib/bank/asaas/store");
-    await getAsaasBankStore().insertNotification({ userId, eventType: "PRX_IDENTITY", title, body, amount: null, eventId });
+    const { getBankNotificationStore } = await import("@/lib/bank/notifications");
+    await getBankNotificationStore().insertNotification({ userId, eventType: "PRX_IDENTITY", title, body, amount: null, eventId });
   } catch (err) {
     console.warn("[kyc] aviso não enviado:", err instanceof Error ? err.message : err);
   }

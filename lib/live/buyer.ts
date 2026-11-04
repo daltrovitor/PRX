@@ -2,15 +2,14 @@
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { PartnerError } from "@/lib/partners/errors";
 import { birthDateSchema } from "@/lib/family/types";
-import { assertCpfMatchesBirth } from "@/lib/cpf/verify";
 import { launchSchemaReady } from "@/lib/db-features";
 
 /**
  * Data de nascimento de quem compra, base da idade mínima de cada evento.
- * Fontes, na ordem: perfil (gravado no cadastro, conferido na Receita), a
- * identidade da Conta PRX/Conta Pai (KYC) e, por último, a confirmação na hora
- * da compra, conferida com o CPF da conta na Receita quando o Serpro está
- * ligado. Uma vez gravada, a data não muda pelo app (só pelo suporte).
+ * Fontes, na ordem: perfil (gravado no cadastro), a identidade da Conta
+ * PRX/Conta Pai (KYC) e, por último, a confirmação na hora da compra. Só a
+ * identidade aprovada no KYC conta como verificada. Uma vez gravada, a data
+ * não muda pelo app (só pelo suporte).
  */
 
 export type BirthSource = "signup" | "declared" | "kyc" | "admin";
@@ -58,7 +57,7 @@ export async function rememberBirthDate(userId: string, birthDate: string, meta:
 
 /**
  * O membro confirma a data de nascimento para comprar um evento com idade
- * mínima. Confere com o CPF da conta na Receita (quando configurado) e grava.
+ * mínima e grava (autodeclarada: só o KYC aprovado marca como verificada).
  */
 export async function confirmBuyerBirthDate(userId: string, raw: unknown): Promise<BuyerBirth> {
   const parsed = birthDateSchema.safeParse(raw);
@@ -69,13 +68,7 @@ export async function confirmBuyerBirthDate(userId: string, raw: unknown): Promi
     if (current.birthDate !== birthDate) throw new PartnerError("A data de nascimento é diferente da já registrada na sua conta. Fale com o suporte PRX.", 409);
     return current;
   }
-  let verified = false;
-  if (supabaseAdmin) {
-    const { data: profile } = await supabaseAdmin.from("profiles").select("cpf").eq("id", userId).maybeSingle();
-    const cpf = typeof profile?.cpf === "string" ? profile.cpf.replace(/\D/g, "") : "";
-    if (cpf.length === 11) verified = (await assertCpfMatchesBirth(cpf, birthDate, "live")) === "verified";
-  }
-  await rememberBirthDate(userId, birthDate, { source: "declared", verified });
+  await rememberBirthDate(userId, birthDate, { source: "declared", verified: false });
   const stored = await buyerBirthDate(userId);
-  return stored.birthDate ? stored : { birthDate, verified, source: "declared" };
+  return stored.birthDate ? stored : { birthDate, verified: false, source: "declared" };
 }

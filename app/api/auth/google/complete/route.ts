@@ -10,7 +10,6 @@ import { clientIp } from "@/lib/partners/http";
 import { sendWelcomeEmail } from "@/lib/notifications/welcome";
 import { signupBirthDateSchema } from "@/lib/family/age";
 import { cpfSchema, onlyDigits } from "@/lib/family/types";
-import { assertCpfMatchesBirth } from "@/lib/cpf/verify";
 import { rememberBirthDate } from "@/lib/live/buyer";
 import { PENDING_GOOGLE_COOKIE, pendingGoogleCookie, verifyPendingGoogleToken } from "@/lib/google-pending";
 import { supabaseAdmin } from "@/lib/supabase/client";
@@ -78,7 +77,6 @@ export async function POST(req: NextRequest) {
     const parsed = CompleteSchema.safeParse(await req.json().catch(() => ({})));
     if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Dados inválidos." }, { status: 400 });
     const { cpf, phone } = parsed.data;
-    const cpfCheck = await assertCpfMatchesBirth(cpf, parsed.data.birthDate, "google");
 
     const person = await whoIsCompleting(req);
     const email = person.email.toLowerCase().trim();
@@ -156,7 +154,7 @@ export async function POST(req: NextRequest) {
       finalUser = userStore.findOrCreateGoogleUser(email, fullName, person.avatarUrl, cpf, phone);
     }
     // Base da idade mínima dos eventos do PRX LIVE (nunca sobrescreve uma data já gravada).
-    await rememberBirthDate(finalUser.id, parsed.data.birthDate, { source: "signup", verified: cpfCheck === "verified" }).catch(() => undefined);
+    await rememberBirthDate(finalUser.id, parsed.data.birthDate, { source: "signup", verified: false }).catch(() => undefined);
 
     if (person.welcome) {
       const recipient = { id: finalUser.id, email, fullName: finalUser.fullName };

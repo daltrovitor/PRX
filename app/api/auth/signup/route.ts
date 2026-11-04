@@ -9,7 +9,6 @@ import { clientIp } from "@/lib/partners/http";
 import { sendWelcomeEmail } from "@/lib/notifications/welcome";
 import { signupBirthDateSchema } from "@/lib/family/age";
 import { cpfSchema, onlyDigits } from "@/lib/family/types";
-import { assertCpfMatchesBirth } from "@/lib/cpf/verify";
 import { rememberBirthDate } from "@/lib/live/buyer";
 import { PASSWORD_MISMATCH, strongPasswordSchema } from "@/lib/password-policy";
 import { incidentResponse } from "@/lib/incidents";
@@ -49,8 +48,6 @@ export async function POST(req: NextRequest) {
     const parsed = SignupSchema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Dados inválidos." }, { status: 400 });
     const data = parsed.data;
-    // Receita (Serpro): CPF e nascimento precisam bater antes de a conta existir.
-    const cpfCheck = await assertCpfMatchesBirth(data.cpf, data.birthDate, "signup");
 
     const user = await createAccount({
       email: sanitizeInput(data.email),
@@ -60,7 +57,7 @@ export async function POST(req: NextRequest) {
       phone: data.phone,
     });
     // Base da idade mínima dos eventos do PRX LIVE (nunca sobrescreve uma data já gravada).
-    await rememberBirthDate(user.id, data.birthDate, { source: "signup", verified: cpfCheck === "verified" }).catch(() => undefined);
+    await rememberBirthDate(user.id, data.birthDate, { source: "signup", verified: false }).catch(() => undefined);
     // "Você entrou. Welcome to PRX." depois da resposta: o cadastro não espera o provedor de e-mail.
     after(() => sendWelcomeEmail({ id: user.id, email: user.email, fullName: user.fullName }));
     return attachSession(NextResponse.json({ success: true, message: "Conta criada. Bem-vindo à PRX!", user: publicUser(user) }), user);

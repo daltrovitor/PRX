@@ -37,19 +37,19 @@ export interface BankAccountRecord {
   createdAt: string;
 }
 
-/** Asaas em produção: dinheiro real, então nenhum atalho do sandbox vale. */
-export function isAsaasProduction(): boolean {
-  return (process.env.ASAAS_ENVIRONMENT ?? "").trim().toLowerCase() === "production";
+/** Produção do banco parceiro: dinheiro real, então nenhum atalho do sandbox vale. */
+export function isBankProduction(): boolean {
+  return (process.env.BANK_ENVIRONMENT ?? "").trim().toLowerCase() === "production";
 }
 
 /**
- * Sandbox: conta ativa na hora, KYC dispensado e saldo ajustável pelo admin.
- * Nunca liga com ASAAS_ENVIRONMENT=production, mesmo com PRX_BAAS_MODE=sandbox esquecido.
+ * Sandbox: conta ativa na hora, KYC dispensado e Pix liquidado na hora, com saldo fictício.
+ * Nunca liga com BANK_ENVIRONMENT=production, mesmo com PRX_BAAS_MODE=sandbox esquecido.
  */
 export function isSandboxMode(): boolean {
-  if (isAsaasProduction()) return false;
+  if (isBankProduction()) return false;
+  const env = (process.env.BANK_ENVIRONMENT ?? "").trim().toLowerCase();
   const provider = (process.env.BANK_PROVIDER ?? "").trim().toLowerCase();
-  const env = (process.env.ASAAS_ENVIRONMENT ?? "").trim().toLowerCase();
   const baasMode = (process.env.PRX_BAAS_MODE ?? "").trim().toLowerCase();
   return provider === "sandbox" || env === "sandbox" || baasMode === "sandbox";
 }
@@ -257,8 +257,8 @@ class SupabaseBankRepository implements BankRepository {
   async listTransactions(userId: string, limit: number) {
     // Estornados (Pix devolvido, boleto recusado) não entram no extrato nem nos limites.
     let query = this.db.from("bank_transactions").select("*").eq("user_id", userId).neq("status", "reversed");
-    // Com dinheiro real, só vale o que veio do Asaas: lançamentos do sandbox ficam de fora.
-    if (isAsaasProduction()) query = query.not("provider_ref", "is", null);
+    // Com dinheiro real, só vale o que veio do banco parceiro: lançamentos do sandbox ficam de fora.
+    if (!isSandboxMode()) query = query.not("provider_ref", "is", null);
     const { data, error } = await query.order("created_at", { ascending: false }).limit(limit);
     if (error) throw dbError(error, "Não foi possível carregar o extrato");
     return (data as TransactionRow[]).map(mapTransaction);
@@ -323,7 +323,7 @@ class SupabaseBankRepository implements BankRepository {
 
   async listCharges(userId: string, limit: number) {
     let query = this.db.from("bank_pix_charges").select("*").eq("user_id", userId);
-    if (isAsaasProduction()) query = query.not("provider_ref", "is", null);
+    if (!isSandboxMode()) query = query.not("provider_ref", "is", null);
     const { data, error } = await query.order("created_at", { ascending: false }).limit(limit);
     if (error) throw dbError(error, "Não foi possível carregar as cobranças");
     return (data as ChargeRow[]).map(mapCharge);

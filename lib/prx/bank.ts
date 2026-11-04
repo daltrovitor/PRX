@@ -89,9 +89,9 @@ export interface PixCharge {
   createdAt: string;
 }
 
-/** Banco parceiro (BaaS) que opera a conta: hoje, o Asaas (Código Bacen 461). */
+/** Banco parceiro (BaaS) que opera a conta; o BankAccountView traz null enquanto nenhum provedor estiver ligado. */
 export interface BankProviderView {
-  name: "asaas";
+  name: string;
   environment: "sandbox" | "production";
   /** Subconta no parceiro: ainda não aberta, abrindo, em análise, ativa, bloqueada ou reprovada. */
   state: "none" | "provisioning" | "pending_activation" | "active" | "blocked" | "rejected";

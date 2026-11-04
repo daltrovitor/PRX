@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button, Checkbox, Field, Input, Select, Sheet, Textarea } from "@/components/app/ui";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
 import { adminPost, errorText } from "@/components/admin/admin-api";
-import { BILLING_TYPES, BILLING_TYPE_LABEL, CYCLES, CYCLE_LABEL, type BillingType, type Cycle } from "@/lib/asaas/billing";
+import { BILLING_TYPES, BILLING_TYPE_LABEL, CYCLES, CYCLE_LABEL, type BillingType, type Cycle } from "@/lib/billing/gateway";
 import { CANCELLATION_LABEL, CANCELLATION_POLICIES, PLAN_STATUSES, PLAN_STATUS_LABEL, type CancellationPolicy, type PlanStatus, type SubscriptionPlan } from "@/lib/subscriptions/types";
 
 const local = (iso: string | null) => (iso ? new Date(new Date(iso).getTime() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 16) : "");
@@ -92,7 +92,7 @@ export function AdminPlanForm({ plan, onClose, onSaved }: { plan: SubscriptionPl
       open
       onClose={onClose}
       title={plan ? "Editar plano" : "Novo plano"}
-      description="A cobrança é feita pelo Asaas. O plano só fica ativo para a pessoa depois do pagamento confirmado."
+      description="A cobrança é feita pelo provedor de pagamentos. O plano só fica ativo para a pessoa depois do pagamento confirmado."
       size="lg"
       footer={
         <Button block disabled={saving} onClick={() => void save()}>
@@ -103,7 +103,7 @@ export function AdminPlanForm({ plan, onClose, onSaved }: { plan: SubscriptionPl
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Nome" className="sm:col-span-2">{(id) => <Input id={id} value={form.name} onChange={(e) => set("name", e.target.value)} />}</Field>
         <Field label="Descrição" className="sm:col-span-2">{(id) => <Textarea id={id} rows={2} value={form.description} onChange={(e) => set("description", e.target.value)} />}</Field>
-        <Field label="Preço (R$)" hint="Mínimo R$ 5,00 (regra do Asaas).">{(id, hint) => <Input id={id} aria-describedby={hint} inputMode="decimal" value={form.price} onChange={(e) => set("price", e.target.value)} />}</Field>
+        <Field label="Preço (R$)" hint="Mínimo R$ 5,00 (regra do provedor de pagamentos).">{(id, hint) => <Input id={id} aria-describedby={hint} inputMode="decimal" value={form.price} onChange={(e) => set("price", e.target.value)} />}</Field>
         <Field label="Cobrança">
           {(id) => (
             <Select id={id} value={form.cycle} onChange={(e) => set("cycle", e.target.value as Cycle)}>
@@ -123,7 +123,7 @@ export function AdminPlanForm({ plan, onClose, onSaved }: { plan: SubscriptionPl
               <Checkbox key={b} label={BILLING_TYPE_LABEL[b]} checked={form.paymentMethods.includes(b)} onChange={(on) => set("paymentMethods", on ? [...form.paymentMethods, b] : form.paymentMethods.filter((x) => x !== b))} />
             ))}
           </div>
-          <p className="text-[12px] text-muted-foreground">Cartão de débito não aparece: o Asaas não permite pedir débito pela API.</p>
+          <p className="text-[12px] text-muted-foreground">Cartão de débito não aparece: o provedor não permite pedir débito pela API.</p>
         </fieldset>
         <Field label="Idade mínima (opcional)">{(id) => <Input id={id} type="number" min={12} value={form.minAge} onChange={(e) => set("minAge", e.target.value)} />}</Field>
         <Field label="Idade máxima (opcional)">{(id) => <Input id={id} type="number" min={12} value={form.maxAge} onChange={(e) => set("maxAge", e.target.value)} />}</Field>

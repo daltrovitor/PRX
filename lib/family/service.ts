@@ -1,5 +1,4 @@
 // Hello World
-import { assertCpfMatchesBirth } from "@/lib/cpf/verify";
 import { pgQuote } from "@/lib/postgrest";
 import { PartnerError } from "@/lib/partners/errors";
 import { supabaseAdmin } from "@/lib/supabase/client";
@@ -194,7 +193,6 @@ export async function reviewEmancipation(id: string, decision: "approve" | "reje
 export async function registerParent(input: { fullName: string; email: string; password: string; cpf: string; birthDate: string; phone: string }, now = new Date()) {
   if (ageOn(input.birthDate, now) < 18) throw new FamilyError("A Conta Pai é para responsáveis maiores de 18 anos.", 403);
   await assertCpfAvailable(input.cpf);
-  await assertCpfMatchesBirth(input.cpf, input.birthDate, "parent");
   const user = await createAccount({ email: input.email, fullName: input.fullName, password: input.password });
   try {
     const identity = await insertIdentityOr409({ userId: user.id, accountType: "parent", status: "parent_review", cpf: input.cpf, birthDate: input.birthDate, parentUserId: null });
@@ -266,7 +264,6 @@ export async function createChildAccount(
   if (ageOn(input.birthDate, now) >= 18) throw new FamilyError("Maiores de 18 anos abrem a própria conta PRX.", 422);
   if (input.email === parent.email.toLowerCase()) throw new FamilyError("Use um e-mail do seu filho, diferente do seu.", 422);
   await assertCpfAvailable(input.cpf);
-  await assertCpfMatchesBirth(input.cpf, input.birthDate, "child");
   const child = await createAccount({ email: input.email, fullName: input.fullName, password: input.password });
   try {
     await insertIdentityOr409({ userId: child.id, accountType: "minor", status: "active", cpf: input.cpf, birthDate: input.birthDate, parentUserId: parent.id });

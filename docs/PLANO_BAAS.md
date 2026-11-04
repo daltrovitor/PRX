@@ -4,7 +4,7 @@ Documento de decisão para colocar o PRX BANK em produção: conta digital, Pix,
 
 Data: 24/09/2026.
 
-> **Atualização (01/10/2026):** o provedor escolhido foi o **Asaas** (Código Bacen 461). Integração, variáveis e operação estão em [ASAAS_BAAS.md](ASAAS_BAAS.md). As seções abaixo ficam como registro da análise.
+> **Atualização (04/11/2026):** a integração com o Asaas (BaaS e cobranças) foi removida para trocar de provedor. O que ficou pronto para reaproveitar e como ligar o provedor novo estão em [BANCO_PROVEDOR.md](BANCO_PROVEDOR.md). As seções abaixo ficam como registro da análise.
 
 ---
 

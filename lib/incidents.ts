@@ -4,8 +4,8 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/auth";
-import { scrubText } from "@/lib/asaas/sanitize";
-import { deployTag } from "@/lib/asaas/log";
+import { scrubText } from "@/lib/bank/sanitize";
+import { deployTag } from "@/lib/bank/log";
 import { TechnicalError, technicalErrorMessage } from "@/lib/error-messages";
 
 /**

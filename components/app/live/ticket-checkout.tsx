@@ -7,7 +7,7 @@ import { ReviewSheet, type Review } from "@/components/app/bank/outgoing";
 import { PixInvoice } from "@/components/app/subscriptions/pix-invoice";
 import type { CheckoutMethod } from "@/lib/live/promo";
 import type { CheckoutOption, CheckoutState } from "@/lib/checkout/service";
-import type { PixQr } from "@/lib/asaas/billing";
+import type { PixQr } from "@/lib/billing/gateway";
 
 /**
  * Pagamento de um ingresso reservado. As formas disponíveis e o preço de cada

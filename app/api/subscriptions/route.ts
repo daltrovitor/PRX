@@ -7,8 +7,7 @@ import { PartnerError } from "@/lib/partners/errors";
 import { errorResponse, readJson } from "@/lib/partners/http";
 import { firstIssue } from "@/lib/partners/types";
 import { tableReady } from "@/lib/db-features";
-import { getAsaasClient } from "@/lib/asaas/client";
-import { BILLING_TYPES } from "@/lib/asaas/billing";
+import { BILLING_TYPES, getPaymentGateway } from "@/lib/billing/gateway";
 import { getSubscriptionsRepository } from "@/lib/subscriptions/repository";
 import { cancelSubscription, invoicePix, memberPlans, memberSubscriptions, subscribe } from "@/lib/subscriptions/service";
 
@@ -23,7 +22,7 @@ export async function GET(req: NextRequest) {
     const [plans, subscriptions] = await Promise.all([memberPlans(user.id), memberSubscriptions(user.id)]);
     const repo = getSubscriptionsRepository();
     const withHistory = await Promise.all(subscriptions.map(async (s) => ({ ...s, events: (await repo.listEvents(s.id)).filter((e) => e.action !== "intro_update_failed") })));
-    return NextResponse.json({ success: true, plans, subscriptions: withHistory, paymentsOnline: getAsaasClient() !== null }, { headers: NO_STORE });
+    return NextResponse.json({ success: true, plans, subscriptions: withHistory, paymentsOnline: getPaymentGateway() !== null }, { headers: NO_STORE });
   } catch (error) {
     return errorResponse(error, "Erro ao carregar as assinaturas.");
   }
@@ -37,10 +36,10 @@ const schema = z.discriminatedUnion("action", [
 
 /**
  * POST /api/subscriptions
- *   subscribe  contrata (o servidor confere elegibilidade e devolve a fatura do Asaas)
+ *   subscribe  contrata (o servidor confere elegibilidade e devolve a fatura do provedor de pagamentos)
  *   cancel     cancela as próximas cobranças, conforme a política do plano
  *   pix        QR Code / copia e cola de uma fatura em aberto
- * A assinatura só fica ativa quando o Asaas confirma o pagamento (webhook).
+ * A assinatura só fica ativa quando o provedor confirma o pagamento (webhook).
  */
 export async function POST(req: NextRequest) {
   try {
@@ -51,16 +50,16 @@ export async function POST(req: NextRequest) {
     const parsed = schema.safeParse(await readJson(req));
     if (!parsed.success) throw new PartnerError(firstIssue(parsed.error), 400);
     const body = parsed.data;
-    const client = getAsaasClient();
+    const gateway = getPaymentGateway();
     if (body.action === "subscribe") {
-      const checkout = await subscribe({ id: user.id, fullName: user.fullName, email: user.email, cpf: user.cpf, phone: user.phone }, body.planId, body.billingType, client);
+      const checkout = await subscribe({ id: user.id, fullName: user.fullName, email: user.email, cpf: user.cpf, phone: user.phone }, body.planId, body.billingType, gateway);
       return NextResponse.json({ success: true, ...checkout }, { status: 201, headers: NO_STORE });
     }
     if (body.action === "cancel") {
-      const subscription = await cancelSubscription(user.id, body.id, body.reason, user.email, client);
+      const subscription = await cancelSubscription(user.id, body.id, body.reason, user.email, gateway);
       return NextResponse.json({ success: true, subscription }, { headers: NO_STORE });
     }
-    const pix = await invoicePix(user.id, body.id, body.paymentId, client);
+    const pix = await invoicePix(user.id, body.id, body.paymentId, gateway);
     return NextResponse.json({ success: true, pix }, { headers: NO_STORE });
   } catch (error) {
     return errorResponse(error, "Não foi possível concluir a assinatura.");

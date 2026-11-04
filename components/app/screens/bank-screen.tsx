@@ -96,7 +96,7 @@ export function BankScreen({ member }: { member: User }) {
   if (account.activation === "form" || account.activation === "waiting") return <BankKycPanel member={member} kyc={account.kyc} onDone={reload} />;
 
   const active = account.status === "active";
-  // Conta aprovada no Asaas: Pix e contas saem pelo banco parceiro, com confirmação.
+  // Conta aprovada no banco parceiro: Pix e contas saem pelo banco parceiro, com confirmação.
   const viaProvider = account.provider?.state === "active";
 
   return (

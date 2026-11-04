@@ -3,7 +3,7 @@ import { PartnerError } from "@/lib/partners/errors";
 import { getLiveRepository } from "@/lib/live/repository";
 import { getPromoRepository, type PromoPatch } from "@/lib/live/promo-repository";
 import { isActiveTicket } from "@/lib/live/rules";
-import { PROMO_AUDIENCE_LABEL, applyPromo, normalizePromoCode, promoIssue, type CheckoutMethod, type PromoCode, type PromoInput, type PriceQuote } from "@/lib/live/promo";
+import { PROMO_AUDIENCE_LABEL, normalizePromoCode, promoIssue, type CheckoutMethod, type PromoCode, type PromoInput } from "@/lib/live/promo";
 import type { LiveEvent, LiveTicket, TicketBatch } from "@/lib/live/types";
 
 /**
@@ -99,11 +99,8 @@ export async function audienceAllows(promo: Pick<PromoCode, "audience">, userId:
       return hasActiveSubscription(userId);
     }
     case "bank_active": {
-      const { getAsaasBankStore } = await import("@/lib/bank/asaas/store");
-      const sub = await getAsaasBankStore()
-        .getSubaccount(userId)
-        .catch(() => null);
-      return sub?.status === "active";
+      const { bankAccountIsActive } = await import("@/lib/bank/lock");
+      return bankAccountIsActive(userId);
     }
   }
 }
@@ -150,8 +147,4 @@ export async function promoOverflow(promo: PromoCode, ticket: LiveTicket): Promi
   if (promo.maxUses !== null && !(await live().firstPromoTicketIds(promo.id, promo.maxUses)).includes(ticket.id)) return "Este cupom acabou de esgotar.";
   if (!(await live().firstPromoTicketIds(promo.id, promo.perUserLimit, ticket.userId)).includes(ticket.id)) return "Você já usou este cupom o máximo de vezes permitido.";
   return null;
-}
-
-export function quoteFor(batch: TicketBatch, promo: PromoCode | null): PriceQuote {
-  return applyPromo(batch.price, promo);
 }

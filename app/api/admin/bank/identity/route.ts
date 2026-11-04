@@ -53,7 +53,7 @@ const schema = z.discriminatedUnion("action", [
  *   review_document       aprova ou recusa um documento (recusa com motivo)
  *   approve_documents     aprova de uma vez os documentos recebidos (o admin conferiu todos)
  *   request_resubmission  pede à pessoa o reenvio dos recusados
- *   approve               aprova a identidade: a subconta é criada no Asaas e os documentos seguem para a análise dele
+ *   approve               aprova a identidade (a abertura no banco parceiro parte daqui)
  *   reject                recusa a abertura (motivo obrigatório; a pessoa pode enviar de novo)
  */
 export async function POST(req: NextRequest) {
@@ -82,14 +82,6 @@ export async function POST(req: NextRequest) {
       case "reject": {
         const decided = await reviewBankKyc(body.id, body.action, body.note, reviewer);
         summary = body.action === "approve" ? `Identidade aprovada: ${decided.fullName}` : `Abertura recusada: ${decided.fullName} (${body.note.trim()})`;
-        if (body.action === "approve") {
-          // O Asaas pede 15 s entre a criação da subconta e a consulta dos documentos: o envio roda depois da resposta.
-          const { asaasActiveFor } = await import("@/lib/bank/asaas/deps");
-          if (asaasActiveFor(decided.userId)) {
-            const { scheduleDocumentSync } = await import("@/lib/bank/asaas/schedule");
-            scheduleDocumentSync(decided.userId);
-          }
-        }
         break;
       }
     }
@@ -102,5 +94,3 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/** A aprovação abre a subconta no Asaas e agenda o envio dos documentos depois da resposta. */
-export const maxDuration = 60;

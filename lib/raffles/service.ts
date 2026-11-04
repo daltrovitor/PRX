@@ -2,7 +2,7 @@
 import { PartnerError } from "@/lib/partners/errors";
 import { ageOn } from "@/lib/family/age";
 import { verifiedBirthDate } from "@/lib/bank/access";
-import { getAsaasBankStore } from "@/lib/bank/asaas/store";
+import { bankAccountIsActive } from "@/lib/bank/lock";
 import { isActiveFounder } from "@/lib/founders/members";
 import { hasActiveSubscription } from "@/lib/subscriptions/service";
 import { memberContacts } from "@/lib/admin/members";
@@ -137,10 +137,7 @@ export async function raffleEligibility(r: Raffle, userId: string, now = new Dat
     if (ageOn(birth.birthDate, now) < r.minAge) return { eligible: false, reason: `Sorteio para maiores de ${r.minAge} anos.` };
   }
   if (r.requiresActiveBank) {
-    const sub = await getAsaasBankStore()
-      .getSubaccount(userId)
-      .catch(() => null);
-    if (sub?.status !== "active") return { eligible: false, reason: "Sorteio para quem tem a conta PRX BANK ativa." };
+    if (!(await bankAccountIsActive(userId))) return { eligible: false, reason: "Sorteio para quem tem a conta PRX BANK ativa." };
   }
   if (r.foundersOnly && !(await isActiveFounder(userId, now))) return { eligible: false, reason: "Sorteio exclusivo para Founders da PRX." };
   if (r.subscribersOnly && !(await hasActiveSubscription(userId, now))) return { eligible: false, reason: "Sorteio exclusivo para assinantes da PRX." };

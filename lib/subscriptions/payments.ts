@@ -1,30 +1,29 @@
 // Hello World
-import type { AsaasClient } from "@/lib/asaas/client";
-import { PAID_STATUSES, REVERSED_STATUSES, addCycle, getSubscription, listSubscriptionPayments, updateSubscriptionValue, type AsaasPayment } from "@/lib/asaas/billing";
+import { PAID_STATUSES, REVERSED_STATUSES, addCycle, type GatewayPayment, type PaymentGateway } from "@/lib/billing/gateway";
 import { getSubscriptionsRepository } from "@/lib/subscriptions/repository";
 import type { MemberSubscription, SubscriptionPayment } from "@/lib/subscriptions/types";
 
 /**
- * Pagamentos das assinaturas, aplicados a partir do Asaas (webhook ou
- * conciliação). Idempotente: o pagamento é único pelo id do Asaas e a
+ * Pagamentos das assinaturas, aplicados a partir do provedor de pagamentos (webhook ou
+ * conciliação). Idempotente: o pagamento é único pelo id do provedor de pagamentos e a
  * assinatura só muda quando o status do pagamento muda.
  *   pago (RECEIVED/CONFIRMED)    → ativa até o fim do ciclo daquela cobrança
  *   vencido (OVERDUE)            → em atraso (benefícios suspensos)
  *   estornado/chargeback         → em atraso
- *   assinatura removida no Asaas → cancelada
+ *   assinatura removida no provedor de pagamentos → cancelada
  */
 
 const repo = () => getSubscriptionsRepository();
 
-function paidAt(p: AsaasPayment): string | null {
+function paidAt(p: GatewayPayment): string | null {
   const raw = p.confirmedDate ?? p.paymentDate ?? p.clientPaymentDate;
   return raw ? new Date(`${raw.slice(0, 10)}T12:00:00-03:00`).toISOString() : null;
 }
 
-export async function recordPayment(sub: MemberSubscription, p: AsaasPayment, client: AsaasClient | null): Promise<{ payment: SubscriptionPayment; subscription: MemberSubscription }> {
+export async function recordPayment(sub: MemberSubscription, p: GatewayPayment, gateway: PaymentGateway | null): Promise<{ payment: SubscriptionPayment; subscription: MemberSubscription }> {
   const { payment, previousStatus } = await repo().upsertPayment({
     subscriptionId: sub.id,
-    asaasPaymentId: p.id,
+    gatewayPaymentId: p.id,
     value: p.value,
     dueDate: p.dueDate.slice(0, 10),
     status: p.status,
@@ -35,7 +34,7 @@ export async function recordPayment(sub: MemberSubscription, p: AsaasPayment, cl
   if (previousStatus === p.status) return { payment, subscription: sub };
 
   let next = sub;
-  const log = (action: string, detail: string) => repo().insertEvent({ subscriptionId: sub.id, userId: sub.userId, actor: "Asaas", action, detail });
+  const log = (action: string, detail: string) => repo().insertEvent({ subscriptionId: sub.id, userId: sub.userId, actor: "provedor", action, detail });
 
   if (PAID_STATUSES.has(p.status)) {
     const periodEnd = addCycle(p.dueDate, sub.cycle);
@@ -46,7 +45,7 @@ export async function recordPayment(sub: MemberSubscription, p: AsaasPayment, cl
       nextDueDate: periodEnd.slice(0, 10),
     });
     await log("payment_confirmed", `R$ ${p.value.toFixed(2)} · vencimento ${p.dueDate.slice(0, 10)}`);
-    await endIntroDiscount(next, client).catch((err: unknown) => log("intro_update_failed", err instanceof Error ? err.message.slice(0, 300) : "falha"));
+    await endIntroDiscount(next, gateway).catch((err: unknown) => log("intro_update_failed", err instanceof Error ? err.message.slice(0, 300) : "falha"));
   } else if (p.status === "OVERDUE" && (sub.status === "active" || sub.status === "pending_payment" || sub.status === "trialing")) {
     next = await repo().updateSubscription(sub.id, { status: "past_due" });
     await log("payment_overdue", `Vencida em ${p.dueDate.slice(0, 10)}`);
@@ -58,24 +57,24 @@ export async function recordPayment(sub: MemberSubscription, p: AsaasPayment, cl
 }
 
 /** Depois das cobranças com desconto de entrada, as próximas voltam ao preço cheio do plano. */
-async function endIntroDiscount(sub: MemberSubscription, client: AsaasClient | null): Promise<void> {
-  if (!client || !sub.asaasSubscriptionId) return;
+async function endIntroDiscount(sub: MemberSubscription, gateway: PaymentGateway | null): Promise<void> {
+  if (!gateway || !sub.gatewaySubscriptionId) return;
   const plan = await repo().getPlan(sub.planId);
   if (!plan || plan.introCycles === 0) return;
   const paid = (await repo().listPayments(sub.id)).filter((p) => PAID_STATUSES.has(p.status)).length;
   if (paid !== plan.introCycles) return;
-  await updateSubscriptionValue(client, sub.asaasSubscriptionId, sub.price);
+  await gateway.updateSubscriptionValue(sub.gatewaySubscriptionId, sub.price);
   await repo().insertEvent({ subscriptionId: sub.id, userId: sub.userId, actor: "PRX", action: "intro_ended", detail: `Próximas cobranças em R$ ${sub.price.toFixed(2)}` });
 }
 
 /** Evento PAYMENT_* da conta principal. null quando o pagamento não é de uma assinatura da PRX. */
-export async function applySubscriptionPayment(payment: Record<string, unknown>, client: AsaasClient | null): Promise<"processed" | null> {
-  const asaasSubscription = typeof payment.subscription === "string" ? payment.subscription : null;
+export async function applySubscriptionPayment(payment: Record<string, unknown>, gateway: PaymentGateway | null): Promise<"processed" | null> {
+  const gatewaySubscription = typeof payment.subscription === "string" ? payment.subscription : null;
   const reference = typeof payment.externalReference === "string" ? payment.externalReference : "";
   const localId = reference.startsWith("sub:") ? reference.slice(4) : null;
-  const sub = (asaasSubscription ? await repo().findByAsaasId(asaasSubscription) : null) ?? (localId ? await repo().getSubscription(localId) : null);
+  const sub = (gatewaySubscription ? await repo().findByGatewayId(gatewaySubscription) : null) ?? (localId ? await repo().getSubscription(localId) : null);
   if (!sub) return null;
-  const parsed: AsaasPayment = {
+  const parsed: GatewayPayment = {
     id: String(payment.id ?? ""),
     status: String(payment.status ?? ""),
     value: Number(payment.value ?? 0),
@@ -85,38 +84,38 @@ export async function applySubscriptionPayment(payment: Record<string, unknown>,
     paymentDate: typeof payment.paymentDate === "string" ? payment.paymentDate : null,
     clientPaymentDate: typeof payment.clientPaymentDate === "string" ? payment.clientPaymentDate : null,
     confirmedDate: typeof payment.confirmedDate === "string" ? payment.confirmedDate : null,
-    subscription: asaasSubscription,
+    subscription: gatewaySubscription,
     externalReference: reference || null,
   };
   if (!parsed.id || !parsed.status || !parsed.dueDate) return null;
-  await recordPayment(sub, parsed, client);
+  await recordPayment(sub, parsed, gateway);
   return "processed";
 }
 
-/** Evento SUBSCRIPTION_DELETED/INACTIVATED: a assinatura parou no Asaas. */
+/** Evento SUBSCRIPTION_DELETED/INACTIVATED: a assinatura parou no provedor de pagamentos. */
 export async function applySubscriptionRemoved(subscription: Record<string, unknown>): Promise<"processed" | null> {
   const id = typeof subscription.id === "string" ? subscription.id : null;
-  const sub = id ? await repo().findByAsaasId(id) : null;
+  const sub = id ? await repo().findByGatewayId(id) : null;
   if (!sub) return null;
   if (sub.status === "cancelled" || sub.status === "expired") return "processed";
   await repo().updateSubscription(sub.id, { status: "cancelled", cancelledAt: new Date().toISOString(), cancelAtPeriodEnd: Boolean(sub.currentPeriodEnd) });
-  await repo().insertEvent({ subscriptionId: sub.id, userId: sub.userId, actor: "Asaas", action: "removed_at_provider", detail: "Assinatura removida no Asaas." });
+  await repo().insertEvent({ subscriptionId: sub.id, userId: sub.userId, actor: "provedor", action: "removed_at_provider", detail: "Assinatura removida no provedor de pagamentos." });
   return "processed";
 }
 
 /**
- * Conciliação (admin ou cron): relê a assinatura e as cobranças no Asaas e
+ * Conciliação (admin ou cron): relê a assinatura e as cobranças no provedor de pagamentos e
  * corrige divergências (webhook perdido, status fora de ordem).
  */
-export async function syncSubscription(id: string, client: AsaasClient): Promise<MemberSubscription | null> {
+export async function syncSubscription(id: string, gateway: PaymentGateway): Promise<MemberSubscription | null> {
   let sub = await repo().getSubscription(id);
-  if (!sub?.asaasSubscriptionId) return sub;
-  const remote = await getSubscription(client, sub.asaasSubscriptionId);
-  const payments = (await listSubscriptionPayments(client, sub.asaasSubscriptionId)).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
-  for (const p of payments) sub = (await recordPayment(sub, p, client)).subscription;
+  if (!sub?.gatewaySubscriptionId) return sub;
+  const remote = await gateway.getSubscription(sub.gatewaySubscriptionId);
+  const payments = (await gateway.listSubscriptionPayments(sub.gatewaySubscriptionId)).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  for (const p of payments) sub = (await recordPayment(sub, p, gateway)).subscription;
   if ((remote.deleted || remote.status === "INACTIVE") && sub.status !== "cancelled" && sub.status !== "expired") {
     sub = await repo().updateSubscription(sub.id, { status: "cancelled", cancelledAt: new Date().toISOString(), cancelAtPeriodEnd: Boolean(sub.currentPeriodEnd) });
-    await repo().insertEvent({ subscriptionId: sub.id, userId: sub.userId, actor: "Conciliação", action: "removed_at_provider", detail: "Assinatura inativa no Asaas." });
+    await repo().insertEvent({ subscriptionId: sub.id, userId: sub.userId, actor: "Conciliação", action: "removed_at_provider", detail: "Assinatura inativa no provedor de pagamentos." });
   }
   return sub;
 }

@@ -6,7 +6,7 @@ import { useConfirmToast } from "@/components/ui/confirm-toast";
 import { reloadBank } from "@/components/app/use-prx-stores";
 
 /**
- * Avisos do PRX BANK vindos dos webhooks do Asaas (Pix recebido e enviado,
+ * Avisos do PRX BANK vindos dos webhooks do banco parceiro (Pix recebido e enviado,
  * contas pagas, aprovação da conta). Consulta a cada 20 s com o app visível e
  * ao voltar para ele; aviso novo vira toast e atualiza o saldo na hora.
  */

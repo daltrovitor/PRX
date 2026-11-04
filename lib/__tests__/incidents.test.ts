@@ -13,21 +13,21 @@ const CODE = /^[A-Z]{3}-[2-9A-HJ-NP-Z]{6}$/;
 describe("códigos de erro técnico", () => {
   it("código curto, fácil de ditar, com a área da rota", () => {
     expect(incidentCode("BNK")).toMatch(CODE);
-    expect(areaOf("/api/bank/accounts/documents")).toBe("BNK");
+    expect(areaOf("/api/bank/kyc/documents")).toBe("BNK");
     expect(areaOf("/api/auth/login")).toBe("AUT");
     expect(areaOf("/qualquer")).toBe("PRX");
     expect(areaOf(null)).toBe("PRX");
   });
 
   it("a frase da tela tem só o código; o motivo fica no registro, sem dados pessoais", async () => {
-    const { code, message } = await reportIncident(new Error("CPF 529.982.247-25 recusado com $aact_prod_segredo"), "Enviar documento", { path: "/api/bank/accounts/documents" });
+    const { code, message } = await reportIncident(new Error("CPF 529.982.247-25 recusado com api_key=sk_live_segredo123"), "Enviar documento", { path: "/api/bank/kyc/documents" });
     expect(code).toMatch(/^BNK-/);
     expect(message).toBe(technicalErrorMessage(code));
     expect(message).toBe(`Deu um erro ao fazer isso. Fale com o suporte e informe o código ${code}.`);
     const stored = await findIncident(code.toLowerCase());
-    expect(stored).toMatchObject({ code, action: "Enviar documento", path: "/api/bank/accounts/documents", status: 500 });
+    expect(stored).toMatchObject({ code, action: "Enviar documento", path: "/api/bank/kyc/documents", status: 500 });
     expect(stored?.detail).not.toContain("529.982.247-25");
-    expect(stored?.detail).not.toContain("$aact_prod_segredo");
+    expect(stored?.detail).not.toContain("sk_live_segredo123");
     await expect(findIncident("nada")).resolves.toBeNull();
   });
 });
@@ -50,7 +50,7 @@ describe("respostas de erro das rotas", () => {
     for (const [error, status] of [
       [new Error("relation \"bank_x\" does not exist"), 500],
       [new PartnerError("A ativação de contas ainda não está disponível neste ambiente.", 503), 503],
-      [new TechnicalError("Asaas 400 invalid_action: Esse tipo de documento não pode ser enviado via API.", 502), 502],
+      [new TechnicalError("Banco parceiro 400 invalid_action: Esse tipo de documento não pode ser enviado via API.", 502), 502],
       [new TechnicalError("Corpo da requisição não é JSON válido.", 400), 400],
     ] as const) {
       const { status: got, body } = await read(await errorResponse(error, "Ação qualquer"));

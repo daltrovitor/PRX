@@ -58,7 +58,7 @@ Navegação em módulos: **Visão geral · Usuários · PRX LIVE · PRX PASS · 
 
 ### Idade por evento
 - A idade mínima **da conta** continua 12 anos. A **do evento** é definida no evento (Livre, 10, 12, 14, 16, 18) e aparece antes da compra, no ingresso e na portaria.
-- A data de nascimento informada no cadastro (conferida na Receita quando o Serpro está ligado) agora é **gravada**. Contas antigas confirmam a data uma única vez na primeira compra de evento com idade mínima; a data não muda depois pelo app.
+- A data de nascimento informada no cadastro (autodeclarada; só o KYC aprovado marca como verificada) agora é **gravada**. Contas antigas confirmam a data uma única vez na primeira compra de evento com idade mínima; a data não muda depois pelo app.
 - O servidor recusa a compra de quem não terá a idade no dia do evento (horário de Brasília). Convite também respeita a idade.
 - Evento com idade mínima precisa exigir **documento com foto** na portaria; o operador vê o aviso ao validar.
 - Não há exceção (acompanhante, autorização) implementada por mim: depende de parecer jurídico. Outra sessão está adicionando a autorização do responsável para menores que **já têm** a idade do evento (`lib/live/guardian*.ts`).
@@ -135,4 +135,4 @@ Passo a passo quando tiver os dados: Admin → PRX LIVE → **Resenha** → Nova
 - Sem pagamento online: ingressos pagos dependem de confirmação manual no admin.
 - O app bloqueia zoom (decisão de produto); o Lighthouse penaliza acessibilidade por isso.
 - O painel ainda carrega a lista completa de vouchers/benefícios ao abrir (vouchers devem ganhar paginação quando o volume crescer).
-- Contas criadas antes desta entrega não têm data de nascimento gravada: confirmam na primeira compra 18+ (conferida com o CPF quando o Serpro estiver ligado; sem Serpro, é autodeclarada e a portaria confere o documento).
+- Contas criadas antes desta entrega não têm data de nascimento gravada: confirmam na primeira compra 18+ (autodeclarada; a portaria confere o documento).

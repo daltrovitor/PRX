@@ -18,7 +18,7 @@ export const PROMO_AUDIENCES = ["all", "founders", "subscribers", "bank_active"]
 export type PromoAudience = (typeof PROMO_AUDIENCES)[number];
 export const PROMO_AUDIENCE_LABEL: Record<PromoAudience, string> = { all: "Todos", founders: "Founders", subscribers: "Assinantes", bank_active: "Com conta PRX BANK ativa" };
 
-/** Formas de pagamento do checkout (cartão de débito não: o Asaas não permite pedir débito pela API). */
+/** Formas de pagamento do checkout (cartão de débito não: o provedor não permite pedir débito pela API). */
 export const CHECKOUT_METHODS = ["PRX_BANK", "PIX", "CREDIT_CARD"] as const;
 export type CheckoutMethod = (typeof CHECKOUT_METHODS)[number];
 export const CHECKOUT_METHOD_LABEL: Record<CheckoutMethod, string> = { PRX_BANK: "Conta PRX BANK", PIX: "Pix", CREDIT_CARD: "Cartão de crédito" };

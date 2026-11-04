@@ -80,16 +80,17 @@ describe("modo sandbox e saldo admin", () => {
     await expect(sendPix(testUserId, { key: "teste@prx.dev", amount: 50, description: "Teste", recipientName: "Parceiro Teste" })).rejects.toThrow(/Saldo insuficiente/);
   });
 
-  it("Asaas em produção desliga o sandbox mesmo com PRX_BAAS_MODE=sandbox esquecido", async () => {
-    const origEnv = process.env.ASAAS_ENVIRONMENT;
-    process.env.ASAAS_ENVIRONMENT = "production";
+  it("produção do banco parceiro desliga o sandbox mesmo com PRX_BAAS_MODE=sandbox esquecido", async () => {
+    const origEnv = process.env.BANK_ENVIRONMENT;
+    process.env.BANK_ENVIRONMENT = "production";
     try {
       const { isSandboxMode } = await import("@/lib/bank/repository");
       const { bankKycState } = await import("@/lib/kyc/guards");
       expect(isSandboxMode()).toBe(false);
       expect((await bankKycState("user-prod-no-kyc")).status).toBe("none");
     } finally {
-      process.env.ASAAS_ENVIRONMENT = origEnv;
+      if (origEnv === undefined) delete process.env.BANK_ENVIRONMENT;
+      else process.env.BANK_ENVIRONMENT = origEnv;
     }
   });
 });

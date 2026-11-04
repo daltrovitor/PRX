@@ -1,7 +1,7 @@
 // Hello World
 import { NextResponse, type NextRequest } from "next/server";
 import { tableReady } from "@/lib/db-features";
-import { getAsaasClient } from "@/lib/asaas/client";
+import { getPaymentGateway } from "@/lib/billing/gateway";
 import { cancelCheckout } from "@/lib/checkout/service";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
@@ -65,8 +65,8 @@ export async function POST(req: NextRequest) {
     }
     if (body.action === "cancel") {
       await cancelOwnTicket(user, body.ticketId);
-      // A cobrança aberta no Asaas para esta reserva também deixa de valer.
-      if (await tableReady("live_orders")) await cancelCheckout(user.id, body.ticketId, getAsaasClient()).catch(() => undefined);
+      // A cobrança aberta no provedor de pagamentos para esta reserva também deixa de valer.
+      if (await tableReady("live_orders")) await cancelCheckout(user.id, body.ticketId, getPaymentGateway()).catch(() => undefined);
     } else if (body.action === "resend_parent_email") {
       const resendResult = await resendGuardianAuthorization(user, body.ticketId);
       return NextResponse.json({ ...resendResult }, { headers: NO_STORE });

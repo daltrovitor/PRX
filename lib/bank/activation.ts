@@ -10,7 +10,7 @@ import type { BankKycState } from "@/lib/kyc/types";
  */
 export interface ActivationInput {
   kyc: BankKycState["status"];
-  /** O banco parceiro atende este membro neste deploy (Asaas ligado e conta real). */
+  /** O banco parceiro atende este membro neste deploy (provedor ligado e conta real). */
   bankOnline: boolean;
   sandbox: boolean;
   /** Subconta no banco parceiro; null quando o banco não respondeu ou está desligado. */

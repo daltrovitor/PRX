@@ -142,8 +142,3 @@ export async function listValidations(filter: ValidationLogFilter): Promise<Vali
   if (error) throw dbError(error, "Não foi possível consultar o registro de validações");
   return { entries: (data as LogRow[]).map(mapRow), total: count ?? 0, page, pageSize };
 }
-
-/** Já houve uma recusa por reuso deste ingresso (prova do bloqueio da segunda leitura)? */
-export function isReuseRefusal(reason: string): boolean {
-  return /já foi utilizado|acabou de ser validado|já entrou/i.test(reason);
-}

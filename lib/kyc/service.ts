@@ -20,12 +20,12 @@ import { OVER_AGE_BANK_MESSAGE, bankAgeAllowed } from "@/lib/bank/access";
  *   - Conta Pai não abre conta (não guarda dinheiro); um pedido em análise por vez;
  *   - IP e navegador gravados como trilha de auditoria; PEP sinalizado para diligência reforçada.
  * Passadas as regras, a abertura fica em análise pela PRX (lib/kyc/identity.ts):
- * a equipe confere cada documento e a selfie e aprova explicitamente. Só então
- * os dados e documentos seguem ao Asaas, que faz a análise dele e aprova a conta.
+ * a equipe confere cada documento e a selfie e aprova explicitamente. A abertura
+ * da conta no banco parceiro parte dessa aprovação (provedor a ligar).
  * Acima de 29 anos, só com a liberação do admin (lib/bank/access.ts).
  */
 
-/** Frente e verso do documento com foto e a foto do rosto (selfie da câmera): o Asaas exige do titular pessoa física. */
+/** Frente e verso do documento com foto e a foto do rosto (selfie da câmera): exigidos do titular pessoa física. */
 const REQUIRED_DOCS: DocumentKind[] = ["id_front", "id_back", "selfie"];
 const kycRepo = () => getKycRepository();
 const familyRepo = () => getFamilyRepository();
@@ -210,22 +210,8 @@ export async function reviewBankKyc(id: string, decision: "approve" | "reject", 
     await notifyMember(app.userId, `identity:${app.id}:approved`, "Identidade confirmada pela PRX", "Agora o PRX BANK abre a sua conta. O aviso da aprovação chega aqui.");
   }
 
-  if (targetStatus === "approved") {
-    try {
-      const { asaasEnabled } = await import("@/lib/asaas/client");
-      if (asaasEnabled()) {
-        const { ensureAsaasCustomerAndAccount } = await import("@/lib/bank/asaas/onboarding");
-        await ensureAsaasCustomerAndAccount(decided.userId);
-      } else {
-        const { logAsaasUnavailable } = await import("@/lib/bank/asaas/provisioning-log");
-        await logAsaasUnavailable(decided.userId);
-      }
-    } catch (err) {
-      const { logDeferred } = await import("@/lib/bank/asaas/provisioning-log");
-      logDeferred(decided.userId, "abertura.conta", err);
-    }
-  }
-
+  // Ponto de ligação do banco parceiro: com a identidade aprovada (targetStatus === "approved"),
+  // é aqui que a abertura da conta no provedor deve começar.
   return decided;
 }
 
