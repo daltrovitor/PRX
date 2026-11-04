@@ -1,8 +1,8 @@
 // Hello World
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { userStore, createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/lib/auth";
-import { checkRateLimit, sanitizeInput } from "@/lib/security";
+import { userStore, createSessionToken, AUTH_COOKIE_NAME, REMEMBER_SESSION_SECONDS, StoredUser } from "@/lib/auth";
+import { checkRateLimitPersistent, sanitizeInput } from "@/lib/security";
 import { isPublicSupabaseKey, supabaseAdmin } from "@/lib/supabase/client";
 import { createClient } from "@supabase/supabase-js";
 import { asMemberRole, type SessionCookieOptions } from "@/lib/db-rows";
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
     
     // Anti-Brute Force Rate Limiting: 10 attempts per minute per IP
-    const rateCheck = checkRateLimit(`login_${ip}`, 10, 60);
+    const rateCheck = await checkRateLimitPersistent(`login_${ip}`, 10, 60);
     if (!rateCheck.allowed) {
       return NextResponse.json(
         { error: `Muitas tentativas. Bloqueio de segurança temporário. Tente em ${rateCheck.resetInSeconds}s.` },
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     let authenticatedUser: StoredUser | null = null;
 
     // 1. Try Supabase Auth
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.URL || "https://ltiizrewiranhyrzbwds.supabase.co";
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.URL || "";
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.ANON_KEY || "";
 
     if (supabaseUrl && supabaseAnonKey && isPublicSupabaseKey(supabaseAnonKey)) {
@@ -109,8 +109,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Remember me logic: 1 year (31536000s) if true, session (24h token, no cookie maxAge) if false
-    const tokenExpSeconds = rememberMe ? 365 * 24 * 60 * 60 : 24 * 60 * 60;
+    // Remember me logic: 14 dias se true, session (24h token, no cookie maxAge) if false
+    const tokenExpSeconds = rememberMe ? REMEMBER_SESSION_SECONDS : 24 * 60 * 60;
     if (parseResult.data.termsAccepted) await recordConsent(authenticatedUser.id);
     const token = createSessionToken(authenticatedUser, tokenExpSeconds);
 
@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
     };
 
     if (rememberMe) {
-      cookieConfig.maxAge = 365 * 24 * 60 * 60; // 1 year persistence
+      cookieConfig.maxAge = REMEMBER_SESSION_SECONDS; // 14 dias de persistência
     }
 
     response.cookies.set(cookieConfig);
@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
       value: rememberMe ? "1" : "0",
       path: "/",
       sameSite: "lax",
-      maxAge: rememberMe ? 365 * 24 * 60 * 60 : undefined,
+      maxAge: rememberMe ? REMEMBER_SESSION_SECONDS : undefined,
     });
 
     return response;

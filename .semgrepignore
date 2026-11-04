@@ -6,7 +6,6 @@ out/
 build/
 dist/
 vendor/
-public/vendor/
 *.min.js
 .npm/
 .yarn/

@@ -2,7 +2,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { PartnerError } from "@/lib/partners/errors";
-import { errorResponse, readJson, requireAdmin } from "@/lib/partners/http";
+import { errorResponse, readJson, LARGE_JSON_BODY_BYTES, requireAdmin } from "@/lib/partners/http";
 import { firstIssue } from "@/lib/partners/types";
 import { recordAdminAction } from "@/lib/admin/audit";
 import { pageParams } from "@/lib/admin/paging";
@@ -45,7 +45,7 @@ const schema = z.discriminatedUnion("action", [
 export async function POST(req: NextRequest) {
   try {
     const admin = await requireAdmin(req);
-    const parsed = schema.safeParse(await readJson(req));
+    const parsed = schema.safeParse(await readJson(req, LARGE_JSON_BODY_BYTES));
     if (!parsed.success) throw new PartnerError(firstIssue(parsed.error), 400);
     const body = parsed.data;
     const actor = admin.email || admin.sub;

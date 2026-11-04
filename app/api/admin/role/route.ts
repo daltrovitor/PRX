@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { userStore, verifyAdminRequest } from "@/lib/auth";
+import { revokeAllSessions, userStore, verifyAdminRequest } from "@/lib/auth";
 import { recordAdminAction } from "@/lib/admin/audit";
 import { z } from "zod";
 import { incidentResponse } from "@/lib/incidents";
@@ -57,6 +57,9 @@ export async function POST(req: NextRequest) {
           } catch (e) {
             console.warn("Profiles role column update constraint bypassed:", e);
           }
+
+          // O JWT carrega o papel antigo: quem foi rebaixado perderia o acesso só quando o token vencesse.
+          await revokeAllSessions(profile.id);
 
           targetUser = {
             id: profile.id,

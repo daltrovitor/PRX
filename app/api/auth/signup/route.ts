@@ -1,7 +1,7 @@
 // Hello World
 import { NextRequest, NextResponse, after } from "next/server";
 import { z } from "zod";
-import { checkRateLimit, sanitizeInput } from "@/lib/security";
+import { checkRateLimitPersistent, sanitizeInput } from "@/lib/security";
 import { CONSENT_REQUIRED_MESSAGE } from "@/lib/legal";
 import { attachSession, createAccount, publicUser } from "@/lib/accounts";
 import { PartnerError } from "@/lib/partners/errors";
@@ -42,7 +42,7 @@ const SignupSchema = z
 // nosemgrep: prx-mutation-route-without-auth — cadastro público com limite de tentativas; cria a própria conta
 export async function POST(req: NextRequest) {
   try {
-    const rate = checkRateLimit(`signup_${clientIp(req) ?? "anon"}`, 8, 60);
+    const rate = await checkRateLimitPersistent(`signup_${clientIp(req) ?? "anon"}`, 8, 60);
     if (!rate.allowed) return NextResponse.json({ error: `Muitas tentativas. Tente em ${rate.resetInSeconds}s.` }, { status: 429 });
 
     const parsed = SignupSchema.safeParse(await req.json().catch(() => null));

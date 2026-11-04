@@ -24,7 +24,6 @@ const PRECACHE_ASSETS = [
   '/brand/prx-symbol-on-dark.svg',
   '/brand/prx-compact-on-light.svg',
   '/brand/prx-compact-on-dark.svg',
-  '/vendor/gsap.min.js',
 ];
 
 // Instalação: armazena página offline e assets essenciais

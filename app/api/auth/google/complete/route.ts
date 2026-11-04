@@ -2,7 +2,7 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse, after } from "next/server";
 import { z } from "zod";
-import { checkRateLimit, sanitizeInput } from "@/lib/security";
+import { checkRateLimitPersistent, sanitizeInput } from "@/lib/security";
 import { CONSENT_REQUIRED_MESSAGE, TERMS_VERSION, recordConsent } from "@/lib/legal";
 import { attachSession, publicUser } from "@/lib/accounts";
 import { PartnerError } from "@/lib/partners/errors";
@@ -71,7 +71,7 @@ async function whoIsCompleting(req: NextRequest): Promise<Person> {
 // nosemgrep: prx-mutation-route-without-auth — conclusão do cadastro Google (cookie assinado do próprio fluxo ou sessão do membro)
 export async function POST(req: NextRequest) {
   try {
-    const rate = checkRateLimit(`google_complete_${clientIp(req) ?? "anon"}`, 8, 60);
+    const rate = await checkRateLimitPersistent(`google_complete_${clientIp(req) ?? "anon"}`, 8, 60);
     if (!rate.allowed) return NextResponse.json({ error: `Muitas tentativas. Tente em ${rate.resetInSeconds}s.` }, { status: 429 });
 
     const parsed = CompleteSchema.safeParse(await req.json().catch(() => ({})));

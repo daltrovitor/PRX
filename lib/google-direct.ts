@@ -1,6 +1,6 @@
 // Hello World
 import { NextRequest, NextResponse } from "next/server";
-import { AUTH_COOKIE_NAME, createSessionToken, type StoredUser } from "@/lib/auth";
+import { AUTH_COOKIE_NAME, createSessionToken, REMEMBER_SESSION_SECONDS, type StoredUser } from "@/lib/auth";
 import { asMemberRole, type SessionCookieOptions } from "@/lib/db-rows";
 import { CONSENT_COOKIE, TERMS_VERSION, recordConsent } from "@/lib/legal";
 import { GOOGLE_OAUTH_COOKIE, GoogleOAuthError, exchangeGoogleCode, googleIdentity, googleOAuthConfig, readOAuthTransaction, stateMatches } from "@/lib/google-oauth";
@@ -14,7 +14,6 @@ import { supabaseAdmin } from "@/lib/supabase/client";
  * perfil vazio nasce até a conclusão do cadastro, então não sobra usuário fantasma.
  */
 
-const YEAR = 365 * 24 * 60 * 60;
 const expired = { value: "", path: "/", maxAge: 0, expires: new Date(0) } as const;
 
 function homeRedirect(origin: string): NextResponse {
@@ -90,17 +89,17 @@ export async function handleDirectGoogleCallback(req: NextRequest, fetcher: type
   const rememberMe = req.cookies.get("prx_remember_pending")?.value !== "0";
   const sessionCookie: SessionCookieOptions = {
     name: AUTH_COOKIE_NAME,
-    value: createSessionToken(user, rememberMe ? YEAR : 24 * 60 * 60),
+    value: createSessionToken(user, rememberMe ? REMEMBER_SESSION_SECONDS : 24 * 60 * 60),
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
   };
-  if (rememberMe) sessionCookie.maxAge = YEAR;
+  if (rememberMe) sessionCookie.maxAge = REMEMBER_SESSION_SECONDS;
 
   const response = homeRedirect(origin);
   response.cookies.set(sessionCookie);
-  response.cookies.set({ name: "prx_remember", value: rememberMe ? "1" : "0", path: "/", sameSite: "lax", maxAge: rememberMe ? YEAR : undefined });
+  response.cookies.set({ name: "prx_remember", value: rememberMe ? "1" : "0", path: "/", sameSite: "lax", maxAge: rememberMe ? REMEMBER_SESSION_SECONDS : undefined });
   response.cookies.set({ name: CONSENT_COOKIE, ...expired });
   response.cookies.set({ name: "prx_remember_pending", ...expired });
   return response;

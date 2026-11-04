@@ -5,7 +5,7 @@ import { TechnicalError } from "@/lib/error-messages";
 export class PartnerError extends Error {
   constructor(
     message: string,
-    readonly status: 400 | 401 | 403 | 404 | 409 | 422 | 429 | 500 | 503 = 400
+    readonly status: 400 | 401 | 403 | 404 | 409 | 413 | 422 | 429 | 500 | 503 = 400
   ) {
     super(message);
     this.name = "PartnerError";

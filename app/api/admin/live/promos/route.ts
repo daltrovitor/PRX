@@ -2,7 +2,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { PartnerError } from "@/lib/partners/errors";
-import { errorResponse, readJson, requireAdmin } from "@/lib/partners/http";
+import { errorResponse, readJson, LARGE_JSON_BODY_BYTES, requireAdmin } from "@/lib/partners/http";
 import { firstIssue } from "@/lib/partners/types";
 import { recordAdminAction } from "@/lib/admin/audit";
 import { promoInputSchema, promoLabel } from "@/lib/live/promo";
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const admin = await requireAdmin(req);
-    const parsed = promoInputSchema.safeParse(await readJson(req));
+    const parsed = promoInputSchema.safeParse(await readJson(req, LARGE_JSON_BODY_BYTES));
     if (!parsed.success) throw new PartnerError(firstIssue(parsed.error), 400);
     const promo = await createPromo(parsed.data, admin.email || admin.sub);
     await recordAdminAction(admin, { action: "promo.created", targetType: "promo", targetId: promo.id, summary: `Cupom ${promo.code} (${promoLabel(promo)}) criado`, meta: { eventId: promo.eventId, maxUses: promo.maxUses, active: promo.active } }, req);
@@ -56,7 +56,7 @@ const patchSchema = z.object({
 export async function PUT(req: NextRequest) {
   try {
     const admin = await requireAdmin(req);
-    const parsed = patchSchema.safeParse(await readJson(req));
+    const parsed = patchSchema.safeParse(await readJson(req, LARGE_JSON_BODY_BYTES));
     if (!parsed.success) throw new PartnerError(firstIssue(parsed.error), 400);
     const { id, ...patch } = parsed.data;
     const promo = await updatePromo(id, patch);

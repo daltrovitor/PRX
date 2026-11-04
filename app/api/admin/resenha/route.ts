@@ -2,7 +2,7 @@
 import { NextResponse, after, type NextRequest } from "next/server";
 import { z } from "zod";
 import { PartnerError } from "@/lib/partners/errors";
-import { errorResponse, readJson, requireAdmin } from "@/lib/partners/http";
+import { errorResponse, readJson, LARGE_JSON_BODY_BYTES, requireAdmin } from "@/lib/partners/http";
 import { firstIssue } from "@/lib/partners/types";
 import { addInsider, adminOverview, adminRequests, createEdition, createInsider, decideInsiderSignup, resetInsiderPassword, setEditionStatus, setInsiderActive, updateEdition, updateInsiderProfile, updateParticipation } from "@/lib/resenha/admin";
 import { sendListEmail } from "@/lib/resenha/notify";
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
   try {
     const admin = await requireAdmin(req);
     const actor = admin.email || admin.sub;
-    const body = bodySchema.safeParse(await readJson(req));
+    const body = bodySchema.safeParse(await readJson(req, LARGE_JSON_BODY_BYTES));
     if (!body.success) throw new PartnerError(firstIssue(body.error), 400);
     const input = body.data;
     const baseUrl = baseUrlFor(req.headers);

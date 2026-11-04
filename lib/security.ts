@@ -1,5 +1,9 @@
+import crypto from "crypto";
+import { supabaseAdmin } from "@/lib/supabase/client";
+
 /**
- * Sliding window In-Memory Rate Limiter to prevent DoS, Brute-force & credential stuffing.
+ * Limitador em memória (por instância): bom para rotas autenticadas de alto volume e como
+ * reserva do limitador persistente. Logins, cadastros e OTP usam checkRateLimitPersistent.
  */
 interface RateLimitRecord {
   count: number;
@@ -35,6 +39,39 @@ export function checkRateLimit(identifier: string, maxRequests: number = 10, win
     remaining: maxRequests - record.count,
     resetInSeconds: Math.ceil((record.resetAt - now) / 1000),
   };
+}
+
+export type RateLimitResult = ReturnType<typeof checkRateLimit>;
+
+let warnedRpcFailure = false;
+
+/**
+ * Limite persistente e atômico no Postgres (RPC prx_check_rate_limit), igual para todas as
+ * instâncias serverless: é ele que segura força bruta distribuída em login, cadastro, OTP e
+ * guardian-auth (pentest H3). A chave é gravada em hash, sem IP nem e-mail em claro.
+ *
+ * Sem Supabase (desenvolvimento) ou se a RPC falhar (ex.: migration 20261105 ainda não aplicada),
+ * cai no limitador em memória acima, que vale só por instância, para não derrubar o endpoint.
+ */
+export async function checkRateLimitPersistent(identifier: string, maxRequests: number = 10, windowSeconds: number = 60): Promise<RateLimitResult> {
+  if (!supabaseAdmin) return checkRateLimit(identifier, maxRequests, windowSeconds);
+  try {
+    const key = crypto.createHash("sha256").update(identifier).digest("hex");
+    const { data, error } = await supabaseAdmin.rpc("prx_check_rate_limit", { p_key: key, p_max_requests: maxRequests, p_window_seconds: windowSeconds });
+    const result = data as Partial<RateLimitResult> | null;
+    if (error || !result || typeof result.allowed !== "boolean") throw new Error(error?.message ?? "resposta inesperada da RPC");
+    return {
+      allowed: result.allowed,
+      remaining: Number(result.remaining ?? 0),
+      resetInSeconds: Number(result.resetInSeconds ?? windowSeconds),
+    };
+  } catch (error) {
+    if (!warnedRpcFailure) {
+      warnedRpcFailure = true;
+      console.warn("Rate limit persistente indisponível, usando o limitador em memória:", error instanceof Error ? error.message : error);
+    }
+    return checkRateLimit(identifier, maxRequests, windowSeconds);
+  }
 }
 
 /**

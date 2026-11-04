@@ -17,6 +17,7 @@ import Image from "next/image";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/utils";
+import { isOptimizableImage } from "@/lib/media/image-hosts";
 import { IconClose } from "@/components/icons/prx-icons";
 
 /*
@@ -127,7 +128,7 @@ export function Avatar({ name, src, size = 44, className }: { name: string; src?
       style={{ width: size, height: size, fontSize: Math.round(size * 0.36) }}
       aria-hidden
     >
-      {photo ? <Image src={photo} alt="" fill sizes={`${size}px`} className="object-cover" unoptimized={photo.startsWith("data:")} /> : initialsOf(name)}
+      {photo ? <Image src={photo} alt="" fill sizes={`${size}px`} className="object-cover" unoptimized={photo.startsWith("data:") || !isOptimizableImage(photo)} /> : initialsOf(name)}
     </span>
   );
 }

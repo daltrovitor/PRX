@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/client";
 import { PartnerError, dbError } from "@/lib/partners/errors";
 import type { DocumentRef, IncomeRange, TeenPath } from "@/lib/family/types";
 import type { BankKycApplication, DocumentReviews, KycAddress, KycEvent, KycStatus, RiskFlag } from "@/lib/kyc/types";
+import { pgQuote } from "@/lib/postgrest";
 
 /**
  * Pedidos de abertura do PRX BANK: tabela bank_kyc_applications no Supabase
@@ -211,7 +212,7 @@ function supabaseRepository(): KycRepository {
       else if (status !== "all") query = query.eq("status", status);
       const term = cleanSearch(q);
       const digits = term.replace(/\D/g, "");
-      if (term) query = query.or([`full_name.ilike.%${term}%`, `email.ilike.%${term}%`, ...(digits.length >= 3 ? [`cpf.like.%${digits}%`] : [])].join(","));
+      if (term) query = query.or([`full_name.ilike.${pgQuote(`*${term}*`)}`, `email.ilike.${pgQuote(`*${term}*`)}`, ...(digits.length >= 3 ? [`cpf.like.*${digits}*`] : [])].join(","));
       const { data, error, count } = await query;
       fail("listar aberturas de conta", error);
       return { items: ((data ?? []) as KycRow[]).map(map), total: count ?? 0 };

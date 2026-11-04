@@ -25,7 +25,7 @@ import { getFamilyRepository } from "@/lib/family/repository";
 import { isValidCpf } from "@/lib/prx/pix";
 import { ageOn, maskCpf } from "@/lib/family/age";
 import { activeConsentDocument, documentHash, type ConsentDocument } from "@/lib/live/consent-documents";
-import { checkRateLimit } from "@/lib/security";
+import { checkRateLimitPersistent } from "@/lib/security";
 import { maskEmail } from "@/lib/notifications/format";
 import { sendMinorAuthorizationEmail } from "@/lib/notifications/minor-authorization";
 import { eventReadiness, type EventReadiness } from "@/lib/live/readiness";
@@ -792,7 +792,7 @@ export async function resendGuardianAuthorization(user: StoredUser, ticketId: st
   const event = await repo().getEvent(ticket.eventId);
   if (!event) throw new PartnerError("Evento não encontrado.", 404);
   // Não deixa o menor lotar a caixa de entrada do responsável.
-  const limit = checkRateLimit(`guardian-resend:${ticket.id}`, 3, 3600);
+  const limit = await checkRateLimitPersistent(`guardian-resend:${ticket.id}`, 3, 3600);
   if (!limit.allowed) throw new PartnerError(`O e-mail já foi reenviado algumas vezes. Tente de novo em ${Math.ceil(limit.resetInSeconds / 60)} min.`, 429);
 
   await sendMinorAuthorizationEmail({

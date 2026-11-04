@@ -5,6 +5,7 @@ import { requireTable } from "@/lib/db-features";
 import { cleanSearch } from "@/lib/kyc/repository";
 import { BEHAVIORS_MIGRATION, type BehaviorCompany, type BehaviorEvaluation, type BehaviorRule, type CompanyInput, type ImportRun } from "@/lib/behaviors/types";
 import type { BehaviorsRepository } from "@/lib/behaviors/repository";
+import { pgQuote } from "@/lib/postgrest";
 
 /** Comportamentos no Supabase (migração 20261016). Sem a migração, 503 com o nome do arquivo. */
 
@@ -104,7 +105,7 @@ export function supabaseBehaviorsRepository(): BehaviorsRepository {
       let query = db.from("behavior_companies").select("*", { count: "exact" }).order("legal_name").range(offset, offset + limit - 1);
       const term = cleanSearch(q);
       const digits = term.replace(/\D/g, "");
-      if (term) query = query.or([`legal_name.ilike.%${term}%`, `trade_name.ilike.%${term}%`, ...(digits.length >= 3 ? [`cnpj.like.%${digits}%`] : [])].join(","));
+      if (term) query = query.or([`legal_name.ilike.${pgQuote(`*${term}*`)}`, `trade_name.ilike.${pgQuote(`*${term}*`)}`, ...(digits.length >= 3 ? [`cnpj.like.*${digits}*`] : [])].join(","));
       if (category) query = query.eq("category", category);
       const { data, error, count } = await query;
       fail(error, "Não foi possível listar as empresas");

@@ -1,6 +1,6 @@
 // Hello World
 import { NextResponse, type NextRequest } from "next/server";
-import { checkRateLimit } from "@/lib/security";
+import { checkRateLimitPersistent } from "@/lib/security";
 import { PartnerError } from "@/lib/partners/errors";
 import { clientIp } from "@/lib/partners/http";
 import { body, familyErrorResponse, invalid, requireUser } from "@/lib/family/http";
@@ -14,7 +14,7 @@ import { requestPhoneCode } from "@/lib/phone/service";
 export async function POST(req: NextRequest) {
   try {
     const user = await requireUser(req);
-    const rate = checkRateLimit(`phone_code_${clientIp(req) ?? user.id}`, 10, 3600);
+    const rate = await checkRateLimitPersistent(`phone_code_${clientIp(req) ?? user.id}`, 10, 3600);
     if (!rate.allowed) throw new PartnerError(`Muitos pedidos de código. Tente em ${Math.ceil(rate.resetInSeconds / 60)} min.`, 429);
     const parsed = requestCodeSchema.safeParse(await body(req));
     if (!parsed.success) invalid(parsed.error.issues);

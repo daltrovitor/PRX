@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/lib/auth";
+import { createSessionToken, AUTH_COOKIE_NAME, REMEMBER_SESSION_SECONDS, StoredUser } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { asMemberRole, type SessionCookieOptions } from "@/lib/db-rows";
 import { CONSENT_COOKIE, TERMS_VERSION, recordConsent } from "@/lib/legal";
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     try {
       const cookieStore = await cookies();
       const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.URL || "https://ltiizrewiranhyrzbwds.supabase.co",
+        process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.URL || "",
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.ANON_KEY || "",
         {
           cookies: {
@@ -138,7 +138,7 @@ export async function GET(req: NextRequest) {
         const rememberPending = cookieStore.get("prx_remember_pending")?.value;
         const rememberMe = rememberPending !== "0";
 
-        const tokenExpSeconds = rememberMe ? 365 * 24 * 60 * 60 : 24 * 60 * 60;
+        const tokenExpSeconds = rememberMe ? REMEMBER_SESSION_SECONDS : 24 * 60 * 60;
         const token = createSessionToken(sessionUser, tokenExpSeconds);
 
         const response = NextResponse.redirect(`${origin}/`);
@@ -153,7 +153,7 @@ export async function GET(req: NextRequest) {
         };
 
         if (rememberMe) {
-          cookieOptions.maxAge = 365 * 24 * 60 * 60;
+          cookieOptions.maxAge = REMEMBER_SESSION_SECONDS;
         }
 
         response.cookies.set(cookieOptions);
@@ -163,7 +163,7 @@ export async function GET(req: NextRequest) {
           value: rememberMe ? "1" : "0",
           path: "/",
           sameSite: "lax",
-          maxAge: rememberMe ? 365 * 24 * 60 * 60 : undefined,
+          maxAge: rememberMe ? REMEMBER_SESSION_SECONDS : undefined,
         });
 
         response.cookies.set({ name: CONSENT_COOKIE, value: "", path: "/", maxAge: 0, expires: new Date(0) });

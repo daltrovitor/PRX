@@ -1,7 +1,7 @@
 // Hello World
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
-import { userStore } from "@/lib/auth";
+import { revokeAllSessions, userStore } from "@/lib/auth";
 import { isReservedAdminEmail } from "@/lib/admin-allowlist";
 import { isPublicSupabaseKey, supabaseAdmin } from "@/lib/supabase/client";
 import type { ProfileRow } from "@/lib/db-rows";
@@ -111,6 +111,7 @@ export async function revokePartnerAccess(userId: string, email: string | null):
   if (supabaseAdmin && /^[0-9a-f-]{36}$/i.test(userId)) {
     await supabaseAdmin.auth.admin.updateUserById(userId, { app_metadata: { role: "user" } });
     await supabaseAdmin.from("profiles").update({ role: "user" }).eq("id", userId);
+    await revokeAllSessions(userId);
   }
   if (email) userStore.updateRole(email, "user");
 }

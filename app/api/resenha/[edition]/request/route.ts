@@ -1,6 +1,6 @@
 // Hello World
 import { NextResponse, type NextRequest } from "next/server";
-import { checkRateLimit } from "@/lib/security";
+import { checkRateLimitPersistent } from "@/lib/security";
 import { PartnerError } from "@/lib/partners/errors";
 import { clientIp, errorResponse, readJson } from "@/lib/partners/http";
 import { firstIssue } from "@/lib/partners/types";
@@ -16,12 +16,12 @@ import { submitRequest } from "@/lib/resenha/service";
 export async function POST(req: NextRequest, { params }: { params: Promise<{ edition: string }> }) {
   try {
     const ip = clientIp(req) ?? "anon";
-    const limit = checkRateLimit(`resenha-request:${ip}`, 6, 600);
+    const limit = await checkRateLimitPersistent(`resenha-request:${ip}`, 6, 600);
     if (!limit.allowed) throw new PartnerError(`Muitas tentativas. Aguarde ${Math.ceil(limit.resetInSeconds / 60)} min.`, 429);
 
     const parsed = requestInputSchema.safeParse(await readJson(req));
     if (!parsed.success) throw new PartnerError(firstIssue(parsed.error), 422);
-    const perEmail = checkRateLimit(`resenha-request-mail:${parsed.data.email}`, 3, 3600);
+    const perEmail = await checkRateLimitPersistent(`resenha-request-mail:${parsed.data.email}`, 3, 3600);
     if (!perEmail.allowed) throw new PartnerError("Muitas tentativas com este e-mail. Tente mais tarde.", 429);
 
     const { edition } = await params;

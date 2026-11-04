@@ -1,7 +1,7 @@
 // Hello World
 import { NextRequest, NextResponse } from "next/server";
 import { AUTH_COOKIE_NAME, createSessionToken } from "@/lib/auth";
-import { checkRateLimit } from "@/lib/security";
+import { checkRateLimitPersistent } from "@/lib/security";
 import { PartnerError } from "@/lib/partners/errors";
 import { clientIp, errorResponse, readJson } from "@/lib/partners/http";
 import { verifyAccountPassword } from "@/lib/partners/access";
@@ -18,7 +18,7 @@ const SESSION_SECONDS = 7 * 24 * 60 * 60;
 // nosemgrep: prx-mutation-route-without-auth — login do Insider: é aqui que a sessão nasce
 export async function POST(req: NextRequest) {
   try {
-    const limit = checkRateLimit(`insider-login:${clientIp(req) ?? "anon"}`, 10, 60);
+    const limit = await checkRateLimitPersistent(`insider-login:${clientIp(req) ?? "anon"}`, 10, 60);
     if (!limit.allowed) throw new PartnerError(`Muitas tentativas. Aguarde ${limit.resetInSeconds}s.`, 429);
 
     const body = (await readJson(req)) as { email?: unknown; password?: unknown };

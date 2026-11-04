@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { PartnerError } from "@/lib/partners/errors";
-import { errorResponse, readJson, requireAdmin } from "@/lib/partners/http";
+import { errorResponse, readJson, LARGE_JSON_BODY_BYTES, requireAdmin } from "@/lib/partners/http";
 import { createPartner, listPartnersOverview, updatePartner } from "@/lib/partners/service";
 import { firstIssue, partnerInputSchema } from "@/lib/partners/types";
 
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     await requireAdmin(req);
-    const parsed = createSchema.safeParse(await readJson(req));
+    const parsed = createSchema.safeParse(await readJson(req, LARGE_JSON_BODY_BYTES));
     if (!parsed.success) throw new PartnerError(firstIssue(parsed.error), 400);
     const { partner: input, access } = parsed.data;
     const { partner, account } = await createPartner(input, access.mode === "none" ? undefined : access);
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     await requireAdmin(req);
-    const parsed = updateSchema.safeParse(await readJson(req));
+    const parsed = updateSchema.safeParse(await readJson(req, LARGE_JSON_BODY_BYTES));
     if (!parsed.success) throw new PartnerError(firstIssue(parsed.error), 400);
     const partner = await updatePartner(parsed.data.id, parsed.data.partner);
     return NextResponse.json({ success: true, message: `Parceiro ${partner.tradeName} atualizado.`, partner });

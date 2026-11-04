@@ -1,6 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
 import fs from "fs";
 
+// Credenciais de teste só pelo ambiente, nunca no repositório (pentest H6):
+//   PRX_TEST_EMAIL / PRX_TEST_PASSWORD  conta de membro de teste
+const TEST_EMAIL = process.env.PRX_TEST_EMAIL;
+const TEST_PASSWORD = process.env.PRX_TEST_PASSWORD;
+if (!TEST_EMAIL || !TEST_PASSWORD) {
+  console.error("Defina PRX_TEST_EMAIL e PRX_TEST_PASSWORD (conta de teste, fora do repositório).");
+  process.exit(1);
+}
+
 const envText = fs.readFileSync(".env", "utf8");
 const envVars = {};
 envText.split("\n").forEach(line => {
@@ -13,14 +22,14 @@ const supabaseAdmin = createClient(envVars.URL, envVars.SERVICE_ROLE_KEY, {
 });
 
 async function testCreateUser() {
-  const demoEmail = "rafael.molina@prx.app";
+  const demoEmail = TEST_EMAIL;
   const { data: existing } = await supabaseAdmin.auth.admin.listUsers();
   const found = existing?.users?.find(u => u.email === demoEmail);
 
   if (!found) {
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email: demoEmail,
-      password: "Prx2026!",
+      password: TEST_PASSWORD,
       email_confirm: true, // No email confirmation required!
       user_metadata: {
         full_name: "Rafael Molina",
@@ -39,7 +48,7 @@ async function testCreateUser() {
   const client = createClient(envVars.URL, envVars.ANON_KEY);
   const { data: signInData, error: signInErr } = await client.auth.signInWithPassword({
     email: demoEmail,
-    password: "Prx2026!"
+    password: TEST_PASSWORD
   });
   console.log("Sign in test:", {
     success: !!signInData.session,

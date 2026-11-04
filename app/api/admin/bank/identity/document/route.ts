@@ -21,6 +21,8 @@ export async function GET(req: NextRequest) {
     const kind = req.nextUrl.searchParams.get("kind") ?? "";
     if (!id || !(DOCUMENT_KINDS as readonly string[]).includes(kind)) throw new PartnerError("Documento não encontrado.", 404);
     const doc = await documentForReview(id, kind as DocumentKind, admin.email || admin.sub);
+    // Defesa em profundidade (pentest M9): o caminho vem do banco e vira chave de storage; só o formato "<conta>/<arquivo>" que lib/family/documents.ts gera.
+    if (doc.path.includes("..") || !/^[\w-]+\/[\w.-]+$/.test(doc.path)) throw new PartnerError("Documento não encontrado.", 404);
     const memory = readMemoryDocument(doc.path);
     if (memory) return new NextResponse(new Uint8Array(memory.data), { headers: { ...PRIVATE, "Content-Type": memory.type, "Content-Disposition": "inline" } });
     const url = await documentViewUrl(doc.path);

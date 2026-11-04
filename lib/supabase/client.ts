@@ -1,10 +1,8 @@
 import { createBrowserClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  process.env.URL ||
-  "https://ltiizrewiranhyrzbwds.supabase.co";
+// Sem URL embutida no código (pentest M3): vem só do ambiente (NEXT_PUBLIC_SUPABASE_URL ou URL).
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.URL || "";
 
 const supabaseAnonKey = (
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
@@ -33,7 +31,7 @@ export function isSecretSupabaseKey(key: string): boolean {
   return k.startsWith("eyJ") || k.startsWith("sb_secret_");
 }
 
-export const isLiveConfigured = isPublicSupabaseKey(supabaseAnonKey);
+export const isLiveConfigured = Boolean(supabaseUrl) && isPublicSupabaseKey(supabaseAnonKey);
 
 export const isUsingLiveSupabase = isLiveConfigured;
 
@@ -44,7 +42,7 @@ export const supabase = isLiveConfigured
 
 // Server / Admin SDK for secure direct user creation without email confirmation
 export const supabaseAdmin =
-  isSecretSupabaseKey(supabaseServiceRoleKey)
+  supabaseUrl && isSecretSupabaseKey(supabaseServiceRoleKey)
     ? createClient(supabaseUrl, supabaseServiceRoleKey, {
         auth: {
           autoRefreshToken: false,

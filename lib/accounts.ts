@@ -1,6 +1,6 @@
 // Hello World
 import type { NextResponse } from "next/server";
-import { userStore, createSessionToken, AUTH_COOKIE_NAME, type StoredUser } from "@/lib/auth";
+import { userStore, createSessionToken, AUTH_COOKIE_NAME, REMEMBER_SESSION_SECONDS, type StoredUser } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { isReservedAdminEmail } from "@/lib/admin-allowlist";
 import { PartnerError } from "@/lib/partners/errors";
@@ -96,20 +96,18 @@ export async function discardAccount(userId: string): Promise<void> {
   }
 }
 
-const ONE_YEAR = 365 * 24 * 60 * 60;
-
-/** Sessão de 1 ano ("lembrar de mim"), como no cadastro do membro. */
+/** Sessão de 14 dias ("lembrar de mim"), como no cadastro do membro (pentest H5). */
 export function attachSession(response: NextResponse, user: StoredUser): NextResponse {
   response.cookies.set({
     name: AUTH_COOKIE_NAME,
-    value: createSessionToken(user, ONE_YEAR),
+    value: createSessionToken(user, REMEMBER_SESSION_SECONDS),
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     path: "/",
     sameSite: "lax",
-    maxAge: ONE_YEAR,
+    maxAge: REMEMBER_SESSION_SECONDS,
   });
-  response.cookies.set({ name: "prx_remember", value: "1", path: "/", sameSite: "lax", maxAge: ONE_YEAR });
+  response.cookies.set({ name: "prx_remember", value: "1", path: "/", sameSite: "lax", maxAge: REMEMBER_SESSION_SECONDS });
   return response;
 }
 

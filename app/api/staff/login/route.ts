@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { AUTH_COOKIE_NAME, createSessionToken, userStore, type StoredUser } from "@/lib/auth";
 import { isAllowlistedAdmin } from "@/lib/admin-allowlist";
 import { supabaseAdmin } from "@/lib/supabase/client";
-import { checkRateLimit } from "@/lib/security";
+import { checkRateLimitPersistent } from "@/lib/security";
 import { PartnerError } from "@/lib/partners/errors";
 import { clientIp, errorResponse, readJson } from "@/lib/partners/http";
 import { verifyAccountPassword } from "@/lib/partners/access";
@@ -34,7 +34,7 @@ async function accountFor(email: string): Promise<{ id: string; name: string; ro
 // nosemgrep: prx-mutation-route-without-auth — login da equipe: é aqui que a sessão nasce
 export async function POST(req: NextRequest) {
   try {
-    const limit = checkRateLimit(`staff-login:${clientIp(req) || "anon"}`, 10, 60);
+    const limit = await checkRateLimitPersistent(`staff-login:${clientIp(req) || "anon"}`, 10, 60);
     if (!limit.allowed) throw new PartnerError(`Muitas tentativas. Aguarde ${limit.resetInSeconds}s.`, 429);
 
     const body = (await readJson(req)) as { email?: unknown; password?: unknown };

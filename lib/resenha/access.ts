@@ -1,6 +1,6 @@
 // Hello World
 import type { NextRequest } from "next/server";
-import { getCurrentUser, userStore, type StoredUser } from "@/lib/auth";
+import { getCurrentUser, revokeAllSessions, userStore, type StoredUser } from "@/lib/auth";
 import { isReservedAdminEmail } from "@/lib/admin-allowlist";
 import { supabaseAdmin } from "@/lib/supabase/client";
 import { PartnerError } from "@/lib/partners/errors";
@@ -67,6 +67,7 @@ export async function setInsiderPassword(userId: string, email: string, password
   if (supabaseAdmin) {
     const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, { password });
     if (error) throw new PartnerError("Não foi possível trocar a senha.", 500);
+    await revokeAllSessions(userId);
     return;
   }
   if (!userStore.setPassword(userId, password) && !userStore.setPassword(email, password)) throw new PartnerError("Conta do Insider não encontrada.", 404);

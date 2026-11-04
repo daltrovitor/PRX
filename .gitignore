@@ -46,3 +46,6 @@ next-env.d.ts
 
 # Saída do Playwright MCP (capturas e logs locais)
 .playwright-mcp/
+
+# Documentação comercial interna fica fora do repositório (pentest M10)
+/*.pdf

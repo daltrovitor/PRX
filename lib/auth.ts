@@ -9,6 +9,9 @@ import { calculatePrxLevel } from "@/lib/pass-data";
 
 const AUTH_COOKIE_NAME = "prx_session";
 
+/** Vida da sessão "lembrar de mim": 14 dias (era 365 dias; pentest H5). */
+export const REMEMBER_SESSION_SECONDS = 14 * 24 * 60 * 60;
+
 /** Conteúdo assinado do token de sessão. */
 export interface SessionPayload {
   sub: string;
@@ -44,6 +47,8 @@ export interface StoredUser {
   cpf?: string;
   phone?: string;
   createdAt: string;
+  /** Sessões emitidas antes deste instante foram revogadas (profiles.sessions_valid_after, pentest H5). */
+  sessionsValidAfter?: string;
 }
 
 const DEFAULT_DEMO_USER = {
@@ -316,7 +321,9 @@ export function verifySessionToken(token: string): { valid: boolean; payload?: S
       .update(`${header}.${payload}`)
       .digest("base64url");
 
-    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
+    const given = Buffer.from(signature);
+    const wanted = Buffer.from(expectedSig);
+    if (given.length !== wanted.length || !crypto.timingSafeEqual(given, wanted)) {
       return { valid: false };
     }
 
@@ -328,6 +335,46 @@ export function verifySessionToken(token: string): { valid: boolean; payload?: S
     return { valid: true, payload: decodedPayload };
   } catch (err) {
     return { valid: false };
+  }
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Token emitido antes do carimbo de revogação do perfil (sair de todos os dispositivos, troca de
+ * papel ou de senha) não vale mais. Compara em segundos, como o `iat` do token.
+ */
+export function issuedBeforeRevocation(iat: number | undefined, validAfter: string | null | undefined): boolean {
+  if (!validAfter) return false;
+  const cutoff = Math.floor(new Date(validAfter).getTime() / 1000);
+  return Number.isFinite(cutoff) && (iat ?? 0) < cutoff;
+}
+
+/** Consulta o carimbo de revogação no perfil. Sem Supabase ou sem a coluna (migration 20261105 pendente), nada é revogado. */
+async function sessionRevoked(payload: SessionPayload): Promise<boolean> {
+  if (!UUID_RE.test(payload.sub)) return false;
+  try {
+    const { supabaseAdmin } = await import("@/lib/supabase/client");
+    if (!supabaseAdmin) return false;
+    const { data, error } = await supabaseAdmin.from("profiles").select("sessions_valid_after").eq("id", payload.sub).maybeSingle();
+    if (error) return false;
+    return issuedBeforeRevocation(payload.iat, data?.sessions_valid_after);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Invalida todas as sessões já emitidas para o usuário (pentest H5): "sair de todos os dispositivos",
+ * rebaixamento de papel, troca de senha. Quem entrar de novo recebe um token novo, que vale.
+ */
+export async function revokeAllSessions(userId: string): Promise<void> {
+  if (!UUID_RE.test(userId)) return;
+  try {
+    const { supabaseAdmin } = await import("@/lib/supabase/client");
+    await supabaseAdmin?.from("profiles").update({ sessions_valid_after: new Date().toISOString() }).eq("id", userId);
+  } catch {
+    // melhor esforço: sem a coluna (migration pendente) não há o que revogar
   }
 }
 
@@ -358,7 +405,9 @@ export async function getCurrentUser(req?: NextRequest): Promise<StoredUser | nu
 
     const verification = verifySessionToken(token);
     if (!verification.valid || !verification.payload?.sub) return null;
-    return await loadSessionUser(verification.payload.sub, verification.payload);
+    const user = await loadSessionUser(verification.payload.sub, verification.payload);
+    if (user && issuedBeforeRevocation(verification.payload.iat, user.sessionsValidAfter)) return null;
+    return user;
   } catch {
     return null;
   }
@@ -426,6 +475,7 @@ export async function loadSessionUser(userId: string, hint: { email?: string; ro
             cpf: profile.cpf || undefined,
             phone: profile.phone || undefined,
             createdAt: profile.created_at || new Date().toISOString(),
+            sessionsValidAfter: profile.sessions_valid_after || undefined,
           };
         }
       }
@@ -476,6 +526,9 @@ export async function verifyAdminRequest(req?: NextRequest): Promise<{
   const { valid, payload } = verifySessionToken(token);
   if (!valid || !payload) {
     return { authorized: false, status: 401, error: "Sessão inválida ou expirada." };
+  }
+  if (await sessionRevoked(payload)) {
+    return { authorized: false, status: 401, error: "Sessão encerrada. Entre novamente." };
   }
 
   // 1. Direct role check
@@ -576,6 +629,9 @@ export async function verifyPartnerRequest(req?: NextRequest): Promise<{
   if (!valid || !payload) {
     return { authorized: false, status: 401, error: "Sessão inválida ou expirada." };
   }
+  if (await sessionRevoked(payload)) {
+    return { authorized: false, status: 401, error: "Sessão encerrada. Entre novamente." };
+  }
 
   let role = payload.role;
   const userEmail = payload.email?.toLowerCase().trim();
@@ -657,6 +713,7 @@ export async function verifyStaffRequest(req?: NextRequest): Promise<{
   }
   const { valid, payload } = token ? verifySessionToken(token) : { valid: false, payload: undefined };
   if (!valid || !payload) return { authorized: false, status: 401, error: "Sessão inválida ou expirada." };
+  if (await sessionRevoked(payload)) return { authorized: false, status: 401, error: "Sessão encerrada. Entre novamente." };
 
   let role = payload.role;
   if (role !== "staff") {

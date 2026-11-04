@@ -1,7 +1,7 @@
 // Hello World
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { checkRateLimit } from "@/lib/security";
+import { checkRateLimitPersistent } from "@/lib/security";
 import { PartnerError } from "@/lib/partners/errors";
 import { clientIp, errorResponse, readJson } from "@/lib/partners/http";
 import { firstIssue } from "@/lib/partners/types";
@@ -28,7 +28,7 @@ const actionSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const ip = clientIp(req) || "anon";
-    const limit = checkRateLimit(`guardian-auth-get:${ip}`, 60, 60);
+    const limit = await checkRateLimitPersistent(`guardian-auth-get:${ip}`, 60, 60);
     if (!limit.allowed) throw new PartnerError(`Muitas requisições. Aguarde ${limit.resetInSeconds}s.`, 429);
 
     const token = req.nextUrl.searchParams.get("token");
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   try {
     const ip = clientIp(req) || "anon";
     const userAgent = req.headers.get("user-agent") || undefined;
-    const limit = checkRateLimit(`guardian-auth-post:${ip}`, 20, 60);
+    const limit = await checkRateLimitPersistent(`guardian-auth-post:${ip}`, 20, 60);
     if (!limit.allowed) throw new PartnerError(`Muitas tentativas. Aguarde ${limit.resetInSeconds}s.`, 429);
 
     const parsed = actionSchema.safeParse(await readJson(req));

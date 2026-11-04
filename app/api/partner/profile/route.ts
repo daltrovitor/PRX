@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { missingForAcceptance } from "@/lib/partners/contract";
 import { PartnerError } from "@/lib/partners/errors";
-import { errorResponse, readJson, requirePartnerSession } from "@/lib/partners/http";
+import { errorResponse, readJson, LARGE_JSON_BODY_BYTES, requirePartnerSession } from "@/lib/partners/http";
 import { snapshotOf, updateOwnProfile } from "@/lib/partners/service";
 import { firstIssue, partnerSelfUpdateSchema, type Partner } from "@/lib/partners/types";
 
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const { partner } = await requirePartnerSession(req);
-    const parsed = partnerSelfUpdateSchema.safeParse(await readJson(req));
+    const parsed = partnerSelfUpdateSchema.safeParse(await readJson(req, LARGE_JSON_BODY_BYTES));
     if (!parsed.success) throw new PartnerError(firstIssue(parsed.error), 400);
     const updated = await updateOwnProfile(partner, parsed.data);
     return NextResponse.json({

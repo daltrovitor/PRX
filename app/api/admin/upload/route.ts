@@ -22,10 +22,11 @@ function uploadFolder(value: FormDataEntryValue | null): "benefits" | "logos" | 
       return null;
   }
 }
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"];
+// Sem SVG: o arquivo pode carregar <script> e viraria XSS armazenado no bucket público (pentest M12).
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 /** Extensão sempre derivada do tipo do arquivo (constante do código), nunca do nome enviado. */
-function extensionFor(mime: string): "jpg" | "png" | "webp" | "gif" | "svg" | null {
+function extensionFor(mime: string): "jpg" | "png" | "webp" | "gif" | null {
   switch (mime) {
     case "image/jpeg":
       return "jpg";
@@ -35,8 +36,6 @@ function extensionFor(mime: string): "jpg" | "png" | "webp" | "gif" | "svg" | nu
       return "webp";
     case "image/gif":
       return "gif";
-    case "image/svg+xml":
-      return "svg";
     default:
       return null;
   }
@@ -62,7 +61,7 @@ export async function POST(req: NextRequest) {
     const fileExt = extensionFor(file.type);
     if (!fileExt) {
       return NextResponse.json(
-        { error: "Formato de arquivo inválido. Envie JPG, PNG, WEBP, GIF ou SVG." },
+        { error: "Formato de arquivo inválido. Envie JPG, PNG, WEBP ou GIF." },
         { status: 400 }
       );
     }

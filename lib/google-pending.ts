@@ -62,7 +62,9 @@ export function verifyPendingGoogleToken(token: string): PendingGooglePayload | 
     if (!body || !signature) return null;
 
     const expected = crypto.createHmac("sha256", getSessionSecret()).update(body).digest("base64url");
-    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
+    const given = Buffer.from(signature);
+    const wanted = Buffer.from(expected);
+    if (given.length !== wanted.length || !crypto.timingSafeEqual(given, wanted)) return null;
 
     const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as PendingGooglePayload;
     if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;

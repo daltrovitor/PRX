@@ -1,7 +1,7 @@
 // Hello World
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AUTH_COOKIE_NAME } from "@/lib/auth";
+import { AUTH_COOKIE_NAME, REMEMBER_SESSION_SECONDS } from "@/lib/auth";
 import { CONSENT_COOKIE, TERMS_VERSION } from "@/lib/legal-version";
 import { GOOGLE_OAUTH_COOKIE, beginGoogleOAuth } from "@/lib/google-oauth";
 import { PENDING_GOOGLE_COOKIE, verifyPendingGoogleToken } from "@/lib/google-pending";
@@ -113,7 +113,7 @@ describe("volta do login direto com o Google", () => {
     expect(verifyPendingGoogleToken(response?.cookies.get(PENDING_GOOGLE_COOKIE)?.value ?? "")).toMatchObject({ authUserId: "acesso-2", welcome: false });
   });
 
-  it("cadastro completo entra: sessão de 1 ano, foto atualizada e aceite dos Termos gravado", async () => {
+  it("cadastro completo entra: sessão de 14 dias, foto atualizada e aceite dos Termos gravado", async () => {
     mocks.state.profile = { id: "acesso-3", email: "gabi@gmail.com", role: "user", cpf: "52998224725", phone: "11988887777", full_name: "Gabi Teste", avatar_url: "", nxt_score: 400, nxt_level: 2, wallet_balance: 0 };
     const { cookie, state, nonce } = trip();
     const response = await run(back({ cookie, state, extra: `${CONSENT_COOKIE}=${TERMS_VERSION}` }), okFetch(jwt(claims(nonce))) as unknown as typeof fetch);
@@ -122,14 +122,14 @@ describe("volta do login direto com o Google", () => {
     const session = response?.cookies.get(AUTH_COOKIE_NAME);
     expect(session?.value).toBeTruthy();
     expect(session?.httpOnly).toBe(true);
-    expect(session?.maxAge).toBe(365 * 24 * 60 * 60);
+    expect(session?.maxAge).toBe(REMEMBER_SESSION_SECONDS);
     expect(response?.cookies.get("prx_remember")?.value).toBe("1");
     expect(response?.cookies.get(PENDING_GOOGLE_COOKIE)?.value).toBeFalsy();
     expect(mocks.state.updates[0]).toMatchObject({ avatar_url: "https://lh3.googleusercontent.com/a/foto" });
     expect(mocks.recordConsent).toHaveBeenCalledWith("acesso-3");
   });
 
-  it("sem 'lembrar de mim' a sessão não é de 1 ano, e sem o cookie de aceite nada é gravado", async () => {
+  it("sem 'lembrar de mim' a sessão não é de 14 dias, e sem o cookie de aceite nada é gravado", async () => {
     mocks.state.profile = { id: "acesso-4", email: "gabi@gmail.com", role: "user", cpf: "52998224725", phone: "11988887777", avatar_url: "https://foto.example/minha.png" };
     const { cookie, state, nonce } = trip();
     const response = await run(back({ cookie, state, extra: "prx_remember_pending=0" }), okFetch(jwt(claims(nonce))) as unknown as typeof fetch);

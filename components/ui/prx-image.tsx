@@ -4,6 +4,7 @@
 import Image, { type ImageProps } from "next/image";
 import { useDecompressedImage, type ImageSource } from "@/lib/media/use-decompressed-image";
 import { isCompressedImageData } from "@/lib/media/compression";
+import { isOptimizableImage } from "@/lib/media/image-hosts";
 import { cn } from "@/lib/utils";
 
 export interface PrxImageProps extends Omit<ImageProps, "src"> {
@@ -32,7 +33,7 @@ export function PrxImage({ src, alt, className, fallbackClassName, unoptimized, 
       {...rest}
       src={resolvedSrc}
       alt={alt}
-      unoptimized={isDataUrl ? true : unoptimized}
+      unoptimized={isDataUrl || !isOptimizableImage(resolvedSrc) ? true : unoptimized}
       className={className}
     />
   );

@@ -3,14 +3,14 @@
 /**
  * E-mails que sempre recebem o papel de administrador.
  *
- * Os padrões são as contas já existentes do dono do projeto (criadas antes do
- * rebrand PRX, por isso mantêm o domínio antigo). Para trocar, defina
- * PRX_ADMIN_EMAILS com uma lista separada por vírgula.
+ * A lista vem só da variável PRX_ADMIN_EMAILS (e-mails separados por vírgula),
+ * definida no painel da Vercel. Sem e-mails pessoais no código-fonte (pentest M4);
+ * sem a variável, ninguém ganha papel de admin pelo e-mail e o papel vem só do perfil.
  *
  * Como a lista concede privilégio pelo e-mail, esses endereços nunca podem ser
  * registrados pelo cadastro público — ver isReservedAdminEmail.
  */
-const DEFAULT_ADMIN_EMAILS = ["adminv@nxtgen.com", "admin@nxtgen.app", "vitorrocketleague@gmail.com"];
+const DEFAULT_ADMIN_EMAILS: string[] = [];
 
 function normalize(email: string | null | undefined): string {
   return (email || "").toLowerCase().trim();

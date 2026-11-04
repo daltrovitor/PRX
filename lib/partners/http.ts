@@ -13,14 +13,56 @@ import type { Partner } from "@/lib/partners/types";
  * código, e o motivo vai para os logs (lib/incidents.ts). `fallback` descreve a
  * ação para o registro, nunca vai para a tela.
  */
+const NO_STORE = "no-store, no-cache, must-revalidate";
+
 export async function errorResponse(error: unknown, fallback: string): Promise<NextResponse> {
-  if (error instanceof PartnerError && error.status < 500) return NextResponse.json({ error: error.message }, { status: error.status });
-  return incidentResponse(error, fallback, error instanceof PartnerError ? error.status : undefined);
+  if (error instanceof PartnerError && error.status < 500) {
+    return NextResponse.json({ error: error.message }, { status: error.status, headers: { "Cache-Control": NO_STORE } });
+  }
+  const res = await incidentResponse(error, fallback, error instanceof PartnerError ? error.status : undefined);
+  res.headers.set("Cache-Control", NO_STORE);
+  return res;
 }
 
-export async function readJson(req: NextRequest): Promise<unknown> {
+/** Teto padrão do corpo JSON: 1 MB por requisição (anti-DoS por payload gigante). */
+export const MAX_JSON_BODY_BYTES = 1_048_576;
+/** Rotas cujo schema aceita foto/capa em data URL (até 5 MB de texto): parceiros, eventos, resenha e insiders. */
+export const LARGE_JSON_BODY_BYTES = 5_242_880;
+
+function tooLarge(maxBytes: number): PartnerError {
+  return new PartnerError(`O envio é grande demais. O máximo é ${Math.round(maxBytes / 1_048_576)} MB.`, 413);
+}
+
+/** Lê o corpo aos poucos e aborta ao passar do teto: não carrega um corpo gigante (ou sem Content-Length) inteiro na memória. */
+async function readBodyText(req: NextRequest, maxBytes: number): Promise<string> {
+  const reader = req.body?.getReader();
+  if (!reader) return "";
+  const chunks: Uint8Array[] = [];
+  let received = 0;
   try {
-    return await req.json();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.byteLength;
+      if (received > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        throw tooLarge(maxBytes);
+      }
+      chunks.push(value);
+    }
+  } catch (error) {
+    if (error instanceof PartnerError) throw error;
+    throw new TechnicalError("Falha ao ler o corpo da requisição.", 400);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+export async function readJson(req: NextRequest, maxBytes: number = MAX_JSON_BODY_BYTES): Promise<unknown> {
+  const declared = Number(req.headers.get("content-length") || "0");
+  if (Number.isFinite(declared) && declared > maxBytes) throw tooLarge(maxBytes);
+  const text = await readBodyText(req, maxBytes);
+  try {
+    return JSON.parse(text);
   } catch {
     throw new TechnicalError("Corpo da requisição não é JSON válido.", 400);
   }

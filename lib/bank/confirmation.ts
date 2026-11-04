@@ -5,7 +5,7 @@ import { isPublicSupabaseKey } from "@/lib/supabase/client";
 import type { AuthenticationResponseJSON } from "@simplewebauthn/server";
 import { z } from "zod";
 import { PartnerError } from "@/lib/partners/errors";
-import { checkRateLimit } from "@/lib/security";
+import { checkRateLimitPersistent } from "@/lib/security";
 import { PasskeyError, transactionOptions, verifyTransaction } from "@/lib/passkeys/service";
 
 /**
@@ -45,7 +45,7 @@ async function verifyPassword(email: string, password: string): Promise<void> {
 }
 
 export async function verifyProof(req: NextRequest, user: { id: string; email: string }, requestId: string, proof: ConfirmationProof): Promise<void> {
-  const rate = checkRateLimit(`bank_confirm_${user.id}`, 8, 600);
+  const rate = await checkRateLimitPersistent(`bank_confirm_${user.id}`, 8, 600);
   if (!rate.allowed) throw new PartnerError(`Muitas tentativas de confirmação. Aguarde ${rate.resetInSeconds}s.`, 429);
   if (proof.type === "password") return verifyPassword(user.email, proof.password);
   try {

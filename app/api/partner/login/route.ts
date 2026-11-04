@@ -4,7 +4,7 @@ import { userStore, createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/l
 import { isPublicSupabaseKey, supabaseAdmin } from "@/lib/supabase/client";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { checkRateLimit } from "@/lib/security";
+import { checkRateLimitPersistent } from "@/lib/security";
 import { clientIp } from "@/lib/partners/http";
 import { incidentResponse } from "@/lib/incidents";
 
@@ -14,7 +14,7 @@ const LoginSchema = z.object({ email: z.string().trim().email().max(160), passwo
 export async function POST(req: NextRequest) {
   try {
     // Força bruta: no máximo 10 tentativas por minuto por IP.
-    const limit = checkRateLimit(`partner-login:${clientIp(req) ?? "anon"}`, 10, 60);
+    const limit = await checkRateLimitPersistent(`partner-login:${clientIp(req) ?? "anon"}`, 10, 60);
     if (!limit.allowed) {
       return NextResponse.json({ error: `Muitas tentativas. Tente em ${limit.resetInSeconds}s.` }, { status: 429 });
     }
@@ -32,10 +32,7 @@ export async function POST(req: NextRequest) {
     let authenticatedPartner: StoredUser | null = null;
 
     // 1. Try Supabase Auth first
-    const supabaseUrl =
-      process.env.NEXT_PUBLIC_SUPABASE_URL ||
-      process.env.URL ||
-      "https://ltiizrewiranhyrzbwds.supabase.co";
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.URL || "";
     const supabaseAnonKey =
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
       process.env.ANON_KEY ||

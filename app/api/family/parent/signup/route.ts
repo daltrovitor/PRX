@@ -1,6 +1,6 @@
 // Hello World
 import { NextResponse, after, type NextRequest } from "next/server";
-import { checkRateLimit, sanitizeInput } from "@/lib/security";
+import { checkRateLimitPersistent, sanitizeInput } from "@/lib/security";
 import { PartnerError } from "@/lib/partners/errors";
 import { recordConsent } from "@/lib/legal";
 import { attachSession, publicUser } from "@/lib/accounts";
@@ -14,7 +14,7 @@ import { sendWelcomeEmail } from "@/lib/notifications/welcome";
 export async function POST(req: NextRequest) {
   try {
     const ip = (req.headers.get("x-forwarded-for") || "127.0.0.1").split(",")[0].trim();
-    const rate = checkRateLimit(`parent_signup_${ip}`, 6, 60);
+    const rate = await checkRateLimitPersistent(`parent_signup_${ip}`, 6, 60);
     if (!rate.allowed) throw new PartnerError(`Muitas tentativas. Tente em ${rate.resetInSeconds}s.`, 429);
     const parsed = parentSignupSchema.safeParse(await body(req));
     if (!parsed.success) invalid(parsed.error.issues);

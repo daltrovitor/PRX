@@ -4,9 +4,14 @@ import { userStore, createSessionToken, AUTH_COOKIE_NAME, StoredUser } from "@/l
 import { isPublicSupabaseKey, supabaseAdmin } from "@/lib/supabase/client";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { checkRateLimit } from "@/lib/security";
+import { checkRateLimitPersistent } from "@/lib/security";
 import { clientIp } from "@/lib/partners/http";
 import { incidentResponse } from "@/lib/incidents";
+
+/** 401 único para senha errada, conta inexistente e conta sem papel de admin. */
+function invalidCredentials(): NextResponse {
+  return NextResponse.json({ error: "Credenciais inválidas ou sem permissão de acesso." }, { status: 401, headers: { "Cache-Control": "no-store" } });
+}
 
 const LoginSchema = z.object({ email: z.string().trim().email().max(160), password: z.string().min(1).max(128) });
 
@@ -14,7 +19,7 @@ const LoginSchema = z.object({ email: z.string().trim().email().max(160), passwo
 export async function POST(req: NextRequest) {
   try {
     // Força bruta: no máximo 10 tentativas por minuto por IP.
-    const limit = checkRateLimit(`admin-login:${clientIp(req) ?? "anon"}`, 10, 60);
+    const limit = await checkRateLimitPersistent(`admin-login:${clientIp(req) ?? "anon"}`, 10, 60);
     if (!limit.allowed) {
       return NextResponse.json({ error: `Muitas tentativas. Tente em ${limit.resetInSeconds}s.` }, { status: 429 });
     }
@@ -32,10 +37,7 @@ export async function POST(req: NextRequest) {
     let authenticatedAdmin: StoredUser | null = null;
 
     // 1. Try Supabase Auth first
-    const supabaseUrl =
-      process.env.NEXT_PUBLIC_SUPABASE_URL ||
-      process.env.URL ||
-      "https://ltiizrewiranhyrzbwds.supabase.co";
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.URL || "";
     const supabaseAnonKey =
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
       process.env.ANON_KEY ||
@@ -76,15 +78,8 @@ export async function POST(req: NextRequest) {
           }
 
           // STRICT CHECK: Only users with role === 'admin' can login through the admin portal
-          if (profileRole !== "admin") {
-            return NextResponse.json(
-              {
-                error: "Acesso negado. Esta conta não possui privilégios de administrador.",
-                role: profileRole,
-              },
-              { status: 403 }
-            );
-          }
+          // Mesma resposta de senha errada: não revela quais contas existem nem quais são admin (pentest M7).
+          if (profileRole !== "admin") return invalidCredentials();
 
           authenticatedAdmin = {
             id: authUser.id,
@@ -112,26 +107,13 @@ export async function POST(req: NextRequest) {
       if (demoUser) {
         const computedHash = userStore.hashPassword(password, demoUser.salt);
         if (computedHash === demoUser.passwordHash) {
-          if (demoUser.role !== "admin") {
-            return NextResponse.json(
-              {
-                error: "Acesso negado. Esta conta não possui privilégios de administrador.",
-                role: demoUser.role,
-              },
-              { status: 403 }
-            );
-          }
+          if (demoUser.role !== "admin") return invalidCredentials();
           authenticatedAdmin = demoUser;
         }
       }
     }
 
-    if (!authenticatedAdmin) {
-      return NextResponse.json(
-        { error: "Credenciais inválidas ou conta inexistente." },
-        { status: 401 }
-      );
-    }
+    if (!authenticatedAdmin) return invalidCredentials();
 
     const sessionToken = createSessionToken(authenticatedAdmin, 7 * 24 * 60 * 60);
 

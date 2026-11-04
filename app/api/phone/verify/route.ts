@@ -1,6 +1,6 @@
 // Hello World
 import { NextResponse, type NextRequest } from "next/server";
-import { checkRateLimit } from "@/lib/security";
+import { checkRateLimitPersistent } from "@/lib/security";
 import { PartnerError } from "@/lib/partners/errors";
 import { body, familyErrorResponse, invalid, requireUser } from "@/lib/family/http";
 import { confirmCodeSchema } from "@/lib/phone/types";
@@ -10,7 +10,7 @@ import { confirmPhoneCode } from "@/lib/phone/service";
 export async function POST(req: NextRequest) {
   try {
     const user = await requireUser(req);
-    const rate = checkRateLimit(`phone_verify_${user.id}`, 20, 600);
+    const rate = await checkRateLimitPersistent(`phone_verify_${user.id}`, 20, 600);
     if (!rate.allowed) throw new PartnerError(`Muitas tentativas. Tente em ${Math.ceil(rate.resetInSeconds / 60)} min.`, 429);
     const parsed = confirmCodeSchema.safeParse(await body(req));
     if (!parsed.success) invalid(parsed.error.issues);

@@ -2,12 +2,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import type { AuthenticationResponseJSON } from "@simplewebauthn/server";
-import { AUTH_COOKIE_NAME, createSessionToken, loadSessionUser } from "@/lib/auth";
-import { checkRateLimit } from "@/lib/security";
+import { AUTH_COOKIE_NAME, createSessionToken, loadSessionUser, REMEMBER_SESSION_SECONDS } from "@/lib/auth";
+import { checkRateLimitPersistent } from "@/lib/security";
 import { PASSKEY_CHALLENGE_COOKIE, PasskeyError, authenticationOptions, challengeCookie, verifyAuthentication } from "@/lib/passkeys/service";
 import { incidentResponse } from "@/lib/incidents";
 
-const REMEMBER_SECONDS = 365 * 24 * 60 * 60;
+const REMEMBER_SECONDS = REMEMBER_SESSION_SECONDS;
 const optionsSchema = z.object({
   userId: z.string().trim().min(1).max(200),
   credentialId: z
@@ -28,7 +28,7 @@ function clientIp(req: NextRequest) {
  * abre a sessão, como o login com senha.
  */
 export async function GET(req: NextRequest) {
-  const rate = checkRateLimit(`passkey_options_${clientIp(req)}`, 20, 60);
+  const rate = await checkRateLimitPersistent(`passkey_options_${clientIp(req)}`, 20, 60);
   if (!rate.allowed) return NextResponse.json({ error: `Muitas tentativas. Tente em ${rate.resetInSeconds}s.` }, { status: 429 });
   const parsed = optionsSchema.safeParse({
     userId: req.nextUrl.searchParams.get("userId"),
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
 
 // nosemgrep: prx-mutation-route-without-auth — entrada por biometria: a assinatura WebAuthn verificada é a autenticação
 export async function POST(req: NextRequest) {
-  const rate = checkRateLimit(`passkey_login_${clientIp(req)}`, 10, 60);
+  const rate = await checkRateLimitPersistent(`passkey_login_${clientIp(req)}`, 10, 60);
   if (!rate.allowed) return NextResponse.json({ error: `Muitas tentativas. Bloqueio de segurança temporário. Tente em ${rate.resetInSeconds}s.` }, { status: 429 });
   try {
     const body = (await req.json().catch(() => null)) as { response?: AuthenticationResponseJSON } | null;

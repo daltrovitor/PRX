@@ -1,4 +1,13 @@
 // Hello World
+// Credenciais de teste só pelo ambiente, nunca no repositório (pentest H6):
+//   PRX_TEST_EMAIL / PRX_TEST_PASSWORD  conta de membro de teste
+const TEST_EMAIL = process.env.PRX_TEST_EMAIL;
+const TEST_PASSWORD = process.env.PRX_TEST_PASSWORD;
+if (!TEST_EMAIL || !TEST_PASSWORD) {
+  console.error("Defina PRX_TEST_EMAIL e PRX_TEST_PASSWORD (conta de teste, fora do repositório).");
+  process.exit(1);
+}
+
 const BASE_URL = 'http://localhost:3000';
 
 async function runLivePenTest() {
@@ -101,8 +110,8 @@ async function runLivePenTest() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: 'rafael.molina@prx.app',
-        password: 'Prx2026!'
+        email: TEST_EMAIL,
+        password: TEST_PASSWORD
       })
     });
     const data = await res.json();
@@ -127,7 +136,7 @@ async function runLivePenTest() {
       headers: { ...(demoCookie ? { 'Cookie': demoCookie } : {}) }
     });
     const data = await res.json();
-    if (res.ok && data.user && data.user.email === 'rafael.molina@prx.app') {
+    if (res.ok && data.user && data.user.email === TEST_EMAIL) {
       console.log(`   ✅ SUCESSO: Sessão validada no servidor! Usuário ativo: ${data.user.name}`);
       passed++;
     } else {

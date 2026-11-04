@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { PartnerError } from "@/lib/partners/errors";
-import { errorResponse, readJson, requireAdmin } from "@/lib/partners/http";
+import { errorResponse, readJson, LARGE_JSON_BODY_BYTES, requireAdmin } from "@/lib/partners/http";
 import { recordAdminAction } from "@/lib/admin/audit";
 import { firstIssue } from "@/lib/partners/types";
 import { getPartnerRepository } from "@/lib/partners/repository";
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const admin = await requireAdmin(req);
-    const parsed = eventInputSchema.safeParse(await readJson(req));
+    const parsed = eventInputSchema.safeParse(await readJson(req, LARGE_JSON_BODY_BYTES));
     if (!parsed.success) throw new PartnerError(firstIssue(parsed.error), 400);
     const event = await createEvent(parsed.data, admin.email || admin.sub);
     await recordAdminAction(admin, { action: "live.event_created", targetType: "event", targetId: event.id, summary: `Evento criado: ${event.title} (${event.status})` }, req);
@@ -60,7 +60,7 @@ const putSchema = z.union([
 export async function PUT(req: NextRequest) {
   try {
     const admin = await requireAdmin(req);
-    const parsed = putSchema.safeParse(await readJson(req));
+    const parsed = putSchema.safeParse(await readJson(req, LARGE_JSON_BODY_BYTES));
     if (!parsed.success) throw new PartnerError(firstIssue(parsed.error), 400);
     const body = parsed.data;
 

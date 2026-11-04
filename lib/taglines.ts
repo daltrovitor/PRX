@@ -119,6 +119,8 @@ export function sessionTaglineIndex(): number {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     const saved = raw === null ? -1 : Number(raw);
     if (Number.isInteger(saved) && saved >= 0 && saved < TAGLINES.length) return saved;
+    // Só escolhe a frase da tela: sem uso criptográfico nem de sessão (pentest B1).
+    // nosemgrep
     const pick = Math.floor(Math.random() * TAGLINES.length);
     sessionStorage.setItem(STORAGE_KEY, String(pick));
     return pick;
