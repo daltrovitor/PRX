@@ -56,13 +56,13 @@ describe("andamento", () => {
 
 describe("lista de espera no admin", () => {
   it("devolve os leads da memória, do mais recente, com origem e aceite", async () => {
-    await joinWaitlist({ email: `a-${Date.now()}@exemplo.com`, name: "Ana", consent: true }, "em-breve");
+    await joinWaitlist({ email: `a-${Date.now()}@exemplo.com`, name: "Ana", phone: "11912345678", age: 17, consent: true }, "em-breve");
     await new Promise((r) => setTimeout(r, 5));
     const latest = `b-${Date.now()}@exemplo.com`;
-    await joinWaitlist({ email: latest, name: "", consent: true }, "prx.app.br");
+    await joinWaitlist({ email: latest, name: "Bia", phone: "1133334444", age: 25, consent: true }, "prx.app.br");
     const leads = await getWaitlistSignups();
-    expect(leads[0]).toMatchObject({ email: latest, name: null, source: "prx.app.br" });
+    expect(leads[0]).toMatchObject({ email: latest, name: "Bia", phone: "1133334444", age: 25, source: "prx.app.br" });
     expect(leads[0].consentAt).toBe(leads[0].createdAt);
-    expect(leads.some((l) => l.source === "em-breve" && l.name === "Ana")).toBe(true);
+    expect(leads.some((l) => l.source === "em-breve" && l.name === "Ana" && l.phone === "11912345678" && l.age === 17)).toBe(true);
   });
 });

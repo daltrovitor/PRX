@@ -185,9 +185,9 @@ check("financeiro soma a comissão da compra em parceiro", finance?.summary.purc
 check("financeiro lista a viabilidade do benefício", finance?.benefits.some((b) => b.id === benefitId && b.status === "ok"));
 
 // ---------- Lista VIP ----------
-const vipBad = await anon("/api/waitlist", { method: "POST", body: { email: "nao-e-email", consent: true } });
+const vipBad = await anon("/api/waitlist", { method: "POST", body: { name: "Teste", email: "nao-e-email", phone: "11912345678", age: 20, consent: true } });
 check("lista VIP valida o e-mail", vipBad.status === 422);
-const vip = await anon("/api/waitlist", { method: "POST", body: { email: `vip-${stamp}@prx.dev`, consent: true } });
+const vip = await anon("/api/waitlist", { method: "POST", body: { name: "Teste VIP", email: `vip-${stamp}@prx.dev`, phone: "11912345678", age: 20, consent: true } });
 check("lista VIP aceita o cadastro", vip.status === 200, vip.data.error);
 
 // ---------- Conta Pai ----------

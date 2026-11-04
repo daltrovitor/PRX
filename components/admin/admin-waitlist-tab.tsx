@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button, EmptyState, Field, Input, Notice, Tag } from "@/components/app/ui";
 import { IconRefresh } from "@/components/icons/prx-icons";
+import { formatPhone } from "@/lib/notifications/format";
 import type { WaitlistEntry } from "@/lib/waitlist";
 
 /*
@@ -26,8 +27,8 @@ function csvCell(value: string): string {
 }
 
 function downloadCsv(rows: ReadonlyArray<WaitlistEntry>) {
-  const header = ["email", "nome", "origem", "cadastro", "consentimento_lgpd"];
-  const lines = rows.map((r) => [r.email, r.name ?? "", sourceLabel(r.source), when.format(new Date(r.createdAt)), r.consentAt].map(csvCell).join(";"));
+  const header = ["email", "nome", "celular", "idade", "origem", "cadastro", "consentimento_lgpd"];
+  const lines = rows.map((r) => [r.email, r.name ?? "", r.phone ? formatPhone(r.phone) : "", r.age != null ? String(r.age) : "", sourceLabel(r.source), when.format(new Date(r.createdAt)), r.consentAt].map(csvCell).join(";"));
   // BOM + ";" para o Excel em português abrir acentos e colunas certas.
   const blob = new Blob([`﻿${[header.join(";"), ...lines].join("\r\n")}`], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -94,7 +95,8 @@ export function AdminWaitlistTab({ onCount }: { onCount?: (count: number) => voi
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!signups || !q) return signups ?? [];
-    return signups.filter((s) => s.email.includes(q) || (s.name ?? "").toLowerCase().includes(q));
+    const digits = q.replace(/\D/g, "");
+    return signups.filter((s) => s.email.includes(q) || (s.name ?? "").toLowerCase().includes(q) || (digits.length >= 4 && (s.phone ?? "").includes(digits)));
   }, [signups, query]);
 
   const stats = useMemo(() => {
@@ -149,7 +151,7 @@ export function AdminWaitlistTab({ onCount }: { onCount?: (count: number) => voi
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <Field label="Buscar por e-mail ou nome" className="w-full sm:max-w-md">
+        <Field label="Buscar por e-mail, nome ou celular" className="w-full sm:max-w-md">
           {(id) => <Input id={id} type="search" inputMode="search" autoComplete="off" placeholder="ana@exemplo.com" value={query} onChange={(e) => setQuery(e.target.value)} />}
         </Field>
         <p aria-live="polite" className="text-[13px] text-muted-foreground">
@@ -162,7 +164,7 @@ export function AdminWaitlistTab({ onCount }: { onCount?: (count: number) => voi
       {signups === null ? (
         <div role="status" aria-label="Carregando leads" className="h-32 rounded-3xl bg-surface" />
       ) : filtered.length === 0 ? (
-        <EmptyState title={query ? "Nenhum lead encontrado" : "Nenhum lead ainda"} body={query ? "Tente outro e-mail ou nome." : "Quem entrar na Lista VIP pelo /em-breve aparece aqui."} />
+        <EmptyState title={query ? "Nenhum lead encontrado" : "Nenhum lead ainda"} body={query ? "Tente outro e-mail, nome ou celular." : "Quem entrar na Lista VIP pelo /em-breve aparece aqui."} />
       ) : (
         <>
           {/* Celular: cartões. Tablet e desktop: tabela com rolagem própria. */}
@@ -171,6 +173,9 @@ export function AdminWaitlistTab({ onCount }: { onCount?: (count: number) => voi
               <li key={s.email} className="glass-soft rounded-3xl p-4">
                 <p className="break-all text-[15px] font-medium text-ink">{s.email}</p>
                 {s.name && <p className="mt-0.5 text-[14px] text-muted-foreground">{s.name}</p>}
+                {(s.phone || s.age != null) && (
+                  <p className="mt-0.5 text-[14px] tabular-nums text-muted-foreground">{[s.phone ? formatPhone(s.phone) : null, s.age != null ? `${s.age} anos` : null].filter(Boolean).join(" · ")}</p>
+                )}
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
                   <Tag>{sourceLabel(s.source)}</Tag>
                   <span>{when.format(new Date(s.createdAt))}</span>
@@ -180,12 +185,14 @@ export function AdminWaitlistTab({ onCount }: { onCount?: (count: number) => voi
             ))}
           </ul>
           <div className="hidden overflow-x-auto rounded-3xl glass md:block">
-            <table className="w-full min-w-[720px] text-left text-[14px]">
+            <table className="w-full min-w-[920px] text-left text-[14px]">
               <caption className="sr-only">Leads da Lista de Espera</caption>
               <thead>
                 <tr className="text-[12px] uppercase tracking-[0.08em] text-muted-foreground">
                   <th scope="col" className="px-5 py-3 font-medium">E-mail</th>
                   <th scope="col" className="px-5 py-3 font-medium">Nome</th>
+                  <th scope="col" className="px-5 py-3 font-medium">Celular</th>
+                  <th scope="col" className="px-5 py-3 font-medium">Idade</th>
                   <th scope="col" className="px-5 py-3 font-medium">Origem</th>
                   <th scope="col" className="px-5 py-3 font-medium">Cadastro</th>
                   <th scope="col" className="px-5 py-3 font-medium">Consentimento</th>
@@ -196,6 +203,8 @@ export function AdminWaitlistTab({ onCount }: { onCount?: (count: number) => voi
                   <tr key={s.email} className="border-t border-line">
                     <td className="max-w-[280px] truncate px-5 py-3 font-medium text-ink">{s.email}</td>
                     <td className="px-5 py-3 text-muted-foreground">{s.name || "—"}</td>
+                    <td className="whitespace-nowrap px-5 py-3 tabular-nums text-muted-foreground">{s.phone ? formatPhone(s.phone) : "—"}</td>
+                    <td className="px-5 py-3 tabular-nums text-muted-foreground">{s.age != null ? s.age : "—"}</td>
                     <td className="px-5 py-3">
                       <Tag>{sourceLabel(s.source)}</Tag>
                     </td>
