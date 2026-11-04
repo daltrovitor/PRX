@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button, EmptyState, Field, Notice, Sheet, Tag, Textarea } from "@/components/app/ui";
 import { AdminCampaignSheet } from "@/components/admin/admin-campaign-form";
 import { AdminPartnerAccessSheet, AdminPartnerSheet } from "@/components/admin/admin-partner-form";
+import { AdminPartnerImport } from "@/components/admin/admin-partner-import";
 import type { AdminUser } from "@/components/admin/admin-members-tab";
 import { MetricsPanel } from "@/components/partners/metrics-panel";
 import { IconArrowLeft, IconExternal, IconPlus } from "@/components/icons/prx-icons";
@@ -58,10 +59,19 @@ export function AdminPartnersTab({ partners, benefits, users, onRefresh, onGoToB
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">Empresas, contratos de campanha e quem pode validar cada QR Code.</p>
         </div>
-        <Button onClick={() => setCreating({})}>
-          <IconPlus size={18} />
-          Novo parceiro
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <AdminPartnerImport
+            existing={partners}
+            onFinished={async (partner) => {
+              await onRefresh();
+              setSelectedId(partner.id);
+            }}
+          />
+          <Button onClick={() => setCreating({})}>
+            <IconPlus size={18} />
+            Novo parceiro
+          </Button>
+        </div>
       </div>
 
       {unassigned > 0 && (
