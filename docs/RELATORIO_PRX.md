@@ -9,6 +9,7 @@ Data: 24/09/2026 · Repositório: `prx` (antigo `nxtgen`)
 ### Marca
 - Logo PRX **vetorizada** a partir do arquivo mestre (672×582). A geometria do símbolo, do P, do R e do X foi traçada ponto a ponto e conferida por sobreposição com o original (diferença apenas de antisserrilhado nas bordas).
 - A assinatura "EXPERIÊNCIAS QUE CONECTAM GERAÇÕES" foi convertida em contorno com fonte DIN (Barlow), cada letra na posição medida no original.
+  - *Atualização de 07/11/2026:* essa assinatura foi substituída. O logo agora usa o texto **"NEXT IS YOURS"** (SVG, sem contorno), e o contorno antigo saiu de `lib/brand/prx-logo-data.ts` e do gerador.
 - **Versão horizontal** (símbolo | PRX + assinatura + barra em degradê), como a logo NXTGEN anterior, sem fundo.
 - Arquivos em `public/brand/`: `prx-full-*`, `prx-compact-*` e `prx-symbol-*`, cada um em versão para fundo escuro e para fundo claro, mais os ícones do app (192 e 512) e o favicon.
 - Componente `PrxLogo` com `currentColor`: a parte branca vira grafite automaticamente no fundo branco.

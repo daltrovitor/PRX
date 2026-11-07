@@ -64,7 +64,7 @@ function Cover() {
           ))}
         </ul>
       </div>
-      <p className="ob-label show-fade text-[13px] text-[var(--s-accent)] [animation-delay:560ms] sm:text-[15px]">The next pays</p>
+      <p className="ob-label show-fade text-[13px] text-[var(--s-accent)] [animation-delay:560ms] sm:text-[15px]">Next is Yours</p>
     </div>
   );
 }
@@ -746,9 +746,9 @@ function Finale({ appUrl }: { appUrl: string }) {
     <div className="space-y-14 text-center">
       <Reveal>
         <h2 id="next-title" className="sr-only">
-          PRX, the next pays
+          PRX, Next is Yours
         </h2>
-        <PrxLogo variant="full" title="PRX — the next pays" className="mx-auto h-16 w-auto text-white sm:h-24 lg:h-28" />
+        <PrxLogo variant="full" title="PRX — Next is Yours" className="mx-auto h-16 w-auto text-white sm:h-24 lg:h-28" />
       </Reveal>
       <Statement className="mx-auto" accent="Precisa de um ecossistema que entenda como ela vive hoje e quem ela quer ser amanhã." index={1}>
         A próxima geração não precisa de mais um app.
@@ -764,7 +764,7 @@ function Finale({ appUrl }: { appUrl: string }) {
       </div>
       <Reveal index={3} className="flex flex-col items-center gap-6">
         <p className="ob-display text-[clamp(30px,5vw,56px)] tracking-[0.08em] text-white">
-          PRX <span className="text-[var(--s-accent)]">the next pays</span>
+          PRX <span className="text-[var(--s-accent)]">Next is Yours</span>
         </p>
         <a
           href={appUrl}

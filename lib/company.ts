@@ -14,5 +14,5 @@ export const COMPANY = {
   dpoEmail: process.env.NEXT_PUBLIC_PRX_DPO_EMAIL || "privacidade@prx.app.br",
   supportEmail: process.env.NEXT_PUBLIC_PRX_SUPPORT_EMAIL || "suporte@prx.app.br",
   domain: "prx.app.br",
-  tagline: "the next pays",
+  tagline: "Next is Yours",
 } as const;

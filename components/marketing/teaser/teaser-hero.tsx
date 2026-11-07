@@ -23,7 +23,7 @@ const LINES = [
 
 /**
  * Abertura + primeira dobra do prx.app.br (composição editorial assimétrica):
- *   1. cortina obsidiana: o símbolo se encaixa, P R X sobem e "the next pays" abre;
+ *   1. cortina obsidiana: o símbolo se encaixa, P R X sobem e "Next is Yours" abre;
  *   2. a cortina sobe e "EM BREVE." nasce letra a letra de dentro de máscaras,
  *      o cristal acende ao fundo e as réguas se desenham;
  *   3. depois, o cristal respira devagar, segue o cursor e desce em paralaxe ao rolar.

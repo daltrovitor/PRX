@@ -72,18 +72,18 @@ export function PrxLogo({ variant = "compact", className, title = "PRX" }: PrxLo
 
       {variant === "full" && (
         <text
-          x={541}
+          x={549}
           y={153}
           textAnchor="middle"
           fill="currentColor"
           style={{
             fontFamily: "var(--font-sans, system-ui, sans-serif)",
-            fontSize: "21px",
-            fontWeight: 500,
-            letterSpacing: "0.28em",
+            fontSize: "28px",
+            fontWeight: 400,
+            letterSpacing: "0.6em",
           }}
         >
-          the next pays
+          NEXT IS YOURS
         </text>
       )}
     </svg>

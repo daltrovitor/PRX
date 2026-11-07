@@ -52,7 +52,7 @@ export function PrxFooter({ onDark = false, className }: PrxFooterProps) {
               © {currentYear} PRX. Todos os direitos reservados.
             </p>
             <p className={cn("text-[13px] tracking-[0.04em]", onDark ? "text-white/70" : "text-neutral-500")}>
-              PRX — the next pays.
+              PRX — Next is Yours.
             </p>
           </div>
 

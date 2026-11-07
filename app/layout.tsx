@@ -65,7 +65,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || APP_URL),
   title: {
-    default: "PRX · the next pays",
+    default: "PRX · Next is Yours",
     template: "%s · PRX",
   },
   description:
@@ -81,12 +81,12 @@ export const metadata: Metadata = {
     type: "website",
     locale: "pt_BR",
     siteName: "PRX",
-    title: "PRX · the next pays",
+    title: "PRX · Next is Yours",
     description: "Benefícios, conta digital e eventos para as gerações Z e Alpha, em um app.",
   },
   twitter: {
     card: "summary",
-    title: "PRX · the next pays",
+    title: "PRX · Next is Yours",
     description: "Benefícios, conta digital e eventos para as gerações Z e Alpha, em um app.",
   },
 };

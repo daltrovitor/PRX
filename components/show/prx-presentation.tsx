@@ -273,7 +273,7 @@ export function PrxPresentation() {
 
           <footer className="border-t border-white/[0.06] bg-[#050508] px-5 py-8 text-[13px] text-white/70 sm:px-8">
             <div className="mx-auto flex max-w-[1200px] flex-col items-center justify-between gap-4 sm:flex-row">
-              <p>PRX — the next pays</p>
+              <p>PRX — Next is Yours</p>
               <ViraWebCredit onDark />
             </div>
           </footer>

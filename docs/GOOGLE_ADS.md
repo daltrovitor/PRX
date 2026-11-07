@@ -34,7 +34,7 @@ Estrutura pronta para configurar. **Nada foi publicado e nenhum orçamento foi u
 
 | Grupo | Palavras-chave (correspondência de frase/exata) | Página |
 |---|---|---|
-| Marca | "prx app", "prx the next pays", [prx app br] | `prx.app.br` |
+| Marca | "prx app", "prx next is yours", [prx app br] | `prx.app.br` |
 | Benefícios jovens | "descontos para jovens", "clube de benefícios jovem", "app de descontos universitário", "benefícios para estudantes" | `prx.app.br` |
 | Eventos e experiências | "eventos para jovens [cidade]", "agenda de eventos jovens [cidade]", "ingressos com desconto [cidade]" | `prx.app.br` |
 | Founders (após definir o programa) | "programa para startups [cidade]", "pitch de startup", "mentoria para startups" | `prx.app.br` (ou página própria quando existir) |

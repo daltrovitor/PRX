@@ -222,13 +222,13 @@ export default function OfflinePage() {
 
           <g clipPath="url(#app-offline-tc)" style={{ clipPath: "url(#app-offline-tc)" }}>
             <text
-              x={541}
+              x={549}
               y={153}
               textAnchor="middle"
               fill="currentColor"
-              style={{ fontFamily: "var(--font-sans, system-ui, sans-serif)", fontSize: "21px", fontWeight: 500, letterSpacing: "0.28em" }}
+              style={{ fontFamily: "var(--font-sans, system-ui, sans-serif)", fontSize: "28px", fontWeight: 400, letterSpacing: "0.6em" }}
             >
-              the next pays
+              NEXT IS YOURS
             </text>
           </g>
         </svg>

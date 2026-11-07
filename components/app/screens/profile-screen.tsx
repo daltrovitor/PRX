@@ -129,7 +129,7 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase, noticeCount, onO
         <Button variant="danger" onClick={onLogout} className="w-full sm:w-auto">
           Sair da conta
         </Button>
-        <PrxLogo variant="full" title="PRX — the next pays" className="h-8 w-auto text-ink opacity-80" />
+        <PrxLogo variant="full" title="PRX — Next is Yours" className="h-8 w-auto text-ink opacity-80" />
       </div>
     </div>
   );

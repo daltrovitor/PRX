@@ -1,5 +1,5 @@
 <!-- Hello World -->
 # PRX
 
-PRX — the next pays. App de benefícios (PRX PASS), conta digital (PRX BANK) e eventos (PRX LIVE) para as gerações Z e Alpha.
+PRX — Next is Yours. App de benefícios (PRX PASS), conta digital (PRX BANK) e eventos (PRX LIVE) para as gerações Z e Alpha.
 

@@ -5,9 +5,10 @@
  * Android (Chrome e PWA instalada) e navegadores desktop modernos.
  */
 
-// v6: logo nova (assinatura "the next pays", sem a barra) na página offline e nos logos pré-armazenados.
+// v6: logo nova (assinatura, sem a barra) na página offline e nos logos pré-armazenados.
 // v7: notificações no celular (push e toque na notificação).
-const CACHE_NAME = 'prx-offline-v7';
+// v8: assinatura "NEXT IS YOURS" no logo (a página offline e os logos em cache precisam ser trocados).
+const CACHE_NAME = 'prx-offline-v8';
 const OFFLINE_URL = '/offline.html';
 
 // Lista de assets críticos pré-armazenados no cache durante o install

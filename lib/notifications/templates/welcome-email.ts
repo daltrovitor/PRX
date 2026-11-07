@@ -277,7 +277,7 @@ export function renderWelcomeEmail(input: WelcomeEmailInput): RenderedEmail {
         html: `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td class="closing-copy" style="padding:0 0 22px 20px;border-left:1px solid ${C.line};text-align:left;">
           <p style="${t({ size: 13, line: 1.6 })}">A PRX vai crescer junto com quem está aqui dentro.<br>Então explore. Participe. Ganhe PRX COINS. Use seus benefícios.<br>E ajude a construir o que vem depois.</p>
           <div style="padding-top:18px;">${img(asset("prx-logo.png"), 96, "PRX")}</div>
-          <p style="${t({ size: 10, spacing: 3, upper: true, color: C.muted, weight: 500 })};margin-top:10px;">the next pays</p>
+          <p style="${t({ size: 10, spacing: 3, upper: true, color: C.muted, weight: 500 })};margin-top:10px;">Next is Yours</p>
         </td></tr></table>`,
       },
     ])}
@@ -386,7 +386,7 @@ export function renderWelcomeEmail(input: WelcomeEmailInput): RenderedEmail {
     "Você entrou no próximo.",
     "",
     "PRX",
-    "the next pays",
+    "Next is Yours",
     "",
     "---",
     `Dúvidas? Fale com a gente em ${COMPANY.supportEmail}.`,

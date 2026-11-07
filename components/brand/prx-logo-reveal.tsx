@@ -8,7 +8,7 @@ import { PRX_GRADIENTS, PRX_LAYOUT, PRX_PATHS } from "@/lib/brand/prx-logo-data"
  * (PrxLoader) e pelo teaser do prx.app.br:
  *   1. as duas peças do símbolo deslizam e se encaixam no centro;
  *   2. o símbolo vai para a esquerda enquanto P, R e X sobem de uma máscara;
- *   3. a assinatura "the next pays" aparece da esquerda
+ *   3. a assinatura "NEXT IS YOURS" aparece da esquerda
  *      para a direita e a barra abre do centro.
  */
 
@@ -80,18 +80,18 @@ export function PrxRevealMark({ uid, className, style }: { uid: string; classNam
 
       <g clipPath={`url(#${ids.tagClip})`}>
         <text
-          x={541}
+          x={549}
           y={153}
           textAnchor="middle"
           fill="currentColor"
           style={{
             fontFamily: "var(--font-sans, system-ui, sans-serif)",
-            fontSize: "21px",
-            fontWeight: 500,
-            letterSpacing: "0.28em",
+            fontSize: "28px",
+            fontWeight: 400,
+            letterSpacing: "0.6em",
           }}
         >
-          the next pays
+          NEXT IS YOURS
         </text>
       </g>
     </svg>
