@@ -2,7 +2,7 @@
 import { useId } from "react";
 import { PRX_GRADIENTS, PRX_LAYOUT, PRX_PATHS } from "@/lib/brand/prx-logo-data";
 
-export type PrxLogoVariant = "full" | "compact" | "symbol";
+export type PrxLogoVariant = "full" | "compact" | "symbol" | "wordmark";
 
 interface PrxLogoProps {
   /** full: símbolo + PRX + assinatura; compact: símbolo + PRX; symbol: só o símbolo. */
@@ -32,7 +32,7 @@ function GradientStops({ stops }: { stops: Stops }) {
 export function PrxLogo({ variant = "compact", className, title = "PRX" }: PrxLogoProps) {
   const uid = useId().replace(/:/g, "");
   const ids = { symbol: `prx-s-${uid}`, x: `prx-x-${uid}`, bar: `prx-b-${uid}` };
-  const [vx, vy, vw, vh] = PRX_LAYOUT.viewBox[variant];
+  const [vx, vy, vw, vh] = variant === "wordmark" ? [300, 30, 482, 124] : PRX_LAYOUT.viewBox[variant];
   const { symbol: sg, x: xg, bar: bg } = PRX_GRADIENTS;
   const bar = PRX_LAYOUT.bar;
   const decorative = title === "";
@@ -58,10 +58,10 @@ export function PrxLogo({ variant = "compact", className, title = "PRX" }: PrxLo
         </linearGradient>
       </defs>
 
-      <g transform={PRX_LAYOUT.symbol}>
+      {variant !== "wordmark" && <g transform={PRX_LAYOUT.symbol}>
         <path fill="currentColor" d={PRX_PATHS.symbolWhite} />
         <path fill={`url(#${ids.symbol})`} d={PRX_PATHS.symbolColor} />
-      </g>
+      </g>}
 
       {variant !== "symbol" && (
         <g transform={variant === "full" ? PRX_LAYOUT.wordFull : PRX_LAYOUT.wordCompact}>

@@ -79,10 +79,10 @@ export function AvatarEditor({ name, src }: { name: string; src: string | null |
   }
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      <Avatar name={name} src={current} size={96} />
+    <div className="profile-avatar-editor flex flex-col items-center gap-3">
+      <div className="profile-avatar-ring"><Avatar name={name} src={current} size={96} className="profile-avatar-face" /></div>
       <div className="flex flex-wrap justify-center gap-2">
-        <label className="glass-chip inline-flex min-h-12 cursor-pointer items-center rounded-full px-5 text-sm font-medium text-ink has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring">
+        <label className="profile-photo-button glass-chip inline-flex min-h-12 cursor-pointer items-center rounded-full px-5 text-sm font-medium text-ink has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring">
           {busy && !cropSrc ? "Enviando…" : hasPhoto ? "Trocar foto" : "Adicionar foto"}
           <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" className="sr-only" aria-label="Escolher foto de perfil" disabled={busy} onChange={pick} />
         </label>

@@ -23,9 +23,9 @@ export function MemberId() {
 
   if (!code) return null;
   return (
-    <div className="flex items-center gap-3 rounded-2xl glass py-1.5 pl-4 pr-1.5">
-      <p className="text-sm text-muted-foreground">
-        ID PRX <span className="font-mono font-semibold tracking-[0.06em] text-ink">{code}</span>
+    <div className="profile-member-id flex max-w-full flex-wrap items-center justify-center gap-3 rounded-2xl glass py-1.5 pl-4 pr-1.5">
+      <p className="min-w-0 text-[12px] text-muted-foreground sm:text-sm">
+        ID PRX <span className="break-all font-mono font-semibold tracking-[0.06em] text-ink">{code}</span>
       </p>
       <CopyButton value={code} label="Copiar ID" />
     </div>

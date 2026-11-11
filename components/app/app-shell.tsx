@@ -175,11 +175,11 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
   const immersive = tab === "reels";
 
   return (
-    <div className="prx-app relative isolate min-h-dvh overflow-x-clip bg-background text-foreground">
+    <div className={cn("prx-app relative isolate min-h-dvh overflow-x-clip bg-background text-foreground", tab === "profile" && "prx-profile-mode")}>
       {/* Luz volumétrica (cobalto e violeta) atrás do vidro fumê. */}
-      <div aria-hidden className="prx-ambient" />
+      {tab === "profile" ? <div aria-hidden className="profile-light-beams"><i /><i /><i /></div> : <div aria-hidden className="prx-ambient" />}
       {/* Escultura de cristal obsidiana no canto superior direito, em todas as abas (Destaques é vídeo em tela cheia). */}
-      {!immersive && (
+      {!immersive && tab !== "profile" && (
         <ObsidianCrystal
           priority
           sizes="(min-width: 1024px) 46vw, 88vw"
@@ -205,7 +205,7 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
           className="flex min-h-12 cursor-pointer items-center self-start px-3"
           aria-label="PRX — ir para o início"
         >
-          <PrxLogo variant="compact" title="" className="h-7 w-auto text-ink" />
+          <PrxLogo variant={tab === "profile" ? "wordmark" : "compact"} title="" className="h-7 w-auto text-ink" />
         </button>
 
         <nav aria-label="Seções do app" className="mt-12 flex flex-col gap-1">
@@ -274,7 +274,7 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
               className="flex min-h-12 shrink-0 cursor-pointer items-center lg:invisible"
               aria-label="PRX — ir para o início"
             >
-              <PrxLogo variant="compact" title="" className="h-7 w-auto text-ink" />
+              <PrxLogo variant={tab === "profile" ? "wordmark" : "compact"} title="" className="h-7 w-auto text-ink" />
             </button>
             <p className="hidden text-[20px] font-semibold tracking-[-0.02em] text-ink lg:block">
               Olá, {firstName(member)}
@@ -368,7 +368,7 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
           items={NAV_ITEMS}
           active={tab === "profile" ? null : tab}
           onSelect={(id) => go(id)}
-          className="pointer-events-auto mx-auto max-w-lg"
+          className={cn("pointer-events-auto mx-auto max-w-lg", tab === "profile" && "profile-dock")}
         />
       </div>
 

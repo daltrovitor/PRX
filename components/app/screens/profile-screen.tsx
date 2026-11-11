@@ -46,12 +46,12 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase, noticeCount, onO
   const [sheet, setSheet] = useState<"subscriptions" | null>(null);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
-      <header className="flex flex-col items-center gap-4 pt-2 text-center">
+    <div className="profile-screen mx-auto max-w-2xl space-y-6">
+      <header className="profile-identity flex flex-col items-center gap-3 pt-2 text-center">
         <AvatarEditor name={member.name || "Membro PRX"} src={member.avatarUrl} />
         <div className="min-w-0">
-          <h1 className="ob-display truncate text-2xl text-ink sm:text-3xl">{member.name || "Membro PRX"}</h1>
-          <p className="mt-1 truncate text-sm text-muted-foreground">
+          <h1 className="ob-display break-words text-[22px] leading-relaxed text-ink sm:text-3xl">{member.name || "Membro PRX"}</h1>
+          <p className="mt-1 break-all text-[13px] text-muted-foreground sm:text-sm">
             {member.email} · {ROLE_LABEL[member.role] ?? "Membro"}
           </p>
         </div>
@@ -65,7 +65,7 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase, noticeCount, onO
         <Metric label="Amigos" value={String(referralInfo.friendsInvitedCount)} />
       </section>
 
-      <section aria-labelledby="profile-progress" className="space-y-3 rounded-3xl glass p-5">
+      <section aria-labelledby="profile-progress" className="profile-progress space-y-3 rounded-3xl glass p-5">
         <h2 id="profile-progress" className="text-lg font-semibold tracking-[-0.02em] text-ink">
           Progresso
         </h2>
@@ -253,9 +253,9 @@ function BiometricsCard() {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-3xl glass p-4 sm:p-5">
+    <div className="profile-metric min-h-[88px] rounded-3xl glass p-4 sm:p-5">
       <p className="text-[13px] text-muted-foreground">{label}</p>
-      <p className="mt-1.5 font-[family-name:var(--font-light),var(--font-sans)] text-2xl font-light tracking-[-0.03em] text-ink tabular-nums">{value}</p>
+      <p className="mt-1.5 font-[family-name:var(--font-light),var(--font-sans)] text-[30px] font-light leading-tight tracking-[-0.03em] text-ink tabular-nums">{value}</p>
     </div>
   );
 }
