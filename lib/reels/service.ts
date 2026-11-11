@@ -1,5 +1,6 @@
 // Hello World
 import { cleanupReelVideo } from "@/lib/reels/media-cleanup";
+import type { Partner } from "@/lib/partners/types";
 import { PartnerError } from "@/lib/partners/errors";
 import { getPartnerRepository } from "@/lib/partners/repository";
 import { getBenefit } from "@/lib/partners/catalog";
@@ -9,11 +10,25 @@ import { ctaLabelOf, type HomeBanner, type MemberReel, type PartnerReel, type Re
 /** Quantos banners a Home mostra: o admin ordena e o resto fica de fora. */
 export const MAX_HOME_BANNERS = 5;
 
+/** Usa apenas a logo do cadastro, nunca a capa nem a cópia antiga do destaque. */
+function partnerLogoResolver(partners: Partner[]) {
+  const byId = new Map(partners.map((partner) => [partner.id, partner]));
+  const normalize = (name: string) => name.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
+  return (reel: PartnerReel): string => {
+    const linked = byId.get(reel.partnerId);
+    if (linked) return linked.logoUrl;
+    // Destaques antigos podem ter sido publicados só com o nome da marca.
+    if (reel.partnerId) return "";
+    const matches = partners.filter((partner) => normalize(partner.tradeName) === normalize(reel.partnerName));
+    return matches.length === 1 && matches[0].status !== "SUSPENSO" && matches[0].status !== "BLOQUEADO" ? matches[0].logoUrl : "";
+  };
+}
+
 /** Feed do membro: vídeos ativos de parceiros sem bloqueio, com as curtidas e salvos dele. Banners da Home não entram. */
 export async function memberFeed(userId: string): Promise<MemberReel[]> {
   const repo = getReelsRepository();
   const [reels, reactions, partners] = await Promise.all([repo.list({ activeOnly: true }), repo.reactions(userId), getPartnerRepository().listPartners()]);
-  const partnerLogos = new Map(partners.map((partner) => [partner.id, partner.logoUrl]));
+  const logoFor = partnerLogoResolver(partners);
   const blocked = new Set(partners.filter((p) => p.status === "SUSPENSO" || p.status === "BLOQUEADO").map((p) => p.id));
   const liked = new Set(reactions.filter((r) => r.kind === "like").map((r) => r.reelId));
   const saved = new Set(reactions.filter((r) => r.kind === "save").map((r) => r.reelId));
@@ -23,7 +38,7 @@ export async function memberFeed(userId: string): Promise<MemberReel[]> {
       id: reel.id,
       partnerId: reel.partnerId,
       partnerName: reel.partnerName,
-      partnerLogo: partnerLogos.get(reel.partnerId) ?? reel.partnerLogo,
+      partnerLogo: logoFor(reel),
       collection: reel.collection,
       title: reel.title,
       caption: reel.caption,
@@ -46,7 +61,7 @@ export async function memberFeed(userId: string): Promise<MemberReel[]> {
  */
 export async function homeBanners(): Promise<HomeBanner[]> {
   const [reels, partners] = await Promise.all([getReelsRepository().list({ activeOnly: true }), getPartnerRepository().listPartners()]);
-  const partnerLogos = new Map(partners.map((partner) => [partner.id, partner.logoUrl]));
+  const logoFor = partnerLogoResolver(partners);
   const blocked = new Set(partners.filter((p) => p.status === "SUSPENSO" || p.status === "BLOQUEADO").map((p) => p.id));
   return reels
     .filter((reel) => reel.placement === "home" && reel.posterUrl && !blocked.has(reel.partnerId))
@@ -55,7 +70,7 @@ export async function homeBanners(): Promise<HomeBanner[]> {
       id: reel.id,
       partnerId: reel.partnerId,
       partnerName: reel.partnerName,
-      partnerLogo: partnerLogos.get(reel.partnerId) ?? reel.partnerLogo,
+      partnerLogo: logoFor(reel),
       title: reel.title,
       caption: reel.caption,
       imageUrl: reel.posterUrl,

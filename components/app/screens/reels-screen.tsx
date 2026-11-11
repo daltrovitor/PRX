@@ -275,8 +275,8 @@ export function ReelsScreen({ member }: { member: User }) {
                   {reel.caption && <p className="mt-1 line-clamp-2 text-[13px] leading-snug text-white/85">{reel.caption}</p>}
                 </div>
                 <div className="mt-3 flex items-center gap-3 rounded-2xl bg-white/95 p-2.5 text-[#0b0b10] shadow-lg">
-                  <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#f2f2f5] text-[13px] font-semibold">
-                    {reel.partnerLogo ? <PrxImage src={reel.partnerLogo} alt="" fill sizes="44px" className="object-cover" /> : reel.partnerName.slice(0, 2).toUpperCase()}
+                  <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#f2f2f5] text-[13px] font-semibold">
+                    {reel.partnerLogo ? <PrxImage src={reel.partnerLogo} alt="" fill sizes="32px" className="object-contain p-0.5" /> : reel.partnerName.slice(0, 2).toUpperCase()}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[14px] font-semibold">{reel.partnerName}</span>

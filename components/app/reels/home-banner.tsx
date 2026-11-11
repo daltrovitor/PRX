@@ -66,8 +66,8 @@ function BannerCard({ banner, onOpen }: { banner: HomeBanner; onOpen: (banner: H
           {banner.caption && <span className="mt-1 line-clamp-2 block text-[13px] leading-snug text-white/85">{banner.caption}</span>}
         </span>
         <span className="flex items-center gap-2.5 rounded-2xl bg-white/95 p-2.5 text-[#0b0b10] shadow-lg">
-          <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#f2f2f5] text-[13px] font-semibold">
-            {banner.partnerLogo ? <PrxImage src={banner.partnerLogo} alt="" fill sizes="40px" className="object-cover" /> : partnerInitials(banner.partnerName)}
+          <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#f2f2f5] text-[13px] font-semibold">
+            {banner.partnerLogo ? <PrxImage src={banner.partnerLogo} alt="" fill sizes="32px" className="object-contain p-0.5" /> : partnerInitials(banner.partnerName)}
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[13.5px] font-semibold">{banner.partnerName}</span>
