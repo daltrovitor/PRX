@@ -33,6 +33,8 @@ function resolveIntroMode(): "full" | "quick" {
 interface PrxLoaderProps {
   /** Quando false, a animação segura o logo montado até os dados ficarem prontos. */
   ready: boolean;
+  percent?: number;
+  error?: string;
   onComplete: () => void;
 }
 
@@ -43,9 +45,21 @@ interface PrxLoaderProps {
  * 3. A assinatura é revelada da esquerda para a direita e a barra se abre do centro.
  * 4. A tela é recolhida para cima, revelando o app.
  */
-export function PrxLoader({ ready, onComplete }: PrxLoaderProps) {
+export function PrxLoader({ ready, percent = ready ? 100 : 0, error, onComplete }: PrxLoaderProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const uid = useId().replace(/:/g, "");
+  const [hydrated, setHydrated] = useState(false);
+  const [slow, setSlow] = useState(false);
+  const [offline, setOffline] = useState(false);
+  useEffect(() => {
+    setHydrated(true);
+    const sync = () => setOffline(!navigator.onLine);
+    sync();
+    const timer = window.setTimeout(() => setSlow(true), Math.max(0, 8000 - performance.now()));
+    window.addEventListener("online", sync);
+    window.addEventListener("offline", sync);
+    return () => { clearTimeout(timer); window.removeEventListener("online", sync); window.removeEventListener("offline", sync); };
+  }, []);
   const [introFinished, setIntroFinished] = useState(false);
   const exitStarted = useRef(false);
   const onCompleteRef = useRef(onComplete);
@@ -121,6 +135,9 @@ export function PrxLoader({ ready, onComplete }: PrxLoaderProps) {
     }
     return () => {
       exit.kill();
+      exitStarted.current = false;
+      gsap.set(root, { autoAlpha: 1, clipPath: "inset(0% 0% 0% 0%)" });
+      gsap.set(logo, { y: 0, autoAlpha: 1 });
     };
   }, [introFinished, ready]);
 
@@ -130,10 +147,31 @@ export function PrxLoader({ ready, onComplete }: PrxLoaderProps) {
       role="status"
       aria-live="polite"
       aria-label="Carregando PRX"
-      className="prx-loader fixed inset-0 z-[100] flex items-center justify-center bg-white text-[#0b0b10]"
+      className="prx-loader fixed inset-0 z-[100] flex flex-col items-center justify-center gap-8 bg-white text-[#0b0b10]"
       style={{ clipPath: "inset(0% 0% 0% 0%)" }}
     >
-      <PrxRevealMark uid={uid} className="w-[min(78vw,540px)] h-auto overflow-visible" />
+      <PrxRevealMark style={{ visibility: "visible" }} uid={uid} className="w-[min(78vw,540px)] h-auto overflow-visible" />
+      <div className="w-[min(78vw,360px)] space-y-3 text-center">
+        <p className="text-sm font-semibold tabular-nums">Carregando PRX · {ready ? 100 : Math.min(99, percent)}%</p>
+        <progress aria-label="Etapas da tela inicial concluídas" max={100} value={ready ? 100 : Math.min(99, percent)} className="h-2 w-full accent-[#6c0cf0]" />
+        <p className="text-xs text-[#5b5b66]">Preparando dados e imagens da tela inicial</p>
+        {!hydrated && (
+          <div className="prx-early-slow space-y-3 rounded-xl bg-[#f4efff] p-4">
+            <style>{`@keyframes prx-slow-appear{to{visibility:visible}}.prx-early-slow{visibility:hidden;animation:prx-slow-appear 0s 8s forwards}`}</style>
+            <p className="text-sm font-semibold">Conexão lenta</p>
+            <p className="text-xs text-[#5b5b66]">O carregamento está demorando. Confira o Wi-Fi ou os dados móveis.</p>
+            <a href="/" className="inline-block rounded-full bg-[#6c0cf0] px-5 py-3 text-sm text-white">Tentar novamente</a>
+          </div>
+        )}
+        {(offline || slow || error) && !ready && (
+          <div className="space-y-3 rounded-xl bg-[#f4efff] p-4">
+            <span aria-hidden className="inline-block h-6 w-6 animate-pulse rounded-full border-4 border-[#6c0cf0]/30 border-t-[#6c0cf0] motion-reduce:animate-none" />
+            <p className="text-sm font-semibold">{offline ? "Sem internet" : error ? "Não foi possível concluir o carregamento" : "Conexão lenta"}</p>
+            <p className="text-xs text-[#5b5b66]">{offline ? "Reconecte o Wi-Fi ou os dados móveis para continuar." : error || "A internet pode estar fraca ou o serviço está demorando para responder. Continuamos carregando."}</p>
+            <button type="button" className="rounded-full bg-[#6c0cf0] px-5 py-3 text-sm font-medium text-white" onClick={() => window.location.reload()}>Tentar novamente</button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

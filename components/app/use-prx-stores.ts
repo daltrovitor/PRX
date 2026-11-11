@@ -1,6 +1,7 @@
 // Hello World
 "use client";
 
+import { useBootTask } from "@/components/brand/boot-boundary";
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import type { BankAccountView } from "@/lib/prx/bank";
 import type { MemberWallet, PublicEvent, TicketQuote } from "@/lib/live/service";
@@ -18,6 +19,7 @@ interface ResourceState<T> {
   data: T | null;
   error: string | null;
   loading: boolean;
+  settled: boolean;
 }
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -33,7 +35,7 @@ export interface PartnerReward {
 }
 
 function createResource<T>(url: string, pick: (json: Record<string, unknown>) => T | null) {
-  let state: ResourceState<T> = { owner: null, data: null, error: null, loading: false };
+  let state: ResourceState<T> = { owner: null, data: null, error: null, loading: false, settled: false };
   let inflight: Promise<void> | null = null;
   const listeners = new Set<() => void>();
   const emit = (next: Partial<ResourceState<T>>) => {
@@ -44,7 +46,7 @@ function createResource<T>(url: string, pick: (json: Record<string, unknown>) =>
   /** force: busca de novo mesmo com dados em cache (mantém os atuais na tela enquanto carrega). */
   function load(owner: string, force = false): Promise<void> {
     if (state.owner !== owner) {
-      state = { owner, data: null, error: null, loading: false };
+      state = { owner, data: null, error: null, loading: false, settled: false };
       inflight = null;
     }
     if (inflight && !force) return inflight;
@@ -54,13 +56,13 @@ function createResource<T>(url: string, pick: (json: Record<string, unknown>) =>
         const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
         if (state.owner !== owner) return;
         if (!res.ok) {
-          emit({ loading: false, error: typeof json.error === "string" ? json.error : "Não foi possível carregar agora." });
+          emit({ loading: false, settled: true, error: typeof json.error === "string" ? json.error : "Não foi possível carregar agora." });
           return;
         }
-        emit({ loading: false, data: pick(json) });
+        emit({ loading: false, settled: true, data: pick(json) });
       })
       .catch(() => {
-        if (state.owner === owner) emit({ loading: false, error: "Sem internet agora. Confira sua conexão e tente de novo." });
+        if (state.owner === owner) emit({ loading: false, settled: true, error: "Sem internet agora. Confira sua conexão e tente de novo." });
       })
       .finally(() => {
         inflight = null;
@@ -76,12 +78,12 @@ function createResource<T>(url: string, pick: (json: Record<string, unknown>) =>
     get: () => state,
     load,
     set(owner: string, data: T) {
-      if (state.owner === owner) emit({ data, error: null });
+      if (state.owner === owner) emit({ data, error: null, settled: true });
     },
   };
 }
 
-const SERVER_SNAPSHOT: ResourceState<never> = { owner: null, data: null, error: null, loading: true };
+const SERVER_SNAPSHOT: ResourceState<never> = { owner: null, data: null, error: null, loading: true, settled: false };
 const serverSnapshot = () => SERVER_SNAPSHOT;
 
 /** Remove carteiras locais de versões antigas (dados de demonstração guardados no aparelho). */
@@ -97,7 +99,7 @@ function dropLegacyStorage(userId: string) {
 function useResource<T>(resource: ReturnType<typeof createResource<T>>, userId: string) {
   const state = useSyncExternalStore(resource.subscribe, resource.get, serverSnapshot) as ResourceState<T>;
   const mine = state.owner === userId;
-  const needsLoad = !mine || (!state.data && !state.loading && !state.error);
+  const needsLoad = !mine || (!state.settled && !state.loading && !state.error);
 
   useEffect(() => {
     if (needsLoad) {
@@ -107,7 +109,7 @@ function useResource<T>(resource: ReturnType<typeof createResource<T>>, userId: 
   }, [needsLoad, resource, userId]);
 
   const reload = useCallback(() => resource.load(userId), [resource, userId]);
-  return { data: mine ? state.data : null, loading: !mine || state.loading, error: mine ? state.error : null, reload };
+  return { data: mine ? state.data : null, loading: !mine || state.loading || !state.settled, error: mine ? state.error : null, reload };
 }
 
 async function postJson(url: string, body: unknown): Promise<{ ok: boolean; json: Record<string, unknown> }> {
@@ -272,7 +274,9 @@ const NO_BANNERS: HomeBanner[] = [];
 
 /** Banners de parceiros da Home; vazio enquanto carrega ou se não houver nenhum ativo. */
 export function useHomeBanners(userId: string): ReadonlyArray<HomeBanner> {
-  return useResource(bannerResource, userId).data ?? NO_BANNERS;
+  const resource = useResource(bannerResource, userId);
+  useBootTask("banners", !resource.loading && !resource.error, resource.error);
+  return resource.data ?? NO_BANNERS;
 }
 
 /* Preferência de "ocultar saldo" — conveniência por aparelho. */

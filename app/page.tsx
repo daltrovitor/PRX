@@ -1,7 +1,7 @@
 // Hello World
 "use client";
 
-import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
+import { isValidElement, lazy, Suspense, useCallback, useEffect, useState, type ReactNode } from "react";
 import { AppShell } from "@/components/app/app-shell";
 import { QuickLogin } from "@/components/auth/quick-login";
 import { CompleteRegistration, usePendingGoogle } from "@/components/auth/complete-registration";
@@ -9,6 +9,7 @@ import { useFamilyState } from "@/components/family/family-client";
 import { familyNotice } from "@/components/family/family-notice";
 import { useKnownAccount, type KnownAccount } from "@/lib/known-account";
 import { needsQuickLogin } from "@/lib/lock";
+import { BootBoundary } from "@/components/brand/boot-boundary";
 import { PrxLoader } from "@/components/brand/prx-loader";
 import { useAuth } from "@/hooks/use-auth";
 import { captureLiveLink } from "@/components/app/live/live-link";
@@ -34,6 +35,8 @@ export default function HomePage() {
   const checking = !loading && !user && pendingGoogle === undefined;
   const [viewMode, setViewMode] = useState<"app" | "showcase">("app");
   const [introDone, setIntroDone] = useState(false);
+  const [boot, setBoot] = useState({ percent: 0, ready: false, error: undefined as string | undefined });
+  const onBootProgress = useCallback((percent: number, ready: boolean, error?: string) => setBoot({ percent, ready, error }), []);
   // Link de divulgação do PRX LIVE: guarda o evento/cupom antes do login (inclusive pelo Google).
   useEffect(() => {
     captureLiveLink();
@@ -66,10 +69,18 @@ export default function HomePage() {
     content = <RevolutLanding onEnterApp={() => setViewMode("app")} />;
   }
 
+  const destination = isValidElement(content)
+    ? content.type === AppShell ? "app" : content.type === QuickLogin ? "login" : content.type === CompleteRegistration ? "registration" : content.type === ParentShell ? "parent" : "landing"
+    : "waiting";
+
   return (
     <>
-      {!introDone && <PrxLoader ready={!loading && !checking} onComplete={() => setIntroDone(true)} />}
-      <Suspense fallback={null}>{content}</Suspense>
+      {!introDone && <PrxLoader ready={!loading && !checking && content !== null && boot.ready} percent={loading ? 5 : checking || content === null ? 15 : 25 + Math.floor(boot.percent * 0.75)} error={boot.error} onComplete={() => setIntroDone(true)} />}
+      <div inert={!introDone} aria-hidden={!introDone} style={{ opacity: introDone ? 1 : 0, pointerEvents: introDone ? undefined : "none" }}>
+        <Suspense fallback={null}>
+          {content !== null && <BootBoundary key={`${user?.id ?? "guest"}:${destination}`} onProgress={onBootProgress}>{content}</BootBoundary>}
+        </Suspense>
+      </div>
     </>
   );
 }

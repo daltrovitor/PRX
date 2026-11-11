@@ -1,6 +1,7 @@
 // Hello World
 "use client";
 
+import { useBootTask } from "@/components/brand/boot-boundary";
 import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import type { PassData } from "@/components/app/use-pass-data";
@@ -52,9 +53,9 @@ export function HomeScreen({ pass }: { pass: PassData }) {
   const { go, sub } = useAppNav();
   const { showToast } = useConfirmToast();
   const { member, vouchers, missions, benefits } = pass;
-  const { account } = useBankAccount(member.id);
-  const { data: live } = useLiveData(member.id);
-  const { wallet, error: pointsError, checkin } = usePointsWallet(member.id);
+  const { account, loading: bankLoading, error: bankError } = useBankAccount(member.id);
+  const { data: live, loading: liveLoading, error: liveError } = useLiveData(member.id);
+  const { wallet, loading: pointsLoading, error: pointsError, checkin } = usePointsWallet(member.id);
   const [hidden, toggleHidden] = useHiddenBalance();
   // #home/pontos (ex.: aviso de compra em parceiro) abre o extrato de pontos.
   const pointsOpen = sub === "pontos";
@@ -76,8 +77,14 @@ export function HomeScreen({ pass }: { pass: PassData }) {
   const transactions = account?.transactions ?? [];
   const banners = useHomeBanners(member.id);
   // Banner da Resenha sempre na Home; os detalhes da festa só para quem um Insider convidou.
-  const { resenhas, catalog } = useResenhas(member.id);
+  const { resenhas, catalog, loaded: resenhasLoaded } = useResenhas(member.id);
   const pendingWith = catalog.entries.find((e) => e.request?.status === "pending")?.request?.insiderName ?? null;
+
+  useBootTask("benefícios", pass.loaded, pass.error);
+  useBootTask("banco", !bankLoading && !bankError, bankError);
+  useBootTask("eventos", !liveLoading && !liveError, liveError);
+  useBootTask("pontos", !pointsLoading && !pointsError, pointsError);
+  useBootTask("resenhas", resenhasLoaded);
 
   const balanceActions: ReadonlyArray<ObsidianAction> = [
     { key: "pix", label: "Pix", Icon: IconPixDiamonds, onClick: () => go("bank", "chaves") },

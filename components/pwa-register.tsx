@@ -39,11 +39,9 @@ export function PwaRegister() {
         });
     };
 
-    if (document.readyState === "complete") {
-      registerWorker();
-    } else {
-      window.addEventListener("load", registerWorker, { once: true });
-    }
+    // Register as soon as hydration finishes; a slow image must not postpone
+    // installation of the connection fallback until the window load event.
+    registerWorker();
   }, []);
 
   return null;

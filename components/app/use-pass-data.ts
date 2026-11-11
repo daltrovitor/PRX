@@ -23,6 +23,7 @@ export interface PassData {
   vouchers: UserVoucher[];
   referralInfo: ReferralInfo;
   loaded: boolean;
+  error: string | null;
   refresh: () => Promise<void>;
   redeem: (benefit: Benefit) => Promise<{ ok: true; voucher: UserVoucher } | { ok: false; error: string }>;
   applyScore: (score: number, level: number) => void;
@@ -57,12 +58,14 @@ export function usePassData(user: User): PassData {
   const [vouchers, setVouchers] = useState<UserVoucher[]>([]);
   const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // O usuário da sessão é a base; os dados mais recentes do servidor (XP, nível) sobrepõem.
   const member = useMemo<User>(() => ({ ...user, ...overrides }), [user, overrides]);
 
   const apply = useCallback((data: PassDataResponse | null) => {
     setLoaded(true);
+    setError(data ? null : "Não foi possível carregar os benefícios. Tente novamente.");
     if (!data) return;
     if (Array.isArray(data.benefits)) setBenefits(data.benefits);
     if (Array.isArray(data.missions)) setMissions(data.missions);
@@ -159,6 +162,7 @@ export function usePassData(user: User): PassData {
       referredBy: null,
     },
     loaded,
+    error,
     refresh,
     redeem,
     applyScore,

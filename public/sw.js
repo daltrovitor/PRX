@@ -8,12 +8,15 @@
 // v6: logo nova (assinatura, sem a barra) na página offline e nos logos pré-armazenados.
 // v7: notificações no celular (push e toque na notificação).
 // v8: assinatura "NEXT IS YOURS" no logo (a página offline e os logos em cache precisam ser trocados).
-const CACHE_NAME = 'prx-offline-v8';
+const CACHE_NAME = 'prx-offline-v9';
+const SLOW_URL = '/slow.html';
+const NAVIGATION_TIMEOUT_MS = 6000;
 const OFFLINE_URL = '/offline.html';
 
 // Lista de assets críticos pré-armazenados no cache durante o install
 const PRECACHE_ASSETS = [
   OFFLINE_URL,
+  SLOW_URL,
   '/manifest.json',
   '/brand/prx-app-icon.svg',
   '/brand/prx-app-icon-square.svg',
@@ -78,40 +81,30 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate') {
     event.respondWith(
       (async () => {
-        try {
-          // Tenta utilizar a resposta pré-carregada (Navigation Preload) se disponível
-          const preloadResponse = await event.preloadResponse;
-          if (preloadResponse) {
-            return preloadResponse;
-          }
-
-          // Tenta buscar da rede normalmente
-          const networkResponse = await fetch(request);
-          if (networkResponse && (networkResponse.status === 502 || networkResponse.status === 503 || networkResponse.status === 504)) {
-            const cache = await caches.open(CACHE_NAME);
-            const cachedOfflinePage = await cache.match(OFFLINE_URL);
-            if (cachedOfflinePage) {
-              return cachedOfflinePage;
-            }
-          }
-          return networkResponse;
-        } catch (networkError) {
-          // Falha real de conexão (offline, DNS, timeout): entrega a página offline personalizada
+        let timer;
+        const fallback = async (slow) => {
           const cache = await caches.open(CACHE_NAME);
-          const cachedOfflinePage = await cache.match(OFFLINE_URL);
-          if (cachedOfflinePage) {
-            return cachedOfflinePage;
-          }
-
-          // Fallback seguro caso o cache esteja vazio
-          return new Response(
-            '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Offline</title></head><body><h1>PRX Offline</h1><p>Sem conexão com a internet.</p></body></html>',
-            {
-              status: 503,
-              statusText: 'Service Unavailable (Offline)',
-              headers: { 'Content-Type': 'text/html; charset=utf-8' },
-            }
-          );
+          const page = await cache.match(slow ? SLOW_URL : OFFLINE_URL);
+          if (page) return new Response(await page.text(), { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
+          return new Response('<!doctype html><html lang="pt-BR"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PRX</title><body style="font-family:system-ui;text-align:center;padding:15vh 24px"><h1>PRX</h1><h2>' + (slow ? 'Conexão lenta' : 'Sem internet') + '</h2><p>Não foi possível carregar a tela. Confira sua conexão.</p><button onclick="location.reload()">Tentar novamente</button></body></html>', { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
+        };
+        const network = (async () => {
+          // Include the preload wait in the timeout; never wait forever for it.
+          const preload = await Promise.resolve(event.preloadResponse).catch(() => null);
+          return preload || fetch(request);
+        })();
+        try {
+          const response = await Promise.race([
+            network,
+            new Promise((resolve) => { timer = setTimeout(() => resolve(null), NAVIGATION_TIMEOUT_MS); }),
+          ]);
+          if (!response) return await fallback(self.navigator.onLine !== false);
+          if (response.status >= 500) return await fallback(true);
+          return response;
+        } catch {
+          return await fallback(false);
+        } finally {
+          clearTimeout(timer);
         }
       })()
     );
