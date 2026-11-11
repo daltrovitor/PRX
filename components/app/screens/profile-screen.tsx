@@ -9,13 +9,12 @@ import { Button, Notice, ProgressBar } from "@/components/app/ui";
 import { useConfirmToast } from "@/components/ui/confirm-toast";
 import { canUseBiometrics, registerPasskey } from "@/lib/passkeys/client";
 import { readKnownAccount, updateKnownAccount } from "@/lib/known-account";
-import { IconBell, IconCard, IconChevronRight, IconCommunity, IconExternal, IconPaperPlane, IconPix, IconTicket, IconUsers } from "@/components/icons/prx-icons";
+import { IconBell, IconChevronRight, IconCommunity, IconPaperPlane, IconPix, IconTicket, IconUsers } from "@/components/icons/prx-icons";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { levelProgress } from "@/lib/pass-data";
 import { usePointsWallet } from "@/components/app/use-prx-stores";
 import { PwaInstallGuide } from "@/components/app/pwa-install-guide";
 import { promptInstall, usePwaInstall } from "@/lib/pwa-install";
-import { SubscriptionsSheet } from "@/components/app/subscriptions/subscriptions-sheet";
 import { AvatarEditor } from "@/components/app/profile/avatar-editor";
 import { MemberId } from "@/components/app/profile/member-id";
 import { PushCard } from "@/components/app/profile/push-card";
@@ -37,13 +36,12 @@ const ROLE_LABEL: Record<string, string> = {
   admin: "Administrador",
 };
 
-export function ProfileScreen({ pass, onLogout, onViewShowcase, noticeCount, onOpenNotices }: ProfileScreenProps) {
+export function ProfileScreen({ pass, onLogout, noticeCount, onOpenNotices }: ProfileScreenProps) {
   const { go } = useAppNav();
   const { member, referralInfo } = pass;
   const { wallet } = usePointsWallet(member.id);
   const xp = wallet?.xp ?? member.prxScore ?? 0;
   const progress = levelProgress(xp);
-  const [sheet, setSheet] = useState<"subscriptions" | null>(null);
 
   return (
     <div className="profile-screen mx-auto max-w-2xl space-y-6">
@@ -89,14 +87,8 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase, noticeCount, onO
           <Row icon={<IconPix size={18} />} onClick={() => go("bank", "chaves")}>
             Minhas chaves Pix
           </Row>
-          <Row icon={<IconCard size={18} />} onClick={() => go("bank", "cartoes")}>
-            Cartões
-          </Row>
           <Row icon={<IconTicket size={18} />} onClick={() => go("live", "ingressos")}>
             Ingressos
-          </Row>
-          <Row icon={<IconCard size={18} />} onClick={() => setSheet("subscriptions")}>
-            Assinaturas
           </Row>
           <Row icon={<IconPaperPlane size={18} />} onClick={() => go("pass", "atendimento")}>
             Atendimento (SAC)
@@ -104,13 +96,8 @@ export function ProfileScreen({ pass, onLogout, onViewShowcase, noticeCount, onO
           <Row icon={<IconCommunity size={18} />} onClick={() => go("pass", "parceiro")}>
             Seja um parceiro
           </Row>
-          <Row icon={<IconExternal size={18} />} onClick={onViewShowcase}>
-            Conhecer a PRX
-          </Row>
         </ul>
       </section>
-
-      <SubscriptionsSheet open={sheet === "subscriptions"} onClose={() => setSheet(null)} />
 
       <PushCard />
 
