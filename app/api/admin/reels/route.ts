@@ -37,7 +37,8 @@ export async function PUT(req: NextRequest) {
     if (!id.success) throw new PartnerError("Informe o vídeo.", 400);
     const parsed = reelInputSchema.safeParse(body);
     if (!parsed.success) throw new PartnerError(firstIssue(parsed.error), 400);
-    return NextResponse.json({ success: true, reel: await updateReel(id.data.id, parsed.data) });
+    const { cleanupWarning, ...reel } = await updateReel(id.data.id, parsed.data);
+    return NextResponse.json({ success: true, reel, cleanupWarning });
   } catch (error) {
     return errorResponse(error, "Erro ao atualizar o vídeo.");
   }
@@ -48,8 +49,8 @@ export async function DELETE(req: NextRequest) {
     await requireAdmin(req);
     const id = req.nextUrl.searchParams.get("id");
     if (!id) throw new PartnerError("Informe o vídeo.", 400);
-    await deleteReel(id);
-    return NextResponse.json({ success: true });
+    const result = await deleteReel(id);
+    return NextResponse.json({ success: true, ...result });
   } catch (error) {
     return errorResponse(error, "Erro ao excluir o vídeo.");
   }

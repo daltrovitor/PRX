@@ -102,8 +102,9 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
 
   async function save(body: Record<string, unknown>, method: "POST" | "PUT") {
     const res = await fetch("/api/admin/reels", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string };
+    const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string; cleanupWarning?: string };
     if (!res.ok || !json.success) throw new Error(json.error || "Não foi possível salvar o destaque.");
+    return json.cleanupWarning;
   }
 
   function payload(f: ReelForm) {
@@ -115,8 +116,8 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
     setSaving(true);
     setError(null);
     try {
-      await save(editing ? { id: editing.id, ...payload(form) } : payload(form), editing ? "PUT" : "POST");
-      showToast("success", editing ? "Destaque atualizado." : banner ? "Banner publicado na Home." : "Vídeo publicado nos Destaques.");
+      const cleanupWarning = await save(editing ? { id: editing.id, ...payload(form) } : payload(form), editing ? "PUT" : "POST");
+      showToast(cleanupWarning ? "info" : "success", cleanupWarning || (editing ? "Destaque atualizado." : banner ? "Banner publicado na Home." : "Vídeo publicado nos Destaques."));
       setOpen(false);
       await load();
     } catch (err) {
@@ -128,7 +129,8 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
 
   async function toggle(reel: PartnerReel) {
     try {
-      await save({ id: reel.id, ...payload({ ...reelToForm(reel), active: !reel.active }) }, "PUT");
+      const cleanupWarning = await save({ id: reel.id, ...payload({ ...reelToForm(reel), active: !reel.active }) }, "PUT");
+      if (cleanupWarning) showToast("info", cleanupWarning);
       await load();
     } catch (err) {
       showToast("error", err instanceof Error ? err.message : "Não foi possível alterar.");
@@ -146,7 +148,8 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
     if (!ok) return;
     const res = await fetch(`/api/admin/reels?id=${encodeURIComponent(reel.id)}`, { method: "DELETE" });
     if (res.ok) {
-      showToast("success", reel.placement === "home" ? "Banner excluído." : "Vídeo excluído.");
+      const data = (await res.json()) as { cleanupWarning?: string };
+      showToast(data.cleanupWarning ? "info" : "success", data.cleanupWarning || (reel.placement === "home" ? "Banner excluído." : "Vídeo excluído."));
       await load();
     } else showToast("error", "Não foi possível excluir.");
   }

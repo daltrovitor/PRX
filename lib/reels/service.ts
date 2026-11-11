@@ -1,4 +1,5 @@
 // Hello World
+import { cleanupReelVideo } from "@/lib/reels/media-cleanup";
 import { PartnerError } from "@/lib/partners/errors";
 import { getPartnerRepository } from "@/lib/partners/repository";
 import { getBenefit } from "@/lib/partners/catalog";
@@ -107,12 +108,21 @@ export async function createReel(input: ReelInput): Promise<PartnerReel> {
   return getReelsRepository().insert(await withPartner(input));
 }
 
-export async function updateReel(id: string, input: ReelInput): Promise<PartnerReel> {
-  const updated = await getReelsRepository().update(id, await withPartner(input));
+export async function updateReel(id: string, input: ReelInput): Promise<PartnerReel & { cleanupWarning?: string }> {
+  const repo = getReelsRepository();
+  const previous = await repo.get(id);
+  if (!previous) throw new PartnerError("Vídeo não encontrado.", 404);
+  const updated = await repo.update(id, await withPartner(input));
   if (!updated) throw new PartnerError("Vídeo não encontrado.", 404);
-  return updated;
+  const cleanupWarning = previous.videoUrl !== updated.videoUrl
+    ? await cleanupReelVideo(previous.videoUrl) : undefined;
+  return cleanupWarning ? { ...updated, cleanupWarning } : updated;
 }
 
-export async function deleteReel(id: string): Promise<void> {
-  if (!(await getReelsRepository().remove(id))) throw new PartnerError("Vídeo não encontrado.", 404);
+export async function deleteReel(id: string): Promise<{ cleanupWarning?: string }> {
+  const repo = getReelsRepository();
+  const previous = await repo.get(id);
+  if (!previous || !(await repo.remove(id))) throw new PartnerError("Vídeo não encontrado.", 404);
+  const warning = await cleanupReelVideo(previous.videoUrl);
+  return warning ? { cleanupWarning: warning.replace("Destaque salvo", "Destaque excluído") } : {};
 }

@@ -287,3 +287,11 @@ export function readMemoryMedia(id: string): { type: string; data: Buffer } | nu
 export function resetReelsMemory() {
   delete globalState.__prxReels;
 }
+
+/** Development media has the same lifecycle as Storage uploads. */
+export function removeUnusedMemoryMedia(url: string): void {
+  const match = /^\/api\/reels\/media\/([0-9a-f-]{36})$/i.exec(url);
+  if (!match) return;
+  if (memory().reels.some((reel) => reel.videoUrl === url || reel.posterUrl === url || reel.partnerLogo === url)) return;
+  memory().media.delete(match[1]);
+}
