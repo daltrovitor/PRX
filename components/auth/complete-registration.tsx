@@ -60,9 +60,9 @@ export function usePendingGoogle(enabled: boolean): PendingPerson | null | undef
 
 export function CompleteRegistration({ person, mode }: { person: PendingPerson; mode: "pending" | "session" }) {
   useThemeScope("app");
-  const { refreshUser, markUnlocked, logout } = useAuth();
-  const [cpf, setCpf] = useState("");
-  const [phone, setPhone] = useState("");
+  const { user, refreshUser, markUnlocked, logout } = useAuth();
+  const [cpf, setCpf] = useState(mode === "session" ? user?.cpf || "" : "");
+  const [phone, setPhone] = useState(mode === "session" ? user?.phone || "" : "");
   const [birthDate, setBirthDate] = useState("");
   const [terms, setTerms] = useState(false);
   const [busy, setBusy] = useState<"save" | "cancel" | null>(null);

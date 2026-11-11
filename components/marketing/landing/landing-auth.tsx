@@ -252,6 +252,13 @@ export function AuthSection({ onAuthenticated }: { onAuthenticated?: () => void 
                   ))}
                 </div>
 
+                {mode === "signup" && signupStep === 1 && (
+                  <button type="button" className="mt-5 min-h-12 w-full rounded-xl border border-[var(--rv-line)] px-4 text-sm text-[var(--rv-ink)] hover:border-purple-500" onClick={() => {
+                    switchMode("login");
+                    setFeedback({ kind: "success", text: "Já sou insider: entre com o mesmo e-mail e senha do seu acesso. Vamos manter sua conta e pedir apenas os dados que faltam." });
+                  }}>Já sou insider</button>
+                )}
+
                 <form onSubmit={submit} className="mt-6 space-y-3" noValidate>
                   {mode === "signup" && signupStep === 2 ? (
                     <div className="space-y-3">
