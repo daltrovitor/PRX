@@ -37,8 +37,8 @@ export async function PUT(req: NextRequest) {
     if (!id.success) throw new PartnerError("Informe o vídeo.", 400);
     const parsed = reelInputSchema.safeParse(body);
     if (!parsed.success) throw new PartnerError(firstIssue(parsed.error), 400);
-    const { cleanupWarning, ...reel } = await updateReel(id.data.id, parsed.data);
-    return NextResponse.json({ success: true, reel, cleanupWarning });
+    const { cleanupWarning, cleanupStatus, ...reel } = await updateReel(id.data.id, parsed.data);
+    return NextResponse.json({ success: true, reel, cleanupWarning, cleanupStatus });
   } catch (error) {
     return errorResponse(error, "Erro ao atualizar o vídeo.");
   }

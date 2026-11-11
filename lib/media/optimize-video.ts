@@ -2,7 +2,7 @@
  * No file leaves the device until encoding succeeds. Unsupported browsers keep
  * the original; the caller can also explicitly select original quality.
  */
-export async function optimizeVideo(file: File): Promise<File> {
+export async function optimizeVideo(file: File, onProgress?: (percent: number) => void): Promise<File> {
   if (file.size < 8 * 1024 * 1024 || typeof MediaRecorder === "undefined" ||
       typeof AudioContext === "undefined" || !HTMLCanvasElement.prototype.captureStream) return file;
   const mimeType = ["video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus"]
@@ -42,7 +42,11 @@ export async function optimizeVideo(file: File): Promise<File> {
     recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 1_600_000, audioBitsPerSecond: 96_000 });
     const chunks: Blob[] = [];
     const blob = await new Promise<Blob>((resolve, reject) => {
-      const draw = () => { ctx.drawImage(video, 0, 0, canvas.width, canvas.height); frame = requestAnimationFrame(draw); };
+      let lastPercent = -1;
+      const draw = () => {
+        const percent = Math.min(99, Math.floor(video.currentTime / video.duration * 100));
+        if (percent !== lastPercent) { lastPercent = percent; onProgress?.(percent); }
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height); frame = requestAnimationFrame(draw); };
       recorder!.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
       recorder!.onerror = () => reject(new Error("Falha ao otimizar. Tente enviar na qualidade original."));
       recorder!.onstop = () => resolve(new Blob(chunks, { type: mimeType.split(";")[0] }));
@@ -53,6 +57,7 @@ export async function optimizeVideo(file: File): Promise<File> {
       recorder!.start(1000);
       void video.play().catch(reject);
     });
+    onProgress?.(100);
     if (!blob.size) throw new Error("Vídeo otimizado vazio. Tente a qualidade original.");
     if (blob.size >= file.size) return file;
     return new File([blob], file.name.replace(/\.[^.]+$/, "") + (blob.type === "video/mp4" ? ".mp4" : ".webm"), { type: blob.type });

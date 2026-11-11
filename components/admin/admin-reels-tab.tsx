@@ -30,6 +30,7 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
   const [form, setForm] = useState<ReelForm>(EMPTY_REEL_FORM);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState<"video" | "poster" | null>(null);
+  const [progress, setProgress] = useState<{ label: string; percent: number | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const selectable = partners.filter((p) => p.status !== "BLOQUEADO");
@@ -60,6 +61,7 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
 
   function openCreate(placement: ReelPlacement = "feed") {
     const partner = selectable[0];
+    setProgress(null);
     setEditing(null);
     // Banner: já começa pelo primeiro parceiro, com a imagem de banner e o nome que ele tem cadastrados.
     setForm({
@@ -73,6 +75,7 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
   }
 
   function openEdit(reel: PartnerReel) {
+    setProgress(null);
     setEditing(reel);
     setForm(reelToForm(reel));
     setError(null);
@@ -82,18 +85,22 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
   async function onFile(event: ChangeEvent<HTMLInputElement>, kind: "video" | "poster") {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file) return;
+    if (!file || uploading || saving) return;
     setUploading(kind);
+    setProgress({ label: kind === "video" && form.optimizeVideo ? "Otimizando vídeo" : "Preparando arquivo", percent: null });
     setError(null);
     try {
       const fileToUpload =
-        kind === "poster" ? await compressImageFile(file, banner ? { maxWidth: 1600, maxHeight: 1600, quality: 0.85 } : { maxWidth: 1080, maxHeight: 1920, quality: 0.82 }) : form.optimizeVideo ? await optimizeVideo(file) : file;
-      const url = await uploadReelMedia(fileToUpload, kind);
+        kind === "poster" ? await compressImageFile(file, banner ? { maxWidth: 1600, maxHeight: 1600, quality: 0.85 } : { maxWidth: 1080, maxHeight: 1920, quality: 0.82 }) : form.optimizeVideo ? await optimizeVideo(file, (percent) => setProgress({ label: "Otimizando vídeo", percent })) : file;
+      setProgress({ label: "Preparando envio", percent: null });
+      const url = await uploadReelMedia(fileToUpload, kind, (percent) => setProgress({ label: "Enviando arquivo", percent }));
+      setProgress({ label: "Arquivo enviado", percent: 100 });
       if (kind === "video" && fileToUpload.size < file.size) {
         showToast("success", `Vídeo otimizado: ${(file.size / 1048576).toFixed(1)} MB → ${(fileToUpload.size / 1048576).toFixed(1)} MB.`);
       }
       setForm((f) => (kind === "video" ? { ...f, videoUrl: url } : { ...f, posterUrl: url }));
     } catch (err) {
+      setProgress(null);
       setError(err instanceof Error ? err.message : "Falha no envio.");
     } finally {
       setUploading(null);
@@ -102,9 +109,9 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
 
   async function save(body: Record<string, unknown>, method: "POST" | "PUT") {
     const res = await fetch("/api/admin/reels", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string; cleanupWarning?: string };
+    const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string; cleanupWarning?: string; cleanupStatus?: string };
     if (!res.ok || !json.success) throw new Error(json.error || "Não foi possível salvar o destaque.");
-    return json.cleanupWarning;
+    return json.cleanupWarning || (json.cleanupStatus === "deleted" ? "Destaque salvo. Vídeo anterior excluído do Storage." : json.cleanupStatus === "shared" ? "Destaque salvo. O vídeo anterior foi mantido porque outro destaque ainda o utiliza." : undefined);
   }
 
   function payload(f: ReelForm) {
@@ -113,6 +120,7 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (uploading || saving) return;
     setSaving(true);
     setError(null);
     try {
@@ -141,17 +149,21 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
     const what = reel.placement === "home" ? "banner" : "vídeo";
     const ok = await confirmDelete({
       title: `Excluir ${what}`,
-      message: `"${reel.title}" sai ${reel.placement === "home" ? "da Home" : "do feed"} e as métricas são apagadas.`,
+      message: `"${reel.title}" sai ${reel.placement === "home" ? "da Home" : "do feed"} e as métricas são apagadas.${reel.videoUrl ? " O vídeo enviado também será excluído do Storage se não for usado em outro destaque." : ""}`,
       confirmText: "Excluir",
       cancelText: "Cancelar",
     });
-    if (!ok) return;
-    const res = await fetch(`/api/admin/reels?id=${encodeURIComponent(reel.id)}`, { method: "DELETE" });
-    if (res.ok) {
-      const data = (await res.json()) as { cleanupWarning?: string };
-      showToast(data.cleanupWarning ? "info" : "success", data.cleanupWarning || (reel.placement === "home" ? "Banner excluído." : "Vídeo excluído."));
-      await load();
-    } else showToast("error", "Não foi possível excluir.");
+    if (!ok) return false;
+    try {
+      const res = await fetch(`/api/admin/reels?id=${encodeURIComponent(reel.id)}`, { method: "DELETE" });
+      if (res.ok) {
+        const data = (await res.json()) as { cleanupWarning?: string; cleanupStatus?: string };
+        showToast(data.cleanupWarning ? "info" : "success", data.cleanupWarning || (data.cleanupStatus === "deleted" ? "Destaque e vídeo excluídos do Storage." : data.cleanupStatus === "shared" ? "Destaque excluído. Vídeo mantido porque outro destaque ainda o utiliza." : reel.placement === "home" ? "Banner excluído." : "Vídeo excluído."));
+        await load();
+        return true;
+      } else showToast("error", "Não foi possível excluir.");
+    } catch { showToast("error", "Falha de conexão ao excluir. Tente novamente."); }
+    return false;
   }
 
   const totals = (reels ?? []).reduce((acc, r) => ({ views: acc.views + r.views, likes: acc.likes + r.likes, clicks: acc.clicks + r.ctaClicks }), { views: 0, likes: 0, clicks: 0 });
@@ -268,7 +280,7 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
 
       <Sheet
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => { if (!uploading && !saving) setOpen(false); }}
         size="lg"
         title={editing ? "Editar destaque" : banner ? "Novo banner da Home" : "Novo vídeo nos Destaques"}
         description={
@@ -282,7 +294,21 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
           </Button>
         }
       >
-        <ReelFormFields form={form} onChange={setForm} partners={selectable} benefits={benefits} uploading={uploading} onFile={(event, kind) => void onFile(event, kind)} error={error} onSubmit={submit} />
+        {progress && (
+          <div role="status" className="mb-5 space-y-2 rounded-xl border border-line p-4">
+            <p className="text-sm font-medium">{progress.label}{progress.percent !== null ? `: ${progress.percent}%` : "…"}</p>
+            <progress aria-label={progress.label} value={progress.percent ?? undefined} max={100} className="h-2 w-full accent-primary" />
+            {progress.percent === 100 && !uploading && <p className="text-xs text-muted-foreground">Salve o destaque para publicar o arquivo.</p>}
+          </div>
+        )}
+        {editing && editing.videoUrl && (
+          <Button variant="secondary" disabled={saving || uploading !== null} className="mb-5" onClick={async () => { setSaving(true); try { if (await remove(editing)) setOpen(false); } finally { setSaving(false); } }}>
+            Excluir destaque e vídeo do Storage
+          </Button>
+        )}
+        <fieldset disabled={saving || uploading !== null}>
+          <ReelFormFields form={form} onChange={setForm} partners={selectable} benefits={benefits} uploading={uploading} onFile={(event, kind) => void onFile(event, kind)} error={error} onSubmit={submit} />
+        </fieldset>
       </Sheet>
     </section>
   );

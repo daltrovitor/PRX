@@ -22,7 +22,7 @@ export function managedVideoPath(url: string, publicBase: string): string | null
  * the successful mutation and return a visible warning instead of claiming
  * that saving failed. Include inactive reels and banners in the reference check.
  */
-export async function cleanupReelVideo(url: string): Promise<string | undefined> {
+export async function cleanupReelVideo(url: string, onResult?: (status: "deleted" | "shared") => void): Promise<string | undefined> {
   if (!url) return;
   if (!supabaseAdmin) {
     removeUnusedMemoryMedia(url);
@@ -41,9 +41,10 @@ export async function cleanupReelVideo(url: string): Promise<string | undefined>
       .or(`video_url.like.*${filename}*,poster_url.like.*${filename}*,partner_logo.like.*${filename}*`)
       .limit(1);
     if (error || !data) return MEDIA_CLEANUP_WARNING;
-    if (data.length) return;
+    if (data.length) { onResult?.("shared"); return; }
     const removed = await bucket.remove([path]);
     if (removed.error) return MEDIA_CLEANUP_WARNING;
+    onResult?.("deleted");
   } catch {
     return MEDIA_CLEANUP_WARNING;
   }

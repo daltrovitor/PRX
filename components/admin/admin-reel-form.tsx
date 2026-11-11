@@ -3,6 +3,7 @@
 
 import { useMemo, type ChangeEvent, type FormEvent } from "react";
 import { Checkbox, Field, Input, Notice, Select, Textarea } from "@/components/app/ui";
+import { uploadWithProgress } from "@/lib/media/upload-with-progress";
 import { IconUpload } from "@/components/icons/prx-icons";
 import type { PartnerOverview } from "@/lib/partners/service";
 import type { Benefit } from "@/lib/pass-data";
@@ -79,7 +80,7 @@ export function reelToForm(reel: PartnerReel): ReelForm {
  * Supabase Storage, e o navegador manda o arquivo direto para lá (sem o limite
  * de corpo da hospedagem). Sem Supabase, o arquivo vai para a própria API.
  */
-export async function uploadReelMedia(file: File, kind: "video" | "poster"): Promise<string> {
+export async function uploadReelMedia(file: File, kind: "video" | "poster", onProgress?: (percent: number | null) => void): Promise<string> {
   const res = await fetch("/api/admin/reels/upload", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -93,17 +94,18 @@ export async function uploadReelMedia(file: File, kind: "video" | "poster"): Pro
     body.append("cacheControl", "31536000");
     body.append("", file);
     const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    const put = await fetch(json.signedUrl, { method: "PUT", headers: { "x-upsert": "false", ...(anon ? { apikey: anon } : {}) }, body });
-    if (!put.ok) throw new Error(`O Storage recusou o arquivo (${put.status}). Tente de novo.`);
+    const headers: Record<string, string> = { "x-upsert": "false" };
+    if (anon) headers.apikey = anon;
+    await uploadWithProgress(json.signedUrl, "PUT", body, headers, onProgress);
     return json.publicUrl;
   }
 
   const form = new FormData();
   form.append("file", file);
   form.append("kind", kind);
-  const direct = await fetch("/api/admin/reels/upload", { method: "POST", body: form });
-  const data = (await direct.json().catch(() => ({}))) as { url?: string; error?: string };
-  if (!direct.ok || !data.url) throw new Error(data.error || "Falha no envio.");
+  const response = await uploadWithProgress("/api/admin/reels/upload", "POST", form, {}, onProgress);
+  const data = JSON.parse(response) as { url?: string; error?: string };
+  if (!data.url) throw new Error(data.error || "Falha no envio.");
   return data.url;
 }
 
@@ -245,6 +247,13 @@ export function ReelFormFields({
       ) : (
         <>
           <Checkbox className="sm:col-span-2" checked={form.optimizeVideo} onChange={(optimizeVideo) => onChange({ ...form, optimizeVideo })} label="Otimizar vídeo antes de enviar (720p). Leva aproximadamente a duração do vídeo; navegadores sem suporte enviam o original." />
+          {form.videoUrl && (
+            <div className="space-y-2 sm:col-span-2">
+              <p className="text-sm font-medium">Vídeo do destaque</p>
+              <video key={form.videoUrl} src={form.videoUrl} poster={form.posterUrl || undefined} controls playsInline preload="metadata" className="max-h-80 w-full rounded-xl bg-black" />
+              <p className="text-xs text-muted-foreground">Ao substituir e salvar, o vídeo anterior é excluído do Storage se não estiver em outro destaque.</p>
+            </div>
+          )}
           <MediaField hint="A otimização vale para novos arquivos enviados aqui. Para vídeos já publicados, reenvie o arquivo. Desmarque para manter a qualidade original." label="Vídeo vertical (MP4, WEBM ou MOV, até 50 MB)" value={form.videoUrl} busy={uploading === "video"} accept="video/mp4,video/webm,video/quicktime" onUrl={(videoUrl) => onChange({ ...form, videoUrl })} onFile={(e) => onFile(e, "video")} />
           <MediaField label="Capa (JPG, PNG ou WEBP)" value={form.posterUrl} busy={uploading === "poster"} accept="image/jpeg,image/png,image/webp" onUrl={(posterUrl) => onChange({ ...form, posterUrl })} onFile={(e) => onFile(e, "poster")} />
         </>
