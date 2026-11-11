@@ -1,0 +1,38 @@
+.screen {
+  --background: #080212;
+  --foreground: #fff;
+  --ink: #fff;
+  --muted-foreground: #bdb4ce;
+  --surface: #1c0b2f;
+  --line: #68418d;
+  color: #fff;
+  background: radial-gradient(ellipse at 50% 45%, #19062b 0, #080212 60%);
+}
+.orbitTop, .orbitBottom {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  width: min(135vw, 1000px);
+  height: min(135vw, 1000px);
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: linear-gradient(#080212, #080212) padding-box, conic-gradient(from 220deg, transparent 40%, #8523fa 58%, #f0cfff 64%, #a324ff 69%, #459cff 75%, transparent 82%) border-box;
+  filter: drop-shadow(0 0 7px #8713fc);
+}
+.orbitTop { top: 95px; right: -45%; transform: rotate(-30deg); }
+.orbitBottom { bottom: -24%; left: -35%; transform: rotate(150deg); }
+.address { color: #eee9f5; font-size: 14px; letter-spacing: .01em; border-bottom: 2px solid #342044; padding: 6px 0; }
+.brand { width: 220px; margin-bottom: 32px; filter: drop-shadow(0 0 12px #bda6d64a); }
+.avatarRing { border-radius: 50%; padding: 2px; background: linear-gradient(135deg, #f9deff, #b42bff 35%, #6522cb 70%, #e4bbff); box-shadow: 0 0 7px #ab35ff, 0 0 24px #7c0fe96b; }
+.card { position: relative; border: 1px solid #9654be; background: linear-gradient(135deg, #200b3470, #0c0419cc); box-shadow: inset 0 0 18px #6c0cf00d, 0 12px 50px #0004; }
+.card::before, .card::after { content: ''; position: absolute; pointer-events: none; height: 2px; width: 30%; background: linear-gradient(90deg, transparent, #edbfff, transparent); box-shadow: 0 0 12px #c42eff; }
+.card::before { top: -1px; right: 10%; }
+.card::after { bottom: -1px; left: 12%; }
+.card button[type='submit'], .card > button:first-of-type { border: 1px solid #ac45e1; color: white; background: linear-gradient(110deg, #390575, #7909df 65%, #9a0deb); box-shadow: inset 0 1px 1px #e1aeff77, 0 0 18px #8b10ed45; }
+.password { min-height: 50px; border: 1px solid #9264b1; border-radius: 22px; padding-right: 48px; background: #100b1c; color: white; }
+.password::placeholder { color: #b7adbf; }
+.switchAccount { position: relative; margin-top: 22px; display: inline-flex; align-items: center; min-height: 48px; padding: 0 16px; color: #c6bbd4; font-size: 14px; cursor: pointer; }
+.switchAccount::after { content: ''; position: absolute; bottom: 0; left: 25%; right: 25%; height: 1px; background: linear-gradient(90deg, transparent, #bd58fb, transparent); box-shadow: 0 0 8px #8b10ed; }
+.switchAccount:disabled { cursor: not-allowed; opacity: .45; }
+.switchAccount:hover { color: white; }
+@media (min-width: 768px) { .orbitTop { right: -20%; top: -30%; } .orbitBottom { left: -25%; bottom: -80%; } }

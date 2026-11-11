@@ -4,7 +4,8 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { motion } from "motion/react";
 import { PrxLogo } from "@/components/brand/prx-logo";
-import { CRYSTAL_HERO, ObsidianCrystal } from "@/components/obsidian/obsidian-ui";
+import styles from "./quick-login.module.css";
+import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { Avatar, Button, Input, Notice } from "@/components/app/ui";
 import { useThemeScope } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/use-auth";
@@ -47,6 +48,7 @@ export function QuickLogin({ account, remember = true }: { account: KnownAccount
   useThemeScope("app");
   const { login, loginWithPasskey, loginWithGoogle, markUnlocked, forgetAccount } = useAuth();
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState<"password" | "passkey" | "google" | "register" | "switch" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [biometrics, setBiometrics] = useState(false);
@@ -120,34 +122,39 @@ export function QuickLogin({ account, remember = true }: { account: KnownAccount
   }
 
   return (
-    <div className="prx-app relative isolate flex min-h-dvh flex-col overflow-x-clip bg-background text-foreground selection:bg-[#6c0cf0] selection:text-white">
-      <div aria-hidden className="prx-ambient" />
-      <ObsidianCrystal sizes="(min-width: 1024px) 34vw, 60vw" className={CRYSTAL_HERO} />
-      <header className="flex h-16 items-center justify-center px-4 sm:h-20">
-        <PrxLogo variant="compact" title="PRX" className="h-6 w-auto text-ink sm:h-7" />
+    <div className={`${styles.screen} prx-app relative isolate flex min-h-dvh flex-col overflow-x-clip selection:bg-[#6c0cf0] selection:text-white`}>
+      <div aria-hidden className={styles.orbitTop} />
+      <div aria-hidden className={styles.orbitBottom} />
+      <header className="relative z-10 flex h-16 items-center justify-center px-4 sm:h-20">
+        <span className={styles.address}>prx.app.br</span>
       </header>
 
-      <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-5 pb-10">
+      <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-5 pb-16 pt-8 sm:pt-10">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: "spring", stiffness: 300, damping: 28 }}
           className="flex w-full max-w-sm flex-col items-center text-center"
         >
-          {/* Foto em moldura metálica holográfica */}
-          <span className="prx-holo rounded-full p-[3px]">
-            <span className="block rounded-full bg-background p-[3px]">
-              <Avatar name={account.name || account.email} src={account.avatarUrl} size={96} />
+          <div className={styles.brand}>
+            <PrxLogo variant="symbol" title="" className="mx-auto h-20 w-24 text-white" />
+            <PrxLogo variant="wordmark" title="PRX" className="mt-4 h-11 w-full text-white" />
+            <p className="mt-4 text-[11px] tracking-[0.55em] text-white/90">NEXT IS YOURS</p>
+          </div>
+          {/* Foto cadastrada no perfil da conta lembrada neste aparelho. */}
+          <span className={styles.avatarRing}>
+            <span className="block rounded-full bg-[#080212] p-[3px]">
+              <Avatar name={account.name || account.email} src={account.avatarUrl} size={96} className="bg-[#10051e] text-white" />
             </span>
           </span>
-          <h1 className="mt-5 text-[28px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-[32px]">
+          <h1 className="mt-5 text-[28px] font-semibold leading-tight tracking-[-0.03em] text-white sm:text-[32px]">
             {step === "offer" ? "Entre mais rápido" : `Olá, ${first}`}
           </h1>
-          <p className="mt-1 text-[14px] text-muted-foreground">
+          <p className="mt-2 text-[14px] text-[#bdb4ce]">
             {step === "offer" ? "Use o rosto ou a digital deste aparelho na próxima vez." : maskEmail(account.email)}
           </p>
 
-          <div className="glass mt-8 w-full space-y-4 rounded-[28px] p-5 text-left sm:p-6">
+          <div className={`${styles.card} mt-8 w-full space-y-4 rounded-[28px] p-5 text-left sm:p-6`}>
             {step === "offer" ? (
               <>
                 <p className="text-[14px] leading-relaxed text-muted-foreground">
@@ -178,23 +185,29 @@ export function QuickLogin({ account, remember = true }: { account: KnownAccount
                 )}
                 {account.provider === "password" ? (
                   <form onSubmit={(e) => void submitPassword(e)} className="space-y-3">
-                    <label htmlFor="quick-password" className="block text-[13px] font-medium text-ink">
+                    <label htmlFor="quick-password" className="block text-[14px] font-medium text-white">
                       Senha
                     </label>
                     {/* O e-mail vai junto (oculto) para o gerenciador de senhas do navegador reconhecer a conta. */}
                     <input type="email" name="email" autoComplete="username" value={account.email} readOnly hidden />
-                    <Input
-                      id="quick-password"
-                      type="password"
-                      autoComplete="current-password"
-                      autoFocus={!account.passkey}
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Digite sua senha"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="quick-password"
+                        type={showPassword ? "text" : "password"}
+                        className={styles.password}
+                        autoComplete="current-password"
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Digite sua senha"
+                      />
+                      <button type="button" aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} aria-pressed={showPassword} onClick={() => setShowPassword((shown) => !shown)} className="absolute inset-y-0 right-3 flex w-10 cursor-pointer items-center justify-center text-[#c1b4d4]">
+                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
+                    </div>
                     <Button type="submit" block variant={quick ? "secondary" : "primary"} disabled={busy !== null || password.length === 0}>
                       {busy === "password" ? "Entrando…" : quick ? "Entrar com a senha" : "Entrar"}
+                      <ArrowRight size={18} aria-hidden />
                     </Button>
                   </form>
                 ) : (
@@ -226,7 +239,7 @@ export function QuickLogin({ account, remember = true }: { account: KnownAccount
               setBusy("switch");
               void forgetAccount();
             }}
-            className="mt-6 inline-flex min-h-12 cursor-pointer items-center rounded-full px-4 text-[14px] font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-ink hover:underline disabled:cursor-not-allowed"
+            className={styles.switchAccount}
           >
             Entrar com outra conta
           </button>

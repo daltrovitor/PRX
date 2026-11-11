@@ -13,6 +13,7 @@ export const MAX_HOME_BANNERS = 5;
 export async function memberFeed(userId: string): Promise<MemberReel[]> {
   const repo = getReelsRepository();
   const [reels, reactions, partners] = await Promise.all([repo.list({ activeOnly: true }), repo.reactions(userId), getPartnerRepository().listPartners()]);
+  const partnerLogos = new Map(partners.map((partner) => [partner.id, partner.logoUrl]));
   const blocked = new Set(partners.filter((p) => p.status === "SUSPENSO" || p.status === "BLOQUEADO").map((p) => p.id));
   const liked = new Set(reactions.filter((r) => r.kind === "like").map((r) => r.reelId));
   const saved = new Set(reactions.filter((r) => r.kind === "save").map((r) => r.reelId));
@@ -22,7 +23,7 @@ export async function memberFeed(userId: string): Promise<MemberReel[]> {
       id: reel.id,
       partnerId: reel.partnerId,
       partnerName: reel.partnerName,
-      partnerLogo: reel.partnerLogo,
+      partnerLogo: partnerLogos.get(reel.partnerId) ?? reel.partnerLogo,
       collection: reel.collection,
       title: reel.title,
       caption: reel.caption,
@@ -45,6 +46,7 @@ export async function memberFeed(userId: string): Promise<MemberReel[]> {
  */
 export async function homeBanners(): Promise<HomeBanner[]> {
   const [reels, partners] = await Promise.all([getReelsRepository().list({ activeOnly: true }), getPartnerRepository().listPartners()]);
+  const partnerLogos = new Map(partners.map((partner) => [partner.id, partner.logoUrl]));
   const blocked = new Set(partners.filter((p) => p.status === "SUSPENSO" || p.status === "BLOQUEADO").map((p) => p.id));
   return reels
     .filter((reel) => reel.placement === "home" && reel.posterUrl && !blocked.has(reel.partnerId))
@@ -53,7 +55,7 @@ export async function homeBanners(): Promise<HomeBanner[]> {
       id: reel.id,
       partnerId: reel.partnerId,
       partnerName: reel.partnerName,
-      partnerLogo: reel.partnerLogo,
+      partnerLogo: partnerLogos.get(reel.partnerId) ?? reel.partnerLogo,
       title: reel.title,
       caption: reel.caption,
       imageUrl: reel.posterUrl,

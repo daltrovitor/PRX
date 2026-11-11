@@ -46,6 +46,18 @@ describe("PRX Reels", () => {
     expect(feed[0]).toMatchObject({ partnerName: "Café Aurora", ctaLabel: "Ver no Catálogo", liked: false });
   });
 
+  it("usa a logo atual do parceiro nos destaques já publicados e nos banners", async () => {
+    const owner = await partner();
+    await createReel(reelInputSchema.parse({ ...base, partnerId: owner.id }));
+    await createReel(reelInputSchema.parse({ ...banner, partnerId: owner.id }));
+    const logoUrl = "https://cdn.prx.app.br/partners/logo-atual.png";
+    await getPartnerRepository().updatePartner(owner.id, { logoUrl });
+    expect((await memberFeed("usr_a"))[0].partnerLogo).toBe(logoUrl);
+    expect((await homeBanners())[0].partnerLogo).toBe(logoUrl);
+    await getPartnerRepository().updatePartner(owner.id, { logoUrl: "" });
+    expect((await memberFeed("usr_a"))[0].partnerLogo).toBe("");
+  });
+
   it("conta cada curtida e salvo uma vez por membro", async () => {
     const owner = await partner();
     const reel = await createReel(reelInputSchema.parse({ ...base, partnerId: owner.id }));
