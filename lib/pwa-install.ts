@@ -118,6 +118,17 @@ export function dismissInstallCard(state: Remembered["state"]): void {
   emit();
 }
 
+/** Uma conta nova recebe seu próprio convite, sem herdar o descarte de outra conta. */
+export function offerInstallAfterSignup(): void {
+  if (typeof window === "undefined" || installedNow || isStandalone()) return;
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Mesmo sem armazenamento, atualiza a oferta desta visita.
+  }
+  emit();
+}
+
 export interface InstallSnapshot {
   /** O card deve aparecer (não instalado, não dispensado, fora do modo app). */
   visible: boolean;

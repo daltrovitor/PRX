@@ -1,6 +1,8 @@
 // Hello World
 "use client";
 
+import { offerInstallAfterSignup } from "@/lib/pwa-install";
+
 import { useEffect, useState, type FormEvent } from "react";
 import { motion } from "motion/react";
 import { PrxLogo } from "@/components/brand/prx-logo";
@@ -86,6 +88,7 @@ export function CompleteRegistration({ person, mode }: { person: PendingPerson; 
       });
       const json = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string };
       if (!res.ok || !json.success) throw new Error(json.error || "Não foi possível concluir o cadastro.");
+      offerInstallAfterSignup();
       markUnlocked();
       await refreshUser();
     } catch (err) {

@@ -44,7 +44,7 @@ export async function createAccount(input: { email: string; fullName: string; pa
     }
     if (!data?.user) throw new PartnerError("Falha ao registrar a conta.", 500);
     userId = data.user.id;
-    const { error: profileError } = await supabaseAdmin.from("profiles").upsert(
+    const { data: savedProfile, error: profileError } = await supabaseAdmin.from("profiles").upsert(
       {
         id: userId,
         email,
@@ -61,8 +61,12 @@ export async function createAccount(input: { email: string; fullName: string; pa
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" }
-    );
-    if (profileError) console.warn("Notice: public.profiles upsert warning:", profileError.message);
+    ).select("id, cpf, phone").single();
+    // Só emite sessão quando os dados enviados foram persistidos e relidos.
+    if (profileError || !savedProfile || savedProfile.cpf !== (cpfDigits || null) || savedProfile.phone !== (phoneDigits || null)) {
+      await supabaseAdmin.auth.admin.deleteUser(userId).catch(() => undefined);
+      throw new PartnerError(profileError?.code === "23505" ? "Este CPF já está cadastrado na PRX." : "Não foi possível salvar o cadastro. Tente novamente.", profileError?.code === "23505" ? 409 : 500);
+    }
   } else {
     try {
       userId = userStore.createUser(email, fullName, input.password, cpfDigits, phoneDigits).id;

@@ -1,6 +1,6 @@
 // Hello World
-import { describe, expect, it } from "vitest";
-import { detectBrowser, detectPlatform } from "@/lib/pwa-install";
+import { describe, expect, it, vi } from "vitest";
+import { detectBrowser, detectPlatform, offerInstallAfterSignup } from "@/lib/pwa-install";
 
 const UA = {
   androidChrome: "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36",
@@ -30,5 +30,28 @@ describe("detecção do sistema e do navegador para instalar o PWA", () => {
     expect(detectBrowser(UA.windowsChrome)).toBe("chrome");
     expect(detectBrowser(UA.windowsFirefox)).toBe("firefox");
     expect(detectBrowser(UA.iphone)).toBe("safari");
+  });
+});
+
+describe("convite de instalação após cadastro", () => {
+  it("limpa o descarte anterior ao criar uma conta no navegador", () => {
+    const removeItem = vi.fn();
+    vi.stubGlobal("window", { matchMedia: () => ({ matches: false }) });
+    vi.stubGlobal("navigator", { standalone: false });
+    vi.stubGlobal("localStorage", { removeItem });
+    try {
+      offerInstallAfterSignup();
+      expect(removeItem).toHaveBeenCalledWith("prx_pwa_card");
+    } finally { vi.unstubAllGlobals(); }
+  });
+  it("não oferece instalação quando já está no app instalado", () => {
+    const removeItem = vi.fn();
+    vi.stubGlobal("window", { matchMedia: () => ({ matches: true }) });
+    vi.stubGlobal("navigator", { standalone: true });
+    vi.stubGlobal("localStorage", { removeItem });
+    try {
+      offerInstallAfterSignup();
+      expect(removeItem).not.toHaveBeenCalled();
+    } finally { vi.unstubAllGlobals(); }
   });
 });

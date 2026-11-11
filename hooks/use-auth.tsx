@@ -1,6 +1,8 @@
 // Hello World
 "use client";
 
+import { offerInstallAfterSignup } from "@/lib/pwa-install";
+
 import { fetchWithTimeout } from "@/lib/client-fetch";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { CONSENT_COOKIE, TERMS_VERSION } from "@/lib/legal-version";
@@ -261,6 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         const data = (await res.json()) as { user?: User; error?: string; code?: string | null };
         if (!res.ok || !data.user) return { success: false, error: data.error || "Falha ao criar conta", code: data.code ?? null };
+        offerInstallAfterSignup();
         storage.mark(true);
         rememberAccount(data.user, true, "password");
         setUser(data.user);

@@ -25,6 +25,9 @@ function manualSteps(platform: InstallPlatform, browser: InstallBrowser): [React
     const below = browser === "safari" && /iPhone|iPod/.test(navigator.userAgent);
     return [<>Toque em {shareGlyph} Compartilhar aí {below ? "embaixo" : "em cima"}</>, <>“Adicionar à Tela de Início”</>];
   }
+  if (platform !== "android") {
+    return [<>Abra este endereço no Chrome ou Edge</>, <>No menu ⋮, escolha “Instalar PRX” ou “Instalar esta página como app”</>];
+  }
   if (browser === "samsung") {
     return [<>Toque em <Menu aria-hidden className="mx-1 inline h-[18px] w-[18px] -translate-y-px" strokeWidth={1.8} /> Menu aí embaixo</>, <>“Adicionar página a” › “Tela inicial”</>];
   }
@@ -36,7 +39,7 @@ export function PwaInstallPrompt() {
   const { showToast } = useConfirmToast();
   const [busy, setBusy] = useState(false);
   // Celular sem o botão nativo (iPhone, Firefox, prompt já usado): só os passos.
-  const manual = !canPrompt && (platform === "ios" || platform === "android");
+  const manual = !canPrompt && platform !== "other";
   const show = visible && (canPrompt || manual);
   const mobile = platform === "ios" || platform === "android";
 
