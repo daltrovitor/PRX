@@ -14,7 +14,6 @@ import { HomeBanners } from "@/components/app/reels/home-banner";
 import { FoundersHomePromo } from "@/components/app/founders/founders-community";
 import { ResenhaHomeCard } from "@/components/app/live/resenha-card";
 import { useResenhas } from "@/components/app/live/use-resenha";
-import { PushBanner } from "@/components/app/profile/push-prompts";
 import { runReelCta, trackReel } from "@/components/app/reels/reel-cta";
 import { WalletTriad } from "@/components/app/points/wallet-triad";
 import { PointsSheet } from "@/components/app/points/points-sheet";
@@ -109,28 +108,60 @@ export function HomeScreen({ pass }: { pass: PassData }) {
           <ObsidianGreeting name={firstName(member)} />
         </motion.header>
 
-        <motion.div initial="hidden" animate="show" custom={1} variants={reveal} className="order-1 min-w-0 lg:col-span-12">
-          <PushBanner />
-        </motion.div>
-
         <motion.div initial="hidden" animate="show" custom={1} variants={reveal} className="order-2 min-w-0 lg:col-span-7">
-          <ObsidianBalanceCard
+          {bankError && !account ? <div role="status" className="rounded-3xl border border-line p-5 text-sm text-muted-foreground">Seu saldo está temporariamente indisponível. Tente atualizar em instantes.</div> : <ObsidianBalanceCard
             value={account?.balance ?? 0}
             hidden={hidden}
             onToggleHidden={toggleHidden}
             onOpen={() => go("bank")}
             actions={balanceActions}
             note={account?.sandbox ? "Modo Sandbox · Testes" : undefined}
-          />
+          />}
         </motion.div>
 
+          <section aria-label="PRX Coins e nível" className="order-3 min-w-0 lg:col-span-5">
+            <WalletTriad
+              compact
+              balance={account?.balance ?? 0}
+              balanceLabel="Saldo PRX Bank"
+              coins={wallet?.coins ?? null}
+              xp={wallet?.xp ?? member.prxScore ?? 0}
+              hidden={hidden}
+              onToggleHidden={toggleHidden}
+              onOpenPoints={() => go("home", "pontos")}
+              onOpenLevel={() => go("pass", "missions")}
+            />
+          </section>
+
+          {benefits.length > 0 && (
+            <section aria-labelledby="home-pass" className="order-4 min-w-0 lg:col-span-12">
+              <ObsidianSectionHeader id="home-pass" title="No PASS agora" actionLabel="Ver todos" onAction={() => go("pass")} />
+              <ul className="-mx-4 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scrollbar-none touch-pan-x sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
+                {benefits.slice(0, 8).map((benefit) => (
+                  <li key={benefit.id} className="w-[64%] min-[420px]:w-[220px] shrink-0 snap-start">
+                    <button
+                      type="button"
+                      onClick={() => go("pass", `beneficio:${benefit.id}`)}
+                      className="flex h-full w-full cursor-pointer flex-col justify-between gap-6 rounded-3xl glass p-5 text-left glass-lift"
+                    >
+                      <span className="text-2xl font-light leading-none tracking-[-0.02em] text-primary">{benefit.discountLabel}</span>
+                      <span>
+                        <span className="block truncate text-[15px] font-medium text-ink">{benefit.partnerName}</span>
+                        <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">{benefit.title}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         <motion.section
           aria-labelledby="home-events"
           initial="hidden"
           animate="show"
           custom={3}
           variants={reveal}
-          className="order-5 min-w-0 space-y-3 lg:order-3 lg:col-span-5 lg:flex lg:flex-col"
+          className="order-6 min-w-0 space-y-3 lg:col-span-12 lg:flex lg:flex-col"
         >
           <ObsidianSectionHeader id="home-events" title="Próximos eventos" actionLabel="Ver todos" onAction={() => go("live")} />
           {/* Resenha em destaque logo abaixo do título: festa por convite, à parte da agenda aberta. */}
@@ -174,7 +205,7 @@ export function HomeScreen({ pass }: { pass: PassData }) {
           animate="show"
           custom={2}
           variants={reveal}
-          className="order-3 min-w-0 space-y-3 lg:order-4 lg:col-span-12"
+          className="order-5 min-w-0 space-y-3 lg:col-span-12"
         >
           <ObsidianSectionHeader id="home-modules" title="Módulos PRX" />
           {/* Até 1279 px: carrossel com todos os módulos; a partir de 1280 px: duas linhas de cinco. */}
@@ -189,7 +220,7 @@ export function HomeScreen({ pass }: { pass: PassData }) {
 
         {/* Banner de parceiro (Destaque de imagem cadastrado no admin), logo abaixo dos eventos. */}
         {banners.length > 0 && (
-          <motion.section aria-label="Destaques dos parceiros" initial="hidden" animate="show" custom={4} variants={reveal} className="order-6 min-w-0 lg:col-span-12">
+          <motion.section aria-label="Destaques dos parceiros" initial="hidden" animate="show" custom={4} variants={reveal} className="order-7 min-w-0 lg:col-span-12">
             <HomeBanners
               banners={banners}
               onOpen={(banner) => {
@@ -204,20 +235,6 @@ export function HomeScreen({ pass }: { pass: PassData }) {
       {/* Base da pirâmide: o dia a dia do membro */}
       <div className="grid gap-10 lg:grid-cols-12 lg:gap-12">
         <div className="min-w-0 space-y-10 lg:col-span-7">
-          <section aria-label="PRX Coins e nível">
-            <WalletTriad
-              compact
-              balance={account?.balance ?? 0}
-              balanceLabel="Saldo PRX Bank"
-              coins={wallet?.coins ?? null}
-              xp={wallet?.xp ?? member.prxScore ?? 0}
-              hidden={hidden}
-              onToggleHidden={toggleHidden}
-              onOpenPoints={() => go("home", "pontos")}
-              onOpenLevel={() => go("pass", "missions")}
-            />
-          </section>
-
           <section aria-labelledby="home-activity">
             <ObsidianSectionHeader id="home-activity" title="Atividade" actionLabel="Ver todas" onAction={() => go("bank", "extrato")} />
             {transactions.length === 0 ? (
@@ -236,28 +253,7 @@ export function HomeScreen({ pass }: { pass: PassData }) {
             )}
           </section>
 
-          {benefits.length > 0 && (
-            <section aria-labelledby="home-pass">
-              <ObsidianSectionHeader id="home-pass" title="No PASS agora" actionLabel="Ver todos" onAction={() => go("pass")} />
-              <ul className="-mx-4 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scrollbar-none touch-pan-x sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
-                {benefits.slice(0, 8).map((benefit) => (
-                  <li key={benefit.id} className="w-[64%] min-[420px]:w-[220px] shrink-0 snap-start">
-                    <button
-                      type="button"
-                      onClick={() => go("pass", `beneficio:${benefit.id}`)}
-                      className="flex h-full w-full cursor-pointer flex-col justify-between gap-6 rounded-3xl glass p-5 text-left glass-lift"
-                    >
-                      <span className="text-2xl font-light leading-none tracking-[-0.02em] text-primary">{benefit.discountLabel}</span>
-                      <span>
-                        <span className="block truncate text-[15px] font-medium text-ink">{benefit.partnerName}</span>
-                        <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">{benefit.title}</span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+
         </div>
 
         <aside className="min-w-0 space-y-10 lg:col-span-5" aria-label="Resumo">

@@ -1,6 +1,8 @@
 // Hello World
 "use client";
 
+import { fetchWithTimeout } from "@/lib/client-fetch";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { User } from "@/hooks/use-auth";
 import type { Benefit, PassMission, ReferralInfo, UserVoucher } from "@/lib/pass-data";
@@ -40,7 +42,7 @@ const ACTIVE_VOUCHER_POLL_MS = 20_000;
  */
 async function fetchPassData(): Promise<PassDataResponse | null> {
   try {
-    const res = await fetch("/api/pass/data", { cache: "no-store" });
+    const res = await fetchWithTimeout("/api/pass/data", { cache: "no-store" });
     const data = (await res.json()) as PassDataResponse;
     return res.ok && data.success ? data : null;
   } catch {

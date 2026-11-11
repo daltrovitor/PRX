@@ -8,7 +8,7 @@
 // v6: logo nova (assinatura, sem a barra) na página offline e nos logos pré-armazenados.
 // v7: notificações no celular (push e toque na notificação).
 // v8: assinatura "NEXT IS YOURS" no logo (a página offline e os logos em cache precisam ser trocados).
-const CACHE_NAME = 'prx-offline-v9';
+const CACHE_NAME = 'prx-offline-v10';
 const SLOW_URL = '/slow.html';
 const NAVIGATION_TIMEOUT_MS = 6000;
 const OFFLINE_URL = '/offline.html';
@@ -86,7 +86,7 @@ self.addEventListener('fetch', (event) => {
           const cache = await caches.open(CACHE_NAME);
           const page = await cache.match(slow ? SLOW_URL : OFFLINE_URL);
           if (page) return new Response(await page.text(), { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
-          return new Response('<!doctype html><html lang="pt-BR"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PRX</title><body style="font-family:system-ui;text-align:center;padding:15vh 24px"><h1>PRX</h1><h2>' + (slow ? 'Conexão lenta' : 'Sem internet') + '</h2><p>Não foi possível carregar a tela. Confira sua conexão.</p><button onclick="location.reload()">Tentar novamente</button></body></html>', { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
+          return new Response('<!doctype html><html lang="pt-BR"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PRX</title><body style="font-family:system-ui;text-align:center;padding:15vh 24px"><h1>PRX</h1><h2>' + (slow ? 'Carregamento demorando' : 'Sem internet') + '</h2><p>Não foi possível carregar a tela. Confira sua conexão.</p><button onclick="location.reload()">Tentar novamente</button></body></html>', { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
         };
         const network = (async () => {
           // Include the preload wait in the timeout; never wait forever for it.

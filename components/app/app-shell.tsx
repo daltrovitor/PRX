@@ -27,6 +27,7 @@ import { CircleLoader } from "@/components/ui/circle-loader";
 import { HomeScreen } from "@/components/app/screens/home-screen";
 import { CRYSTAL_CORNER, CRYSTAL_HERO, ObsidianCrystal, ObsidianDock, type ObsidianDockItem } from "@/components/obsidian/obsidian-ui";
 import { PwaInstallPrompt } from "@/components/app/pwa-install-prompt";
+import { PrxFooter } from "@/components/marketing/prx-footer";
 import { PushPrompt } from "@/components/app/profile/push-prompts";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useThemeScope } from "@/components/theme-provider";
@@ -351,6 +352,7 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
                 </motion.div>
               </AnimatePresence>
             </Suspense>
+            {!immersive && <PrxFooter className="mt-14" />}
           </div>
         </main>
       </div>

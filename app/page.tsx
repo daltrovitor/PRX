@@ -76,9 +76,10 @@ export default function HomePage() {
   return (
     <>
       {!introDone && <PrxLoader ready={!loading && !checking && content !== null && boot.ready} percent={loading ? 5 : checking || content === null ? 15 : 25 + Math.floor(boot.percent * 0.75)} error={boot.error} onComplete={() => setIntroDone(true)} />}
+      {introDone && boot.error && <div role="status" className="bg-surface px-4 py-3 text-center text-sm text-muted-foreground">Algumas informações não puderam ser atualizadas. <button type="button" className="ml-2 underline" onClick={() => window.location.reload()}>Atualizar</button></div>}
       <div inert={!introDone} aria-hidden={!introDone} style={{ opacity: introDone ? 1 : 0, pointerEvents: introDone ? undefined : "none" }}>
         <Suspense fallback={null}>
-          {content !== null && <BootBoundary key={`${user?.id ?? "guest"}:${destination}`} onProgress={onBootProgress}>{content}</BootBoundary>}
+          {content !== null && <BootBoundary key={`${user?.id ?? "guest"}:${destination}`} active={introDone} onProgress={onBootProgress}>{content}</BootBoundary>}
         </Suspense>
       </div>
     </>

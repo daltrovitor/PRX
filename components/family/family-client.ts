@@ -1,6 +1,7 @@
 // Hello World
 "use client";
 
+import { fetchWithTimeout } from "@/lib/client-fetch";
 import { useCallback, useEffect, useState } from "react";
 import type { DocumentKind, DocumentRef } from "@/lib/family/types";
 import type { FamilyState } from "@/lib/family/service";
@@ -58,7 +59,7 @@ export function useFamilyState(userId: string | null) {
   const reload = useCallback(async () => {
     if (!userId) return;
     try {
-      const res = await fetch("/api/family/me", { cache: "no-store" });
+      const res = await fetchWithTimeout("/api/family/me", { cache: "no-store" });
       const json = (await res.json().catch(() => ({}))) as { state?: FamilyState | null; unavailable?: boolean; error?: string };
       if (res.ok && json.unavailable) {
         setUnavailableFor(userId);

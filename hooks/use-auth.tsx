@@ -1,6 +1,7 @@
 // Hello World
 "use client";
 
+import { fetchWithTimeout } from "@/lib/client-fetch";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { CONSENT_COOKIE, TERMS_VERSION } from "@/lib/legal-version";
 import { forgetKnownAccount, readKnownAccount, saveKnownAccount, unlock, updateKnownAccount } from "@/lib/known-account";
@@ -111,7 +112,7 @@ const NO_SESSION: Session = { user: null, requiresUnlock: false };
  */
 async function resolveSession(): Promise<Session> {
   try {
-    const res = await fetch("/api/auth/me", { cache: "no-store" });
+    const res = await fetchWithTimeout("/api/auth/me", { cache: "no-store" });
     if (!res.ok) return NO_SESSION;
     const data = (await res.json()) as { user?: User | null; rememberMe?: boolean; requiresUnlock?: boolean };
     const user = data.user;

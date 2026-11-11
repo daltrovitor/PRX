@@ -4,6 +4,8 @@
 import { useMemo, type ChangeEvent, type FormEvent } from "react";
 import { Checkbox, Field, Input, Notice, Select, Textarea } from "@/components/app/ui";
 import { uploadWithProgress } from "@/lib/media/upload-with-progress";
+import { ReelVideoPreview } from "@/components/admin/reel-video-preview";
+import { PrxImage } from "@/components/ui/prx-image";
 import { IconUpload } from "@/components/icons/prx-icons";
 import type { PartnerOverview } from "@/lib/partners/service";
 import type { Benefit } from "@/lib/pass-data";
@@ -149,6 +151,8 @@ export function ReelFormFields({
   onFile,
   error,
   onSubmit,
+  onPosterFile,
+  onDeleteVideo,
 }: {
   form: ReelForm;
   onChange: (next: ReelForm) => void;
@@ -159,6 +163,8 @@ export function ReelFormFields({
   onFile: (event: ChangeEvent<HTMLInputElement>, kind: "video" | "poster") => void;
   error: string | null;
   onSubmit: (event: FormEvent) => void;
+  onPosterFile: (file: File) => Promise<void>;
+  onDeleteVideo?: () => void;
 }) {
   const banner = form.placement === "home";
   const partnerBenefits = useMemo(() => benefits.filter((b) => b.partnerId === form.partnerId), [benefits, form.partnerId]);
@@ -247,15 +253,10 @@ export function ReelFormFields({
       ) : (
         <>
           <Checkbox className="sm:col-span-2" checked={form.optimizeVideo} onChange={(optimizeVideo) => onChange({ ...form, optimizeVideo })} label="Otimizar vídeo antes de enviar (720p). Leva aproximadamente a duração do vídeo; navegadores sem suporte enviam o original." />
-          {form.videoUrl && (
-            <div className="space-y-2 sm:col-span-2">
-              <p className="text-sm font-medium">Vídeo do destaque</p>
-              <video key={form.videoUrl} src={form.videoUrl} poster={form.posterUrl || undefined} controls playsInline preload="metadata" className="max-h-80 w-full rounded-xl bg-black" />
-              <p className="text-xs text-muted-foreground">Ao substituir e salvar, o vídeo anterior é excluído do Storage se não estiver em outro destaque.</p>
-            </div>
-          )}
           <MediaField hint="A otimização vale para novos arquivos enviados aqui. Para vídeos já publicados, reenvie o arquivo. Desmarque para manter a qualidade original." label="Vídeo vertical (MP4, WEBM ou MOV, até 50 MB)" value={form.videoUrl} busy={uploading === "video"} accept="video/mp4,video/webm,video/quicktime" onUrl={(videoUrl) => onChange({ ...form, videoUrl })} onFile={(e) => onFile(e, "video")} />
+          {form.videoUrl && <ReelVideoPreview key={form.videoUrl} url={form.videoUrl} poster={form.posterUrl} busy={uploading !== null} onPoster={onPosterFile} onDelete={onDeleteVideo} />}
           <MediaField label="Capa (JPG, PNG ou WEBP)" value={form.posterUrl} busy={uploading === "poster"} accept="image/jpeg,image/png,image/webp" onUrl={(posterUrl) => onChange({ ...form, posterUrl })} onFile={(e) => onFile(e, "poster")} />
+          {form.posterUrl && <div className="relative h-56 overflow-hidden rounded-xl bg-surface sm:col-span-2"><PrxImage src={form.posterUrl} alt="Capa selecionada para o destaque" fill sizes="(min-width: 640px) 560px, 90vw" className="object-contain" /></div>}
         </>
       )}
 

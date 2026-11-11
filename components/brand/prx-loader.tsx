@@ -39,7 +39,7 @@ interface PrxLoaderProps {
 }
 
 /**
- * Abertura animada da marca PRX (3–4s na primeira visita da sessão, ~1.3s nas seguintes).
+ * Abertura breve da marca PRX; a permanência depende dos dados iniciais.
  * 1. As duas peças do símbolo deslizam e se encaixam no centro.
  * 2. O símbolo desliza para a esquerda enquanto P, R e X sobem de uma máscara.
  * 3. A assinatura é revelada da esquerda para a direita e a barra se abre do centro.
@@ -55,7 +55,7 @@ export function PrxLoader({ ready, percent = ready ? 100 : 0, error, onComplete 
     setHydrated(true);
     const sync = () => setOffline(!navigator.onLine);
     sync();
-    const timer = window.setTimeout(() => setSlow(true), Math.max(0, 8000 - performance.now()));
+    const timer = window.setTimeout(() => setSlow(true), 8000);
     window.addEventListener("online", sync);
     window.addEventListener("offline", sync);
     return () => { clearTimeout(timer); window.removeEventListener("online", sync); window.removeEventListener("offline", sync); };
@@ -78,12 +78,12 @@ export function PrxLoader({ ready, percent = ready ? 100 : 0, error, onComplete 
         gsap.fromTo(
           q("[data-logo]"),
           { autoAlpha: 0 },
-          { autoAlpha: 1, duration: 0.6, onComplete: () => setIntroFinished(true) }
+          { autoAlpha: 1, duration: 0.2, onComplete: () => setIntroFinished(true) }
         );
         return;
       }
 
-      const speed = seen ? 0.42 : 1;
+      const speed = seen ? 0.12 : 0.28;
       const tl = gsap.timeline({
         paused: true,
         defaults: { ease: "expo.out" },
@@ -127,11 +127,11 @@ export function PrxLoader({ ready, percent = ready ? 100 : 0, error, onComplete 
 
     const exit = gsap.timeline({ onComplete: () => onCompleteRef.current() });
     if (reduceMotion) {
-      exit.to(root, { autoAlpha: 0, duration: 0.3 });
+      exit.to(root, { autoAlpha: 0, duration: 0.15 });
     } else {
       exit
-        .to(logo, { y: -36, autoAlpha: 0, duration: 0.5, ease: "power3.in" }, 0)
-        .to(root, { clipPath: "inset(0% 0% 100% 0%)", duration: 0.75, ease: "power4.inOut" }, 0.12);
+        .to(logo, { y: -36, autoAlpha: 0, duration: 0.2, ease: "power3.in" }, 0)
+        .to(root, { clipPath: "inset(0% 0% 100% 0%)", duration: 0.3, ease: "power4.inOut" }, 0.05);
     }
     return () => {
       exit.kill();
@@ -158,7 +158,7 @@ export function PrxLoader({ ready, percent = ready ? 100 : 0, error, onComplete 
         {!hydrated && (
           <div className="prx-early-slow space-y-3 rounded-xl bg-[#f4efff] p-4">
             <style>{`@keyframes prx-slow-appear{to{visibility:visible}}.prx-early-slow{visibility:hidden;animation:prx-slow-appear 0s 8s forwards}`}</style>
-            <p className="text-sm font-semibold">Conexão lenta</p>
+            <p className="text-sm font-semibold">O carregamento está demorando</p>
             <p className="text-xs text-[#5b5b66]">O carregamento está demorando. Confira o Wi-Fi ou os dados móveis.</p>
             <a href="/" className="inline-block rounded-full bg-[#6c0cf0] px-5 py-3 text-sm text-white">Tentar novamente</a>
           </div>
@@ -166,8 +166,8 @@ export function PrxLoader({ ready, percent = ready ? 100 : 0, error, onComplete 
         {(offline || slow || error) && !ready && (
           <div className="space-y-3 rounded-xl bg-[#f4efff] p-4">
             <span aria-hidden className="inline-block h-6 w-6 animate-pulse rounded-full border-4 border-[#6c0cf0]/30 border-t-[#6c0cf0] motion-reduce:animate-none" />
-            <p className="text-sm font-semibold">{offline ? "Sem internet" : error ? "Não foi possível concluir o carregamento" : "Conexão lenta"}</p>
-            <p className="text-xs text-[#5b5b66]">{offline ? "Reconecte o Wi-Fi ou os dados móveis para continuar." : error || "A internet pode estar fraca ou o serviço está demorando para responder. Continuamos carregando."}</p>
+            <p className="text-sm font-semibold">{offline ? "Sem internet" : error ? "Não foi possível concluir o carregamento" : "O carregamento está demorando"}</p>
+            <p className="text-xs text-[#5b5b66]">{offline ? "Reconecte o Wi-Fi ou os dados móveis para continuar." : error || "Estamos aguardando a resposta dos serviços. Isso também pode acontecer com a internet funcionando."}</p>
             <button type="button" className="rounded-full bg-[#6c0cf0] px-5 py-3 text-sm font-medium text-white" onClick={() => window.location.reload()}>Tentar novamente</button>
           </div>
         )}

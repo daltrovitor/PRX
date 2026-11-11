@@ -1,6 +1,8 @@
 // Hello World
 "use client";
 
+import { fetchWithTimeout } from "@/lib/client-fetch";
+
 import { useCallback, useEffect, useState } from "react";
 import type { MemberResenhaView } from "@/lib/resenha/invites";
 import type { MemberResenhaCatalog } from "@/lib/resenha/invite-requests";
@@ -18,7 +20,7 @@ export function useResenhas(userId: string): { resenhas: MemberResenhaView[]; ca
 
   const reload = useCallback(async () => {
     try {
-      const res = await fetch("/api/live/resenha", { cache: "no-store" });
+      const res = await fetchWithTimeout("/api/live/resenha", { cache: "no-store" });
       const json = (await res.json().catch(() => ({}))) as { resenhas?: MemberResenhaView[]; catalog?: MemberResenhaCatalog };
       if (res.ok && Array.isArray(json.resenhas)) setResenhas(json.resenhas);
       if (res.ok && json.catalog && Array.isArray(json.catalog.entries)) setCatalog(json.catalog);

@@ -1,6 +1,8 @@
 // Hello World
 "use client";
 
+import { fetchWithTimeout } from "@/lib/client-fetch";
+
 import { useBootTask } from "@/components/brand/boot-boundary";
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import type { BankAccountView } from "@/lib/prx/bank";
@@ -51,7 +53,7 @@ function createResource<T>(url: string, pick: (json: Record<string, unknown>) =>
     }
     if (inflight && !force) return inflight;
     emit({ loading: true, error: null });
-    inflight = fetch(url, { cache: "no-store" })
+    inflight = fetchWithTimeout(url, { cache: "no-store" })
       .then(async (res) => {
         const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
         if (state.owner !== owner) return;
@@ -114,7 +116,7 @@ function useResource<T>(resource: ReturnType<typeof createResource<T>>, userId: 
 
 async function postJson(url: string, body: unknown): Promise<{ ok: boolean; json: Record<string, unknown> }> {
   try {
-    const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const res = await fetchWithTimeout(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     return { ok: res.ok, json: (await res.json().catch(() => ({}))) as Record<string, unknown> };
   } catch {
     return { ok: false, json: { error: "Sem internet agora. Confira sua conexão e tente de novo." } };

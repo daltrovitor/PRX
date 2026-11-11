@@ -52,20 +52,21 @@ test('rejected navigation preload still tries the network', async () => {
 });
 const boot = vm.createContext({});
 vm.runInContext(stripTypeScriptTypes(readFileSync(new URL('../lib/boot-progress.ts', import.meta.url), 'utf8')).replace(/export /g, ''), boot);
-test('startup only reaches 100% when all data and initial images are ready', () => {
+test('startup waits for pending work but settled service errors do not trap the opening screen', () => {
   const summary = boot.summarizeBootTasks;
   assert.equal(summary({}).ready, false);
   assert.equal(summary({ screen: { ready: false }, session: { ready: true } }).percent, 50);
   assert.equal(summary({ screen: { ready: true }, session: { ready: true } }).ready, true);
   assert.equal(summary({ screen: { ready: true }, session: { ready: true } }).percent, 100);
-  assert.equal(summary({ screen: { ready: true }, data: { ready: true, error: 'failed' } }).ready, false);
-  assert.equal(summary({ screen: { ready: true }, data: { ready: true, error: 'failed' } }).percent, 50);
+  assert.equal(summary({ screen: { ready: true }, data: { ready: true, error: 'failed' } }).ready, true);
+  assert.equal(summary({ screen: { ready: true }, data: { ready: true, error: 'failed' } }).error, 'failed');
+  assert.equal(summary({ screen: { ready: true }, data: { ready: true, error: 'failed' } }).percent, 100);
 });
 
 test('empty but successful resource responses settle instead of remaining uninitialized', async () => {
   const source = readFileSync(new URL('../components/app/use-prx-stores.ts', import.meta.url), 'utf8');
   const resourceSource = source.slice(source.indexOf('function createResource'), source.indexOf('const SERVER_SNAPSHOT'));
-  const context = vm.createContext({ fetch: async () => ({ ok: true, json: async () => ({ account: null }) }) });
+  const context = vm.createContext({ fetchWithTimeout: async () => ({ ok: true, json: async () => ({ account: null }) }) });
   vm.runInContext(stripTypeScriptTypes(resourceSource), context);
   const resource = context.createResource('/api/bank', json => json.account);
   await resource.load('member');

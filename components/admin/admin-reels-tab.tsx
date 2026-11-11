@@ -85,7 +85,12 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
   async function onFile(event: ChangeEvent<HTMLInputElement>, kind: "video" | "poster") {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file || uploading || saving) return;
+    if (!file) return;
+    await uploadFile(file, kind);
+  }
+
+  async function uploadFile(file: File, kind: "video" | "poster") {
+    if (uploading || saving) return;
     setUploading(kind);
     setProgress({ label: kind === "video" && form.optimizeVideo ? "Otimizando vídeo" : "Preparando arquivo", percent: null });
     setError(null);
@@ -301,13 +306,10 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
             {progress.percent === 100 && !uploading && <p className="text-xs text-muted-foreground">Salve o destaque para publicar o arquivo.</p>}
           </div>
         )}
-        {editing && editing.videoUrl && (
-          <Button variant="secondary" disabled={saving || uploading !== null} className="mb-5" onClick={async () => { setSaving(true); try { if (await remove(editing)) setOpen(false); } finally { setSaving(false); } }}>
-            Excluir destaque e vídeo do Storage
-          </Button>
-        )}
         <fieldset disabled={saving || uploading !== null}>
-          <ReelFormFields form={form} onChange={setForm} partners={selectable} benefits={benefits} uploading={uploading} onFile={(event, kind) => void onFile(event, kind)} error={error} onSubmit={submit} />
+          <ReelFormFields form={form} onChange={setForm} partners={selectable} benefits={benefits} uploading={uploading} onFile={(event, kind) => void onFile(event, kind)} error={error} onSubmit={submit}
+            onPosterFile={(file) => uploadFile(file, "poster")}
+            onDeleteVideo={editing ? async () => { setSaving(true); try { if (await remove(editing)) setOpen(false); } finally { setSaving(false); } } : undefined} />
         </fieldset>
       </Sheet>
     </section>
