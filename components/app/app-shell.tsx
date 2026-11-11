@@ -1,7 +1,7 @@
 // Hello World
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useLenis } from "lenis/react";
 import type { User } from "@/hooks/use-auth";
@@ -23,14 +23,8 @@ import { useLiveData, usePointsWallet } from "@/components/app/use-prx-stores";
 import { NoticesSheet, useNotices } from "@/components/app/notifications";
 import { useBankNotices } from "@/components/app/bank/use-bank-notices";
 import { Avatar, initialsOf } from "@/components/app/ui";
-import { ReelsScreen } from "@/components/app/screens/reels-screen";
 import { CircleLoader } from "@/components/ui/circle-loader";
 import { HomeScreen } from "@/components/app/screens/home-screen";
-import { PassScreen } from "@/components/app/screens/pass-screen";
-import { BankScreen } from "@/components/app/screens/bank-screen";
-import { LiveScreen } from "@/components/app/screens/live-screen";
-import { FoundersScreen } from "@/components/app/screens/founders-screen";
-import { ProfileScreen } from "@/components/app/screens/profile-screen";
 import { CRYSTAL_CORNER, CRYSTAL_HERO, ObsidianCrystal, ObsidianDock, type ObsidianDockItem } from "@/components/obsidian/obsidian-ui";
 import { PwaInstallPrompt } from "@/components/app/pwa-install-prompt";
 import { PushPrompt } from "@/components/app/profile/push-prompts";
@@ -38,6 +32,13 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useThemeScope } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 import { calculatePrxLevel } from "@/lib/pass-data";
+
+const ReelsScreen = lazy(() => import("@/components/app/screens/reels-screen").then((m) => ({ default: m.ReelsScreen })));
+const PassScreen = lazy(() => import("@/components/app/screens/pass-screen").then((m) => ({ default: m.PassScreen })));
+const BankScreen = lazy(() => import("@/components/app/screens/bank-screen").then((m) => ({ default: m.BankScreen })));
+const LiveScreen = lazy(() => import("@/components/app/screens/live-screen").then((m) => ({ default: m.LiveScreen })));
+const FoundersScreen = lazy(() => import("@/components/app/screens/founders-screen").then((m) => ({ default: m.FoundersScreen })));
+const ProfileScreen = lazy(() => import("@/components/app/screens/profile-screen").then((m) => ({ default: m.ProfileScreen })));
 
 /**
  * 6 destinos oficiais da PRX (Início, PRX Pass, Destaques, PRX Bank, PRX Live, Founders).
@@ -155,7 +156,6 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
   const bank = useBankNotices(user.id);
   const notices = useNotices(pass, live?.wallet ?? null, points, bank.notices);
   const [noticesOpen, setNoticesOpen] = useState(false);
-  const [isTabLoading, setIsTabLoading] = useState(false);
   const lenis = useLenis();
   const previousTab = useRef(tab);
   const scrolled = useScrolled();
@@ -164,13 +164,8 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
   useEffect(() => {
     if (previousTab.current === tab) return;
     previousTab.current = tab;
-    setIsTabLoading(true);
     if (lenis) lenis.scrollTo(0, { immediate: true });
     else window.scrollTo({ top: 0 });
-    const timer = setTimeout(() => {
-      setIsTabLoading(false);
-    }, 200);
-    return () => clearTimeout(timer);
   }, [tab, lenis]);
 
   const member = pass.member;
@@ -328,10 +323,8 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
             )}
           >
             {notice && !immersive && <div className="mb-6">{notice}</div>}
-            {isTabLoading ? (
-              <CircleLoader minHeight={380} label="Carregando janela..." />
-            ) : (
-              <AnimatePresence mode="wait" initial={false}>
+            <Suspense fallback={<CircleLoader minHeight={380} label="Carregando janela..." />}>
+              <AnimatePresence initial={false}>
                 <motion.div
                   key={tab}
                   initial={{ opacity: 0, y: 10 }}
@@ -357,7 +350,7 @@ function ShellLayout({ user, onLogout, onViewShowcase, notice }: AppShellProps) 
                   )}
                 </motion.div>
               </AnimatePresence>
-            )}
+            </Suspense>
           </div>
         </main>
       </div>

@@ -8,6 +8,7 @@ import { IconPlus } from "@/components/icons/prx-icons";
 import { EMPTY_REEL_FORM, ReelFormFields, reelToForm, uploadReelMedia, type ReelForm } from "@/components/admin/admin-reel-form";
 import type { PartnerOverview } from "@/lib/partners/service";
 import type { Benefit } from "@/lib/pass-data";
+import { optimizeVideo } from "@/lib/media/optimize-video";
 import { compressImageFile } from "@/lib/media/compression";
 import { PrxImage } from "@/components/ui/prx-image";
 import { REEL_COLLECTION_LABEL, ctaLabelOf, type PartnerReel, type ReelPlacement } from "@/lib/reels/types";
@@ -86,8 +87,11 @@ export function AdminReelsTab({ partners, benefits }: { partners: PartnerOvervie
     setError(null);
     try {
       const fileToUpload =
-        kind === "poster" ? await compressImageFile(file, banner ? { maxWidth: 1600, maxHeight: 1600, quality: 0.85 } : { maxWidth: 1080, maxHeight: 1920, quality: 0.82 }) : file;
+        kind === "poster" ? await compressImageFile(file, banner ? { maxWidth: 1600, maxHeight: 1600, quality: 0.85 } : { maxWidth: 1080, maxHeight: 1920, quality: 0.82 }) : form.optimizeVideo ? await optimizeVideo(file) : file;
       const url = await uploadReelMedia(fileToUpload, kind);
+      if (kind === "video" && fileToUpload.size < file.size) {
+        showToast("success", `Vídeo otimizado: ${(file.size / 1048576).toFixed(1)} MB → ${(fileToUpload.size / 1048576).toFixed(1)} MB.`);
+      }
       setForm((f) => (kind === "video" ? { ...f, videoUrl: url } : { ...f, posterUrl: url }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha no envio.");

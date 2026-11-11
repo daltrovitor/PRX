@@ -126,8 +126,8 @@ function partnerToRow(p: PartnerPatch): Record<string, unknown> {
   if (p.tradeName !== undefined) row.name = p.tradeName;
   if (p.legalName !== undefined) row.company_name = p.legalName;
   if (p.documentType !== undefined) row.document_type = p.documentType;
-  if (p.document !== undefined) row.document = p.document;
-  if (p.categoryId !== undefined) row.category_id = p.categoryId;
+  if (p.document !== undefined) row.document = p.document || null;
+  if (p.categoryId !== undefined) row.category_id = p.categoryId || null;
   if (p.location !== undefined) row.location = p.location;
   if (p.description !== undefined) row.description = p.description;
   if (p.logoUrl !== undefined) row.logo_url = p.logoUrl || null;

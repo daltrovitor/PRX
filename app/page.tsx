@@ -1,12 +1,10 @@
 // Hello World
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import { RevolutLanding } from "@/components/marketing/revolut-landing";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { AppShell } from "@/components/app/app-shell";
 import { QuickLogin } from "@/components/auth/quick-login";
 import { CompleteRegistration, usePendingGoogle } from "@/components/auth/complete-registration";
-import { ParentShell } from "@/components/family/parent-shell";
 import { useFamilyState } from "@/components/family/family-client";
 import { familyNotice } from "@/components/family/family-notice";
 import { useKnownAccount, type KnownAccount } from "@/lib/known-account";
@@ -14,6 +12,9 @@ import { needsQuickLogin } from "@/lib/lock";
 import { PrxLoader } from "@/components/brand/prx-loader";
 import { useAuth } from "@/hooks/use-auth";
 import { captureLiveLink } from "@/components/app/live/live-link";
+
+const RevolutLanding = lazy(() => import("@/components/marketing/revolut-landing").then((m) => ({ default: m.RevolutLanding })));
+const ParentShell = lazy(() => import("@/components/family/parent-shell").then((m) => ({ default: m.ParentShell })));
 
 export default function HomePage() {
   const { user, loading, logout, unlocked, requiresUnlock, offering } = useAuth();
@@ -68,7 +69,7 @@ export default function HomePage() {
   return (
     <>
       {!introDone && <PrxLoader ready={!loading && !checking} onComplete={() => setIntroDone(true)} />}
-      {content}
+      <Suspense fallback={null}>{content}</Suspense>
     </>
   );
 }

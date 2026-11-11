@@ -29,6 +29,7 @@ export interface ReelForm {
   title: string;
   caption: string;
   videoUrl: string;
+  optimizeVideo: boolean;
   posterUrl: string;
   ctaKind: ReelCtaKind;
   ctaLabel: string;
@@ -45,6 +46,7 @@ export const EMPTY_REEL_FORM: ReelForm = {
   title: "",
   caption: "",
   videoUrl: "",
+  optimizeVideo: true,
   posterUrl: "",
   ctaKind: "catalog",
   ctaLabel: "",
@@ -62,6 +64,7 @@ export function reelToForm(reel: PartnerReel): ReelForm {
     title: reel.title,
     caption: reel.caption,
     videoUrl: reel.videoUrl,
+    optimizeVideo: true,
     posterUrl: reel.posterUrl,
     ctaKind: reel.ctaKind,
     ctaLabel: reel.ctaLabel,
@@ -128,7 +131,7 @@ function MediaField({
       </Field>
       <label className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-full bg-surface px-4 text-sm font-medium text-ink transition-colors hover:bg-line has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring">
         <IconUpload size={16} />
-        {busy ? "Enviando…" : "Enviar arquivo"}
+        {busy ? "Preparando e enviando…" : "Enviar arquivo"}
         <input type="file" accept={accept} className="sr-only" onChange={onFile} disabled={busy} />
       </label>
     </div>
@@ -241,7 +244,8 @@ export function ReelFormFields({
         />
       ) : (
         <>
-          <MediaField label="Vídeo vertical (MP4, WEBM ou MOV, até 50 MB)" value={form.videoUrl} busy={uploading === "video"} accept="video/mp4,video/webm,video/quicktime" onUrl={(videoUrl) => onChange({ ...form, videoUrl })} onFile={(e) => onFile(e, "video")} />
+          <Checkbox className="sm:col-span-2" checked={form.optimizeVideo} onChange={(optimizeVideo) => onChange({ ...form, optimizeVideo })} label="Otimizar vídeo antes de enviar (720p). Leva aproximadamente a duração do vídeo; navegadores sem suporte enviam o original." />
+          <MediaField hint="A otimização vale para novos arquivos enviados aqui. Para vídeos já publicados, reenvie o arquivo. Desmarque para manter a qualidade original." label="Vídeo vertical (MP4, WEBM ou MOV, até 50 MB)" value={form.videoUrl} busy={uploading === "video"} accept="video/mp4,video/webm,video/quicktime" onUrl={(videoUrl) => onChange({ ...form, videoUrl })} onFile={(e) => onFile(e, "video")} />
           <MediaField label="Capa (JPG, PNG ou WEBP)" value={form.posterUrl} busy={uploading === "poster"} accept="image/jpeg,image/png,image/webp" onUrl={(posterUrl) => onChange({ ...form, posterUrl })} onFile={(e) => onFile(e, "poster")} />
         </>
       )}

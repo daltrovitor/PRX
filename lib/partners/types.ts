@@ -217,11 +217,11 @@ export const contactSchema = z.object({
 export const partnerInputSchema = z
   .object({
     tradeName: z.string().trim().min(2, "Informe o nome fantasia.").max(120),
-    legalName: z.string().trim().min(2, "Informe a razão social ou o nome completo.").max(160),
+    legalName: trimmed(160).default(""),
     documentType: z.enum(["CNPJ", "CPF"]).optional(),
-    document: z.string().transform(onlyDigits),
-    categoryId: z.string().trim().min(1, "Escolha a categoria."),
-    location: z.string().trim().min(2, "Informe a cidade ou o alcance.").max(160),
+    document: z.string().default("").transform(onlyDigits),
+    categoryId: trimmed(80).default(""),
+    location: trimmed(160).default(""),
     description: trimmed(600).default(""),
     logoUrl: optionalImageUrl.default(""),
     bannerUrl: optionalImageUrl.default(""),
@@ -231,8 +231,8 @@ export const partnerInputSchema = z
     badges: badgesSchema.default([]),
   })
   .transform((input, ctx) => {
-    const documentType = input.documentType ?? inferDocumentType(input.document);
-    if (!documentType || !isValidDocument(documentType, input.document)) {
+    const documentType = input.documentType ?? inferDocumentType(input.document) ?? "CNPJ";
+    if (input.document && !isValidDocument(documentType, input.document)) {
       ctx.addIssue({ code: "custom", path: ["document"], message: "CNPJ ou CPF inválido." });
       return z.NEVER;
     }

@@ -40,7 +40,7 @@ export function AdminPartnerSheet({
       onClose={onClose}
       size="lg"
       title={partner ? `Editar ${partner.tradeName}` : "Novo parceiro"}
-      description="Empresa, representante legal e contato operacional. Estes dados preenchem o contrato."
+      description="Só o nome fantasia é obrigatório. Complete os outros dados quando precisar."
     >
       {open && (
         <PartnerForm
@@ -81,8 +81,8 @@ function PartnerForm({
     tradeName: partner?.tradeName ?? "",
     legalName: partner?.legalName ?? "",
     document: partner ? formatDocument(partner.documentType, partner.document) : "",
-    categoryId: partner?.categoryId || "gastronomia",
-    location: partner?.location ?? "Goiânia, GO",
+    categoryId: partner?.categoryId || "",
+    location: partner?.location ?? "",
     description: partner?.description ?? "",
     logoUrl: partner?.logoUrl ?? "",
     bannerUrl: partner?.bannerUrl ?? "",
@@ -183,14 +183,13 @@ function PartnerForm({
         {(id, d) => <Input id={id} aria-describedby={d} required value={form.tradeName} onChange={(e) => setForm({ ...form, tradeName: e.target.value })} />}
       </Field>
       <Field label="Razão social (ou nome completo, se CPF)">
-        {(id) => <Input id={id} required value={form.legalName} onChange={(e) => setForm({ ...form, legalName: e.target.value })} />}
+        {(id) => <Input id={id} value={form.legalName} onChange={(e) => setForm({ ...form, legalName: e.target.value })} />}
       </Field>
       <Field label="CNPJ ou CPF" hint={docType ? `${docType} detectado.` : "Só números ou com máscara."}>
         {(id, d) => (
           <Input
             id={id}
             aria-describedby={d}
-            required
             inputMode="numeric"
             value={form.document}
             onChange={(e) => setForm({ ...form, document: e.target.value })}
@@ -226,6 +225,7 @@ function PartnerForm({
       <Field label="Categoria">
         {(id) => (
           <Select id={id} value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
+            <option value="">Configurar depois</option>
             {PRX_CATEGORIES.filter((c) => c.id !== "all").map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -235,7 +235,7 @@ function PartnerForm({
         )}
       </Field>
       <Field label="Cidade ou alcance">
-        {(id) => <Input id={id} required value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />}
+        {(id) => <Input id={id} value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />}
       </Field>
       <Field label="Status da parceria" hint="Suspenso ou bloqueado tira os benefícios do catálogo e trava o validador.">
         {(id, d) => (

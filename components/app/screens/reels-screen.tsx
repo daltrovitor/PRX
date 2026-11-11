@@ -207,7 +207,7 @@ export function ReelsScreen({ member }: { member: User }) {
                 muted={muted}
                 loop
                 playsInline
-                preload={isActive ? "auto" : "metadata"}
+                preload={isActive ? "auto" : index === active + 1 ? "metadata" : "none"}
                 className="absolute inset-0 h-full w-full object-cover"
                 aria-hidden
               />
