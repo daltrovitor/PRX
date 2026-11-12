@@ -8,7 +8,7 @@
 // v6: logo nova (assinatura, sem a barra) na página offline e nos logos pré-armazenados.
 // v7: notificações no celular (push e toque na notificação).
 // v8: assinatura "NEXT IS YOURS" no logo (a página offline e os logos em cache precisam ser trocados).
-const CACHE_NAME = 'prx-offline-v10';
+const CACHE_NAME = 'prx-offline-v11';
 const SLOW_URL = '/slow.html';
 const NAVIGATION_TIMEOUT_MS = 6000;
 const OFFLINE_URL = '/offline.html';

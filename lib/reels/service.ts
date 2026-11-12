@@ -13,13 +13,12 @@ export const MAX_HOME_BANNERS = 5;
 /** Usa apenas a logo do cadastro, nunca a capa nem a cópia antiga do destaque. */
 function partnerLogoResolver(partners: Partner[]) {
   const byId = new Map(partners.map((partner) => [partner.id, partner]));
-  const normalize = (name: string) => name.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
+  const normalize = (name: string) => name.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").replace(/[^a-z0-9]+/g, " ").trim();
   return (reel: PartnerReel): string => {
     const linked = byId.get(reel.partnerId);
     if (linked) return linked.logoUrl;
     // Destaques antigos podem ter sido publicados só com o nome da marca.
-    if (reel.partnerId) return "";
-    const matches = partners.filter((partner) => normalize(partner.tradeName) === normalize(reel.partnerName));
+    const matches = partners.filter((partner) => [partner.tradeName, partner.legalName].some((name) => normalize(name) === normalize(reel.partnerName)));
     return matches.length === 1 && matches[0].status !== "SUSPENSO" && matches[0].status !== "BLOQUEADO" ? matches[0].logoUrl : "";
   };
 }

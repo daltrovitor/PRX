@@ -60,8 +60,8 @@ describe("PRX Reels", () => {
 
   it("busca a logo da marca cadastrada mesmo no destaque antigo publicado só com o nome", async () => {
     const owner = await partner();
-    await getPartnerRepository().updatePartner(owner.id, { tradeName: "Marca Logo Teste", logoUrl: "https://cdn.prx.app.br/logo.png", bannerUrl: "https://cdn.prx.app.br/banner.jpg" });
-    await createReel(reelInputSchema.parse({ ...base, brandName: "marca logo teste" }));
+    await getPartnerRepository().updatePartner(owner.id, { tradeName: "Marca Logo Teste", legalName: "Marca Logo Teste Ltda.", logoUrl: "https://cdn.prx.app.br/logo.png", bannerUrl: "https://cdn.prx.app.br/banner.jpg" });
+    await createReel(reelInputSchema.parse({ ...base, brandName: "Marca Logo Teste LTDA" }));
     expect((await memberFeed("usr_a"))[0].partnerLogo).toBe("https://cdn.prx.app.br/logo.png");
   });
 
