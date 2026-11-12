@@ -8,28 +8,6 @@ import { PrxRevealMark, addPrxRevealTweens, showPrxRevealFinal } from "@/compone
 
 gsap.registerPlugin(useGSAP);
 
-const SESSION_KEY = "prx_intro_seen";
-
-/**
- * Abertura completa na primeira visita da sessão, versão curta nas seguintes.
- * Decidido uma única vez por carregamento de página: em desenvolvimento o
- * StrictMode executa os efeitos duas vezes e não pode transformar a primeira
- * visita em "já vista".
- */
-let introMode: "full" | "quick" | null = null;
-
-function resolveIntroMode(): "full" | "quick" {
-  if (introMode) return introMode;
-  try {
-    introMode = sessionStorage.getItem(SESSION_KEY) === "true" ? "quick" : "full";
-    sessionStorage.setItem(SESSION_KEY, "true");
-  } catch {
-    // Storage bloqueado (aba privada): segue com a abertura completa.
-    introMode = "full";
-  }
-  return introMode;
-}
-
 interface PrxLoaderProps {
   /** Quando false, a animação segura o logo montado até os dados ficarem prontos. */
   ready: boolean;
@@ -52,13 +30,12 @@ export function PrxLoader({ ready, percent = ready ? 100 : 0, error, onComplete 
   const [slow, setSlow] = useState(false);
   const [offline, setOffline] = useState(false);
   useEffect(() => {
-    setHydrated(true);
     const sync = () => setOffline(!navigator.onLine);
-    sync();
+    const frame = requestAnimationFrame(() => { setHydrated(true); sync(); });
     const timer = window.setTimeout(() => setSlow(true), 8000);
     window.addEventListener("online", sync);
     window.addEventListener("offline", sync);
-    return () => { clearTimeout(timer); window.removeEventListener("online", sync); window.removeEventListener("offline", sync); };
+    return () => { cancelAnimationFrame(frame); clearTimeout(timer); window.removeEventListener("online", sync); window.removeEventListener("offline", sync); };
   }, []);
   const [introFinished, setIntroFinished] = useState(false);
   const exitStarted = useRef(false);
@@ -71,7 +48,6 @@ export function PrxLoader({ ready, percent = ready ? 100 : 0, error, onComplete 
     () => {
       const q = gsap.utils.selector(rootRef);
       const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const seen = resolveIntroMode() === "quick";
 
       if (reduceMotion) {
         showPrxRevealFinal(q, gsap);
@@ -83,7 +59,7 @@ export function PrxLoader({ ready, percent = ready ? 100 : 0, error, onComplete 
         return;
       }
 
-      const speed = seen ? 0.12 : 0.28;
+      const speed = 0.18;
       const tl = gsap.timeline({
         paused: true,
         defaults: { ease: "expo.out" },
@@ -96,24 +72,10 @@ export function PrxLoader({ ready, percent = ready ? 100 : 0, error, onComplete 
       // Estados iniciais já aplicados pelos .from(): agora o SVG pode aparecer sem "piscar" montado.
       gsap.set(q("[data-logo]"), { autoAlpha: 1 });
 
-      // Relógio próprio da abertura: o app usa lagSmoothing(0) para sincronizar o Lenis,
-      // o que faria a animação "pular" quadros enquanto a página ainda carrega (3D, hidratação).
-      // Aqui cada quadro avança no máximo 1/30s: a animação nunca salta, só desacelera.
-      let elapsed = 0;
-      let last = performance.now();
-      let frame = 0;
-      const step = (now: number) => {
-        elapsed += Math.min(now - last, 1000 / 30) / 1000;
-        last = now;
-        tl.time(elapsed / speed);
-        if (tl.progress() < 1) frame = requestAnimationFrame(step);
-      };
-      frame = requestAnimationFrame((now) => {
-        last = now;
-        frame = requestAnimationFrame(step);
-      });
+      // A abertura não deve desacelerar junto com o carregamento da página.
+      tl.timeScale(1 / speed).play();
+      return () => { tl.kill(); };
 
-      return () => cancelAnimationFrame(frame);
     },
     { scope: rootRef }
   );
@@ -150,16 +112,19 @@ export function PrxLoader({ ready, percent = ready ? 100 : 0, error, onComplete 
       className="prx-loader fixed inset-0 z-[100] flex flex-col items-center justify-center gap-8 bg-white text-[#0b0b10]"
       style={{ clipPath: "inset(0% 0% 0% 0%)" }}
     >
-      <PrxRevealMark style={{ visibility: "visible" }} uid={uid} className="w-[min(78vw,540px)] h-auto overflow-visible" />
+      <PrxRevealMark style={{ visibility: "visible" }} uid={uid} className="w-[min(84vw,540px)] h-auto overflow-visible" />
       <div className="w-[min(78vw,360px)] space-y-3 text-center">
-        <p className="text-sm font-semibold tabular-nums">Carregando PRX · {ready ? 100 : Math.min(99, percent)}%</p>
-        <progress aria-label="Etapas da tela inicial concluídas" max={100} value={ready ? 100 : Math.min(99, percent)} className="h-2 w-full accent-[#6c0cf0]" />
-        <p className="text-xs text-[#5b5b66]">Preparando dados e imagens da tela inicial</p>
+        <div role="progressbar" aria-label="Carregamento da tela inicial" aria-valuemin={0} aria-valuemax={100} aria-valuenow={ready ? 100 : Math.max(0, Math.min(99, Math.round(percent)))} className="h-1.5 w-full overflow-hidden rounded-full bg-[#ece6f6]">
+          <div className="h-full rounded-full bg-[#6c0cf0] transition-[width] duration-150 motion-reduce:transition-none" style={{ width: `${ready ? 100 : Math.max(0, Math.min(99, percent))}%` }} />
+        </div>
+        <p className="text-sm font-semibold tabular-nums">{ready ? 100 : Math.max(0, Math.min(99, Math.round(percent)))}%</p>
+        {introFinished && !ready && <span aria-hidden className="inline-block h-1.5 w-8 animate-pulse rounded-full bg-[#6c0cf0]/60 motion-reduce:animate-none" />}
         {!hydrated && (
           <div className="prx-early-slow space-y-3 rounded-xl bg-[#f4efff] p-4">
             <style>{`@keyframes prx-slow-appear{to{visibility:visible}}.prx-early-slow{visibility:hidden;animation:prx-slow-appear 0s 8s forwards}`}</style>
             <p className="text-sm font-semibold">O carregamento está demorando</p>
             <p className="text-xs text-[#5b5b66]">O carregamento está demorando. Confira o Wi-Fi ou os dados móveis.</p>
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- retry requires a full page reload */}
             <a href="/" className="inline-block rounded-full bg-[#6c0cf0] px-5 py-3 text-sm text-white">Tentar novamente</a>
           </div>
         )}
